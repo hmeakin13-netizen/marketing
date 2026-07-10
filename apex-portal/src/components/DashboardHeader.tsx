@@ -6,7 +6,7 @@ export function DashboardHeader({ businessName }: { businessName: string }) {
     <header className="border-b border-stone-200 bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-4">
-          <Logo />
+          <Logo href="/dashboard" />
           <span className="hidden h-6 w-px bg-stone-200 sm:block" />
           <span className="hidden text-sm font-medium text-forest-700 sm:block">
             {businessName}
