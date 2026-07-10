@@ -18,34 +18,37 @@ const features = [
 export default function HomePage() {
   return (
     <>
-      <section className="mx-auto max-w-6xl px-6 py-24 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-forest-500">
-          Apex Leads
-        </p>
-        <h1 className="mt-4 text-5xl font-semibold tracking-tight text-forest-900 sm:text-6xl">
-          Client Portal
-        </h1>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-forest-700">
-          Log in here to see your live updates and weekly reports, in one
-          clean dashboard built just for you.
-        </p>
-        <div className="mt-10 flex justify-center">
-          <Link
-            href="/login"
-            className="rounded-full bg-forest-700 px-8 py-3.5 text-base font-semibold text-white shadow-card transition hover:bg-forest-800 hover:shadow-card-hover"
-          >
-            Client Login
-          </Link>
+      <section className="topo-texture relative overflow-hidden">
+        <div className="mx-auto max-w-6xl px-6 py-24 text-center animate-fade-up">
+          <p className="text-sm font-semibold uppercase tracking-widest text-forest-500">
+            Apex Leads
+          </p>
+          <h1 className="mt-4 text-5xl font-semibold tracking-tight text-forest-900 sm:text-6xl">
+            Client Portal
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-lg text-forest-700">
+            Log in here to see your live updates and weekly reports, in one
+            clean dashboard built just for you.
+          </p>
+          <div className="mt-10 flex justify-center">
+            <Link
+              href="/login"
+              className="rounded-full bg-forest-700 px-8 py-3.5 text-base font-semibold text-white shadow-card transition hover:bg-forest-800 hover:shadow-card-hover"
+            >
+              Client Login
+            </Link>
+          </div>
         </div>
       </section>
 
       <section className="border-y border-stone-200 bg-stone-100">
         <div className="mx-auto max-w-6xl px-6 py-16">
           <div className="grid gap-8 sm:grid-cols-3">
-            {features.map((f) => (
+            {features.map((f, i) => (
               <div
                 key={f.title}
-                className="rounded-2xl border border-stone-200 bg-white p-6 shadow-card"
+                style={{ animationDelay: `${i * 100}ms` }}
+                className="animate-fade-up rounded-2xl border border-stone-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover"
               >
                 <h2 className="text-lg font-semibold text-forest-900">
                   {f.title}

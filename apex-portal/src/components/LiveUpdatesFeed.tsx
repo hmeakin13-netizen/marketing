@@ -68,31 +68,52 @@ export function LiveUpdatesFeed() {
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       {result.status === "stale" ? (
-        <p className="text-xs text-stone-500">
+        <p className="mb-4 text-xs text-stone-500">
           Showing the last update we could load — we&apos;ll refresh automatically once things
           reconnect.
         </p>
       ) : null}
-      {entries.map((entry) => (
-        <article
-          key={entry.id}
-          className="rounded-2xl border border-stone-200 bg-white p-6 shadow-card"
-        >
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-semibold text-forest-900">{entry.title}</h3>
-            {entry.date ? (
-              <span className="text-xs font-medium uppercase tracking-wide text-forest-500">
-                {formatDate(entry.date)}
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-3">
-            <NotionBlocks blocks={entry.blocks} />
-          </div>
-        </article>
-      ))}
+      <div className="relative">
+        <div aria-hidden className="absolute bottom-2 left-[17px] top-2 w-px bg-stone-200" />
+        <div className="space-y-6">
+          {entries.map((entry, i) => (
+            <article
+              key={entry.id}
+              style={{ animationDelay: `${i * 70}ms` }}
+              className="animate-fade-up relative pl-9"
+            >
+              <span
+                aria-hidden
+                className={`absolute left-3 top-2 h-3 w-3 rounded-full ring-4 ring-stone-50 ${
+                  entry.isNew ? "bg-forest-500" : "bg-stone-300"
+                }`}
+              />
+              <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-card transition hover:-translate-y-0.5 hover:shadow-card-hover">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-forest-900">{entry.title}</h3>
+                    {entry.isNew ? (
+                      <span className="rounded-full bg-forest-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-forest-700">
+                        New
+                      </span>
+                    ) : null}
+                  </div>
+                  {entry.date ? (
+                    <span className="text-xs font-medium uppercase tracking-wide text-forest-500">
+                      {formatDate(entry.date)}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-3">
+                  <NotionBlocks blocks={entry.blocks} />
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ export interface ClientRow {
   notion_page_id: string | null;
   looker_studio_url: string | null;
   created_at: string;
+  last_seen_at: string | null;
 }
 
 export interface RichTextSegment {
@@ -43,6 +44,8 @@ export interface NotionUpdateEntry {
   id: string;
   title: string;
   date: string | null;
+  lastEditedTime: string;
+  isNew: boolean;
   blocks: NotionBlockData[];
 }
 

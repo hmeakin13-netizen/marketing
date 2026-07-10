@@ -157,19 +157,44 @@ function plainText(text: RichTextSegment[]): string {
  * intro block before the first heading) keep the page's original order,
  * reversed, and are placed after the dated ones.
  */
-function groupIntoEntries(blocks: NotionBlockData[]): NotionUpdateEntry[] {
+function groupIntoEntries(
+  blocks: NotionBlockData[],
+  editTimes: Map<string, string>
+): NotionUpdateEntry[] {
   const entries: NotionUpdateEntry[] = [];
   let current: NotionUpdateEntry | null = null;
+
+  const bump = (entry: NotionUpdateEntry, blockId: string) => {
+    const t = editTimes.get(blockId);
+    if (t && t > entry.lastEditedTime) entry.lastEditedTime = t;
+  };
 
   for (const block of blocks) {
     const isHeading = block.type === "heading_1" || block.type === "heading_2" || block.type === "heading_3";
     if (isHeading) {
       if (current) entries.push(current);
       const title = plainText(block.text);
-      current = { id: block.id, title, date: extractDate(title), blocks: [] };
+      current = {
+        id: block.id,
+        title,
+        date: extractDate(title),
+        lastEditedTime: editTimes.get(block.id) ?? new Date(0).toISOString(),
+        isNew: false,
+        blocks: [],
+      };
     } else {
-      if (!current) current = { id: block.id, title: "Update", date: null, blocks: [] };
+      if (!current) {
+        current = {
+          id: block.id,
+          title: "Update",
+          date: null,
+          lastEditedTime: editTimes.get(block.id) ?? new Date(0).toISOString(),
+          isNew: false,
+          blocks: [],
+        };
+      }
       current.blocks.push(block);
+      bump(current, block.id);
     }
   }
   if (current) entries.push(current);
@@ -183,8 +208,9 @@ export async function fetchClientUpdates(
   pageId: string
 ): Promise<{ entries: NotionUpdateEntry[]; fetchedAt: string }> {
   const blocks = await listChildren(pageId);
+  const editTimes = new Map(blocks.map((b) => [b.id, b.last_edited_time]));
   const converted = await convertBlocks(blocks);
-  const entries = groupIntoEntries(converted);
+  const entries = groupIntoEntries(converted, editTimes);
   const fetchedAt = new Date().toISOString();
   cache.set(pageId, { entries, fetchedAt });
   return { entries, fetchedAt };

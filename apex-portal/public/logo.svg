@@ -1,4 +1,15 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M16 2L30 28H2L16 2Z" fill="#234634" />
-  <path d="M16 11L23.5 24.5H8.5L16 11Z" fill="#8FB29A" />
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="apexPeak" x1="50" y1="4" x2="20" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4ADE80" />
+      <stop offset="1" stop-color="#1c3829" />
+    </linearGradient>
+    <linearGradient id="apexSwoosh" x1="42" y1="22" x2="96" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8FB29A" />
+      <stop offset="1" stop-color="#4ADE80" />
+    </linearGradient>
+  </defs>
+  <path d="M50 4 L10 96 L60 58 Z" fill="url(#apexPeak)" />
+  <path d="M44 22 Q 74 38 97 62 L 90 68 Q 66 46 38 32 Z" fill="url(#apexSwoosh)" />
+  <path d="M74 64 L88 64 L100 106 L86 106 Z" fill="#F3EFE6" />
 </svg>

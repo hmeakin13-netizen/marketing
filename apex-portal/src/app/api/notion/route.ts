@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fetchClientUpdates, getCachedUpdates, normalizeNotionPageId } from "@/lib/notion";
-import type { ClientRow, NotionFetchResult } from "@/lib/types";
+import type { ClientRow, NotionFetchResult, NotionUpdateEntry } from "@/lib/types";
 
 export async function GET() {
   const supabase = createClient();
@@ -17,7 +17,7 @@ export async function GET() {
   // RLS restricts this to the caller's own row — see supabase/migrations/0001_create_clients_table.sql.
   const { data: client } = await supabase
     .from("clients")
-    .select("id, business_name, email, notion_page_id, looker_studio_url, created_at")
+    .select("id, business_name, email, notion_page_id, looker_studio_url, created_at, last_seen_at")
     .eq("email", user.email)
     .single<ClientRow>();
 
@@ -27,16 +27,33 @@ export async function GET() {
     return NextResponse.json({ status: "not_configured" } satisfies NotionFetchResult);
   }
 
+  const lastSeenAt = client?.last_seen_at;
+  const markSeen = () =>
+    supabase.from("clients").update({ last_seen_at: new Date().toISOString() }).eq("email", user.email!);
+
+  const withNewFlags = (entries: NotionUpdateEntry[]) =>
+    entries.map((entry) => ({
+      ...entry,
+      isNew: lastSeenAt ? entry.lastEditedTime > lastSeenAt : false,
+    }));
+
   try {
     const { entries, fetchedAt } = await fetchClientUpdates(pageId);
-    return NextResponse.json({ status: "ok", entries, fetchedAt, stale: false } satisfies NotionFetchResult);
+    await markSeen();
+    return NextResponse.json({
+      status: "ok",
+      entries: withNewFlags(entries),
+      fetchedAt,
+      stale: false,
+    } satisfies NotionFetchResult);
   } catch (error) {
     console.error("Notion fetch failed", error);
     const cached = getCachedUpdates(pageId);
     if (cached) {
+      await markSeen();
       return NextResponse.json({
         status: "stale",
-        entries: cached.entries,
+        entries: withNewFlags(cached.entries),
         fetchedAt: cached.fetchedAt,
         stale: true,
       } satisfies NotionFetchResult);

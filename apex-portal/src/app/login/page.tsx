@@ -8,8 +8,8 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-stone-50 px-6">
-      <div className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-8 shadow-card">
+    <div className="topo-texture flex min-h-screen items-center justify-center bg-stone-50 px-6">
+      <div className="animate-fade-up w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-8 shadow-card">
         <div className="flex justify-center">
           <Logo />
         </div>

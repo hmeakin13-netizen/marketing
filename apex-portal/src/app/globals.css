@@ -16,4 +16,26 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Faint topographic contour lines — evokes land/terrain without clutter. */
+  .topo-texture {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'%3E%3Cg fill='none' stroke='%23234634' stroke-width='1' opacity='0.07'%3E%3Cpath d='M-20 40 C 40 10, 80 70, 140 40 S 240 10, 300 40'/%3E%3Cpath d='M-20 90 C 40 60, 80 120, 140 90 S 240 60, 300 90'/%3E%3Cpath d='M-20 140 C 40 110, 80 170, 140 140 S 240 110, 300 140'/%3E%3Cpath d='M-20 190 C 40 160, 80 220, 140 190 S 240 160, 300 190'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 240px 240px;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.5s ease-out both;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
