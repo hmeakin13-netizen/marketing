@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { fetchClientUpdates, getCachedUpdates } from "@/lib/notion";
+import { fetchClientUpdates, getCachedUpdates, normalizeNotionPageId } from "@/lib/notion";
 import type { ClientRow, NotionFetchResult } from "@/lib/types";
 
 export async function GET() {
@@ -21,16 +21,18 @@ export async function GET() {
     .eq("email", user.email)
     .single<ClientRow>();
 
-  if (!client?.notion_page_id) {
+  const pageId = client?.notion_page_id ? normalizeNotionPageId(client.notion_page_id) : null;
+
+  if (!pageId) {
     return NextResponse.json({ status: "not_configured" } satisfies NotionFetchResult);
   }
 
   try {
-    const { entries, fetchedAt } = await fetchClientUpdates(client.notion_page_id);
+    const { entries, fetchedAt } = await fetchClientUpdates(pageId);
     return NextResponse.json({ status: "ok", entries, fetchedAt, stale: false } satisfies NotionFetchResult);
   } catch (error) {
     console.error("Notion fetch failed", error);
-    const cached = getCachedUpdates(client.notion_page_id);
+    const cached = getCachedUpdates(pageId);
     if (cached) {
       return NextResponse.json({
         status: "stale",

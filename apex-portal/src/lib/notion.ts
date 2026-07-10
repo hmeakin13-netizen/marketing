@@ -9,6 +9,20 @@ import type { NotionBlockData, NotionUpdateEntry, RichTextSegment } from "./type
 
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
+/**
+ * Notion page IDs are often pasted messily — the whole browser URL, with a
+ * title slug before the ID and a `?pvs=4`-style suffix after it, with or
+ * without dashes. Pull out the last 32 hex characters and re-format as a
+ * dashed UUID so admin data-entry mistakes don't need a support round trip.
+ */
+export function normalizeNotionPageId(raw: string): string | null {
+  const withoutQuery = raw.trim().split(/[?#]/)[0];
+  const hexOnly = withoutQuery.replace(/[^a-fA-F0-9]/g, "");
+  if (hexOnly.length < 32) return null;
+  const id = hexOnly.slice(-32);
+  return `${id.slice(0, 8)}-${id.slice(8, 12)}-${id.slice(12, 16)}-${id.slice(16, 20)}-${id.slice(20)}`;
+}
+
 // Best-effort cache so a transient Notion API failure can fall back to the
 // last-successful fetch instead of showing an error. Lives for the lifetime
 // of the serverless function instance — not persisted, which is fine since
