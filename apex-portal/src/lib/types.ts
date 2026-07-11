@@ -50,7 +50,7 @@ export interface NotionUpdateEntry {
 }
 
 export type NotionFetchResult =
-  | { status: "ok"; entries: NotionUpdateEntry[]; fetchedAt: string; stale: false }
-  | { status: "stale"; entries: NotionUpdateEntry[]; fetchedAt: string; stale: true }
+  | { status: "ok"; entries: NotionUpdateEntry[]; fetchedAt: string; stale: false; summary: string | null }
+  | { status: "stale"; entries: NotionUpdateEntry[]; fetchedAt: string; stale: true; summary: string | null }
   | { status: "not_configured" }
   | { status: "error" };

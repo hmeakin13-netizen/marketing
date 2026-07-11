@@ -69,6 +69,11 @@ export function LiveUpdatesFeed() {
 
   return (
     <div>
+      {result.summary ? (
+        <div className="animate-fade-up mb-5 rounded-2xl border border-forest-200 bg-forest-50 p-4 text-sm text-forest-800">
+          {result.summary}
+        </div>
+      ) : null}
       {result.status === "stale" ? (
         <p className="mb-4 text-xs text-stone-500">
           Showing the last update we could load — we&apos;ll refresh automatically once things
