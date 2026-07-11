@@ -31,9 +31,7 @@ export async function GET(request: NextRequest) {
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const supabase = createAdminClient();
-  const dashboardUrl = process.env.NEXT_PUBLIC_SITE_URL
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
-    : "https://portal.apex-leads.co.uk/dashboard";
+  const dashboardUrl = process.env.SITE_URL ? `${process.env.SITE_URL}/dashboard` : "https://portal.apex-leads.co.uk/dashboard";
   const fromEmail = process.env.DIGEST_FROM_EMAIL ?? "updates@portal.apex-leads.co.uk";
 
   const { data: clients, error } = await supabase

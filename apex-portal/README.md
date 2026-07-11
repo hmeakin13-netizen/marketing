@@ -19,19 +19,27 @@ Set these in Vercel (Project Settings > Environment Variables) and locally in
 | Variable | Where it's used | Notes |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | browser + server | Supabase Project Settings > API > Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server | Supabase Project Settings > API > `anon` `public` key. Safe to expose — access is enforced by RLS, not by keeping this secret. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server | Supabase Project Settings > API > `anon`/publishable key. Safe to expose — access is enforced by RLS, not by keeping this secret. |
 | `NOTION_API_KEY` | server only | Notion integration token for the internal integration named "Apex Portal". Never prefixed with `NEXT_PUBLIC_`, so it's never sent to the browser. |
+| `ANTHROPIC_API_KEY` | server only | Optional. Powers the one-line AI summary on the dashboard and the weekly digest email body. Both features silently do nothing without it. |
+| `RESEND_API_KEY` | server only | Optional. Needed for the weekly digest cron to send email. Separate from (can reuse the same value as) the SMTP key configured inside Supabase Auth. |
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | Optional, only needed for the weekly digest cron. Supabase Project Settings > API > `service_role` `secret` key. **This bypasses Row Level Security entirely** — never prefix it with `NEXT_PUBLIC_`, never share it, never put it anywhere but Vercel's env vars. |
+| `CRON_SECRET` | server only | Optional, only needed for the weekly digest cron. Any random string you make up — Vercel automatically sends it as a bearer token when it triggers the cron, and the route checks it matches before doing anything. |
+| `SITE_URL` | server only | Optional. Your production URL (e.g. `https://portal.apex-leads.co.uk`), used to build the "View your dashboard" link in digest emails. Falls back to a hardcoded default if unset. |
+| `DIGEST_FROM_EMAIL` | server only | Optional. Sender address for digest emails, must be on a domain verified in Resend. Defaults to `updates@portal.apex-leads.co.uk`. |
 
-No other env vars are required. `SUPABASE_SERVICE_ROLE_KEY` is deliberately
-**not** used anywhere in this app — all client creation happens by hand in
-the Supabase dashboard, so the app never needs elevated database access.
+Only the first three are required for the core app (login, dashboard, Notion
+feed). The rest are optional — the AI summary and weekly digest features
+degrade gracefully (just don't run) if their env vars are missing, so you can
+add them whenever you're ready rather than all at once.
 
 ## Supabase setup
 
 1. Create the Supabase project (or use an existing one).
-2. In the SQL editor, run `supabase/migrations/0001_create_clients_table.sql`.
-   This creates the `clients` table and the RLS policy that restricts each
-   logged-in user to their own row (`auth.jwt() ->> 'email' = email`).
+2. In the SQL editor, run each migration in `supabase/migrations/` **in order**
+   (0001, then 0002, then 0003). 0001 creates the `clients` table and its RLS
+   policy; 0002 adds `last_seen_at` (powers the "New" badges); 0003 creates the
+   `updates` archive table that mirrors every Notion entry Supabase-side.
 3. **Authentication > Providers > Email**: turn **off** "Allow new users to
    sign up". This is what enforces "no public signup" — accounts must be
    created by an admin (see below). Magic link sign-in stays on.
