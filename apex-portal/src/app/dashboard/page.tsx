@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { LiveUpdatesFeed } from "@/components/LiveUpdatesFeed";
-import { WeeklyReportEmbed } from "@/components/WeeklyReportEmbed";
 import type { ClientRow } from "@/lib/types";
 
 export const metadata = {
@@ -23,7 +22,7 @@ export default async function DashboardPage() {
   // RLS scopes this to the caller's own row — see supabase/migrations/0001_create_clients_table.sql.
   const { data: client } = await supabase
     .from("clients")
-    .select("id, business_name, email, notion_page_id, looker_studio_url, created_at")
+    .select("id, business_name, email, notion_page_id, created_at")
     .eq("email", user.email)
     .single<ClientRow>();
 
@@ -41,27 +40,15 @@ export default async function DashboardPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-10 lg:grid-cols-2">
-            <section>
-              <h2 className="text-lg font-semibold text-forest-900">Live Updates</h2>
-              <p className="mt-1 text-sm text-forest-600">
-                The latest from your account manager, pulled in real time.
-              </p>
-              <div className="mt-5">
-                <LiveUpdatesFeed />
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-lg font-semibold text-forest-900">Weekly Report</h2>
-              <p className="mt-1 text-sm text-forest-600">
-                Your live performance report.
-              </p>
-              <div className="mt-5">
-                <WeeklyReportEmbed lookerStudioUrl={client.looker_studio_url} />
-              </div>
-            </section>
-          </div>
+          <section className="mx-auto max-w-3xl">
+            <h2 className="text-lg font-semibold text-forest-900">Live Updates</h2>
+            <p className="mt-1 text-sm text-forest-600">
+              The latest from your account manager, pulled in real time.
+            </p>
+            <div className="mt-5">
+              <LiveUpdatesFeed />
+            </div>
+          </section>
         )}
       </main>
     </div>

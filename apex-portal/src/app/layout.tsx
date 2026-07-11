@@ -11,7 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Client Portal | Apex Leads",
   description:
-    "Apex Leads Client Portal — log in to see your live updates and weekly reports.",
+    "Apex Leads Client Portal — log in to see your live updates and weekly summary.",
 };
 
 export default function RootLayout({

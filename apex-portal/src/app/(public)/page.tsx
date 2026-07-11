@@ -6,8 +6,8 @@ const features = [
     body: "See what your account manager is doing on your campaigns, the moment it happens — no waiting for an email.",
   },
   {
-    title: "Weekly reports",
-    body: "Your Looker Studio report, embedded right in your dashboard. Leads, spend and performance at a glance.",
+    title: "One-line weekly summary",
+    body: "A plain-English recap of what's happened on your account, right at the top of your dashboard.",
   },
   {
     title: "One place, always on",
@@ -27,8 +27,8 @@ export default function HomePage() {
             Client Portal
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-forest-700">
-            Log in here to see your live updates and weekly reports, in one
-            clean dashboard built just for you.
+            Log in here to see your live updates, in one clean dashboard
+            built just for you.
           </p>
           <div className="mt-10 flex justify-center">
             <Link

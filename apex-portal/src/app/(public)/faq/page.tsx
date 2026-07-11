@@ -4,7 +4,7 @@ const faqs = [
   {
     question: "How often is my dashboard updated?",
     answer:
-      "Your Live Updates feed pulls directly from your account manager's notes every time you open the dashboard, so you're always seeing the latest activity. Your Weekly Report refreshes on the same schedule as your Looker Studio report, typically every week.",
+      "Your Live Updates feed pulls directly from your account manager's notes every time you open the dashboard, so you're always seeing the latest activity. A short weekly summary also lands in your inbox once a week.",
   },
   {
     question: "How do I contact my account manager?",
