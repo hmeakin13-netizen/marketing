@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function LoginForm() {
+export function StaffLoginForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
@@ -19,13 +19,19 @@ export function LoginForm() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback${
+          next ? `?next=${encodeURIComponent(next)}` : ""
+        }`,
       },
     });
 
     if (error) {
       setStatus("error");
-      setErrorMessage(error.message);
+      setErrorMessage(
+        /signup|not allowed|not found/i.test(error.message)
+          ? "That email isn't on the team yet. Ask an admin to add you."
+          : error.message
+      );
       return;
     }
 
@@ -35,10 +41,10 @@ export function LoginForm() {
   if (status === "sent") {
     return (
       <div className="text-center">
-        <p className="text-sm font-medium text-forest-800">
+        <p className="text-sm font-medium text-white">
           Check your inbox
         </p>
-        <p className="mt-2 text-sm text-forest-600">
+        <p className="mt-2 text-sm text-zinc-400">
           We&apos;ve sent a login link to <strong>{email}</strong>. Click it
           to sign in — no password needed.
         </p>
@@ -51,7 +57,7 @@ export function LoginForm() {
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-forest-800"
+          className="block text-sm font-medium text-white"
         >
           Email address
         </label>
@@ -62,19 +68,19 @@ export function LoginForm() {
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@yourbusiness.co.uk"
-          className="mt-1.5 block w-full rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-forest-900 placeholder:text-stone-400 focus:border-forest-500 focus:outline-none focus:ring-2 focus:ring-forest-200"
+          placeholder="you@apex-leads.co.uk"
+          className="mt-1.5 block w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-white placeholder:text-zinc-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/30"
         />
       </div>
 
       {status === "error" ? (
-        <p className="text-sm text-red-600">{errorMessage}</p>
+        <p className="text-sm text-red-400">{errorMessage}</p>
       ) : null}
 
       <button
         type="submit"
         disabled={status === "loading"}
-        className="w-full rounded-full bg-forest-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-forest-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {status === "loading" ? "Sending link…" : "Send login link"}
       </button>
