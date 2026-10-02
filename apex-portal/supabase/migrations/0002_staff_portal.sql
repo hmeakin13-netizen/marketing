@@ -50,13 +50,25 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 create or replace function public.is_staff() returns boolean
-language sql stable as $$ select public.my_staff_role() is not null $$;
+language sql stable set search_path = public as $$ select public.my_staff_role() is not null $$;
 
 create or replace function public.is_admin() returns boolean
-language sql stable as $$ select public.my_staff_role() = 'admin' $$;
+language sql stable set search_path = public as $$ select public.my_staff_role() = 'admin' $$;
 
 create or replace function public.is_manager_or_admin() returns boolean
-language sql stable as $$ select public.my_staff_role() in ('admin', 'manager') $$;
+language sql stable set search_path = public as $$ select public.my_staff_role() in ('admin', 'manager') $$;
+
+-- Only signed-in users may call the helpers (RLS policies need `authenticated`).
+revoke execute on function public.my_staff_role() from public, anon;
+revoke execute on function public.my_staff_id() from public, anon;
+revoke execute on function public.is_staff() from public, anon;
+revoke execute on function public.is_admin() from public, anon;
+revoke execute on function public.is_manager_or_admin() from public, anon;
+grant execute on function public.my_staff_role() to authenticated;
+grant execute on function public.my_staff_id() to authenticated;
+grant execute on function public.is_staff() to authenticated;
+grant execute on function public.is_admin() to authenticated;
+grant execute on function public.is_manager_or_admin() to authenticated;
 
 alter table public.staff enable row level security;
 
@@ -87,6 +99,8 @@ create table if not exists public.calls (
 );
 create index if not exists calls_call_at_idx on public.calls (call_at);
 create index if not exists calls_booked_at_idx on public.calls (booked_at);
+create index if not exists calls_setter_idx on public.calls (setter_id);
+create index if not exists calls_closer_idx on public.calls (closer_id);
 
 alter table public.calls enable row level security;
 
@@ -131,7 +145,10 @@ create table if not exists public.payments (
   note text,
   recorded_by text default (auth.jwt() ->> 'email')
 );
+create index if not exists closes_closer_idx on public.closes (closer_id);
+create index if not exists closes_setter_idx on public.closes (setter_id);
 create index if not exists payments_paid_at_idx on public.payments (paid_at);
+create index if not exists payments_close_idx on public.payments (close_id);
 
 alter table public.closes enable row level security;
 alter table public.payments enable row level security;
@@ -210,6 +227,7 @@ alter table public.audit_log enable row level security;
 create policy "Managers read the audit trail"
   on public.audit_log for select to authenticated using (public.is_manager_or_admin());
 -- No insert/update/delete policies: only the trigger below (SECURITY DEFINER) writes.
+-- (Applied to the live project already — see the migrations list in Supabase.)
 
 create or replace function public.log_audit() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -233,6 +251,9 @@ begin
     return new;
   end if;
 end $$;
+
+-- Trigger functions must never be callable through the API.
+revoke execute on function public.log_audit() from public, anon, authenticated;
 
 drop trigger if exists audit_calls on public.calls;
 create trigger audit_calls after insert or update or delete on public.calls
