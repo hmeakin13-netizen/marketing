@@ -9,6 +9,7 @@ project and logins.
 ## What it does
 
 - **Dashboard** – calls booked, calls taken, show rate, close rate, cash collected, cash forecast, setter handoff quality, results by campaign/source
+- **Needs attention** – auto-flags where the ball was dropped: unchased deposits/balances, overdue payments, calls with no outcome, no-shows never followed up, cold follow-ups. Staff log a chase with a note; managers see it by person
 - **Calls** – book calls, log outcomes (closed / follow up / lost / no-show / cancelled), recording links
 - **Deals & cash** – deal value, payments received, what's still owed, due dates, overdue flags
 - **Leaderboard** – day / week / month, closers and setters
@@ -30,7 +31,7 @@ no other role can read it even by calling the API directly.
 
 ### 1. Supabase (its own project)
 1. Create a new Supabase project for the team portal.
-2. SQL editor → run `supabase/migrations/0001_staff_portal.sql`.
+2. SQL editor → run `supabase/migrations/0001_staff_portal.sql`, then `0002_chases.sql`.
 3. **Authentication → Sign In / Providers → Email**: keep Email on, turn **off** "Allow new users to sign up".
 4. **Authentication → URL Configuration**: Site URL = your team URL (e.g. `https://team.apex-leads.co.uk`); add `https://team.apex-leads.co.uk/auth/callback` and `http://localhost:3000/auth/callback` to Redirect URLs.
 5. Create your admin. **Authentication → Users → Add user → Create new user**, your email, tick **Auto Confirm User**. Then in the SQL editor:
@@ -67,4 +68,4 @@ npm run dev
 ```
 
 ## Not built yet
-"Dropped the ball" flags (unchased deposits, missing outcomes), Calendly sync + calendar, GHL sync, daily dials form, Slack/email digest. Campaign/source is a manual field on each booked call for now.
+Calendly sync + calendar, GHL sync, daily dials form, Slack/email digest. Campaign/source is a manual field on each booked call for now.

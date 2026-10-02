@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
-import { loadCore, earliest } from "@/lib/staff/data";
+import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
 import { parseRange, rangeBounds, fmtDateTime } from "@/lib/staff/dates";
 import { computeStats, money, outstanding, pct } from "@/lib/staff/metrics";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
@@ -24,6 +24,9 @@ export default async function DashboardPage({
     earliest(from, week.from, month.from)
   );
 
+  const { flags } = await loadFlags(supabase);
+  const myFlags = flags.filter((f) => isManager(me.role) || f.ownerId === me.id);
+  const highFlags = myFlags.filter((f) => f.severity === "high").length;
   const team = computeStats(calls, closes, from, to);
   const owing = outstanding(closes);
   const people = staff.filter((s) => s.active && (s.role === "closer" || s.role === "setter"));
@@ -76,6 +79,23 @@ export default async function DashboardPage({
         <Stat label="Cash collected" value={money(team.cash)} tone="good" />
         <Stat label="Deal value closed" value={money(team.revenue)} />
       </div>
+
+      {myFlags.length > 0 ? (
+        <Card className={`mt-6 ${highFlags > 0 ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className={`font-semibold ${highFlags > 0 ? "text-rose-300" : "text-amber-300"}`}>
+                ⚑ {myFlags.length} thing{myFlags.length === 1 ? "" : "s"} need{myFlags.length === 1 ? "s" : ""} chasing
+                {highFlags > 0 ? ` — ${highFlags} high priority` : ""}
+              </p>
+              <p className="mt-1 text-sm text-zinc-400">{myFlags[0].title}</p>
+            </div>
+            <Link href="/attention" className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+              See what&apos;s been dropped
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       {needsOutcome.length > 0 ? (
         <Card className="mt-6 border-amber-500/30 bg-amber-500/5">

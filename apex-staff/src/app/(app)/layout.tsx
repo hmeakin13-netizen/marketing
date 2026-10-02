@@ -9,6 +9,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   const items: NavItem[] = [
     { href: "/", label: "Dashboard", icon: "◧" },
     { href: "/calls", label: "Calls", icon: "☎" },
+    { href: "/attention", label: "Needs attention", icon: "⚑" },
     { href: "/deals", label: "Deals & cash", icon: "£" },
     { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
     { href: "/targets", label: "Targets", icon: "◎" },

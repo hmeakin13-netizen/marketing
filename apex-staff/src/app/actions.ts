@@ -195,6 +195,43 @@ export async function deletePayment(formData: FormData) {
   back("/deals", "ok", "Payment removed (logged in the audit trail).");
 }
 
+// ------------------------------------------------------------------ chasing
+
+export async function logChase(formData: FormData) {
+  const { supabase, me } = await requireStaff();
+  const path = "/attention";
+  const closeId = optStr(formData, "close_id");
+  const callId = optStr(formData, "call_id");
+  const note = optStr(formData, "note");
+  if (!closeId && !callId) back(path, "error", "Nothing to chase.");
+  if (!note) back(path, "error", "Add a quick note on what you did (called, texted, they said Friday…).");
+
+  const { error } = await supabase
+    .from("chases")
+    .insert({ close_id: closeId, call_id: callId, note, chased_by: me.id });
+  if (error) back(path, "error", error.message);
+
+  // They promised a new date? Keep the deal's due date in step.
+  const newDue = optStr(formData, "next_payment_due");
+  if (closeId && newDue) await supabase.from("closes").update({ next_payment_due: newDue }).eq("id", closeId);
+
+  revalidatePath("/", "layout");
+  back(path, "ok", "Chase logged — nice.");
+}
+
+export async function markFollowUpLost(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const callId = str(formData, "call_id");
+  const { error } = await supabase
+    .from("calls")
+    .update({ outcome: "lost", outcome_logged_at: new Date().toISOString() })
+    .eq("id", callId)
+    .eq("outcome", "follow_up");
+  if (error) back("/attention", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/attention", "ok", "Marked as lost.");
+}
+
 // ------------------------------------------------------------------ targets
 
 export async function saveTargets(formData: FormData) {

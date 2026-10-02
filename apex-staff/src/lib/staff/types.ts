@@ -125,3 +125,13 @@ export const METRIC_LABEL: Record<TargetMetric, string> = {
   closes: "Closes",
   cash_collected: "Cash collected £",
 };
+
+export interface ChaseRow {
+  id: string;
+  close_id: string | null;
+  call_id: string | null;
+  note: string | null;
+  chased_by: string | null;
+  chased_by_email: string | null;
+  chased_at: string;
+}
