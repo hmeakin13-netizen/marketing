@@ -22,9 +22,7 @@ Set these in Vercel (Project Settings > Environment Variables) and locally in
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser + server | Supabase Project Settings > API > `anon` `public` key. Safe to expose — access is enforced by RLS, not by keeping this secret. |
 | `NOTION_API_KEY` | server only | Notion integration token for the internal integration named "Apex Portal". Never prefixed with `NEXT_PUBLIC_`, so it's never sent to the browser. |
 
-No other env vars are required. `SUPABASE_SERVICE_ROLE_KEY` is deliberately
-**not** used anywhere in this app — all client creation happens by hand in
-the Supabase dashboard, so the app never needs elevated database access.
+| `SUPABASE_SERVICE_ROLE_KEY` | server only | **Staff portal only.** Used by the admin-only "Add person" / "Deactivate" actions to create or lock a Supabase Auth login. Never prefixed `NEXT_PUBLIC_`, only imported from `src/lib/supabase/admin.ts`, and only reachable after the caller passes the `admin` role check. The client portal never uses it. |
 
 ## Supabase setup
 
@@ -145,3 +143,76 @@ in `tailwind.config.ts`) and the logo mark at `public/logo.svg` are a
 best-effort match from your description rather than pulled directly from
 the live site. Swap `public/logo.svg` for the real logo asset and adjust
 the hex values in `tailwind.config.ts` if they're off.
+
+
+---
+
+# Staff portal (`/staff`)
+
+An internal, dark-themed area in the same app for setters, closers, the
+manager and the owner. Same Supabase project, same magic-link login, but a
+separate login page (`/staff/login`) and separate tables.
+
+## Who sees what
+
+| | Admin | Manager | Closer | Setter |
+|---|---|---|---|---|
+| Dashboard, calls, deals, leaderboard, targets | ✅ | ✅ | ✅ | ✅ |
+| Log own call outcomes / cash | ✅ | ✅ (anyone's) | ✅ | ✅ (calls they set) |
+| Edit targets | ✅ | ✅ | – | – |
+| Audit trail | ✅ | ✅ | – | – |
+| **Team page** (add / remove / roles) | ✅ | – | – | – |
+| **Pay & commission** | ✅ | – | – | – |
+
+Pay lives in its own table (`staff_pay`) whose RLS policy only allows
+`admin`, so nobody else can read it even by calling the API directly. Everyone
+can see each other's performance numbers (leaderboard), by design.
+
+## One-time setup
+
+1. Run `supabase/migrations/0002_staff_portal.sql` in the Supabase SQL editor.
+2. Add `SUPABASE_SERVICE_ROLE_KEY` (Project Settings > API > `service_role`)
+   to Vercel and `.env.local`.
+3. Create **your** admin row (use your real login email), and also create that
+   user in Authentication > Users > Add user (tick "Auto confirm"):
+   ```sql
+   insert into public.staff (email, full_name, role)
+   values ('you@example.com', 'Your Name', 'admin');
+   ```
+4. Visit `/staff/login`, sign in with the emailed link. From here, add
+   everyone else on the **Team** page — no more SQL.
+
+## Adding / removing people
+
+- **Add:** Team > Add a person (name, email, role). The app creates their
+  login; they go to `/staff/login` and enter their email. No passwords.
+- **Remove:** Team > Deactivate. Their login is locked and they lose access at
+  once, but all their calls, closes and stats are kept. You can reactivate.
+- Change a role or name any time from the same page.
+
+## How the numbers are calculated
+
+- **Calls booked** – calls counted on the day they were *booked*.
+- **Show rate** – showed ÷ (showed + no-shows), by the day the call happened.
+  "Showed" = outcome is *follow up*, *lost* or *closed*. Cancellations are excluded.
+- **Close rate** – closed ÷ showed.
+- **Cash collected** – sum of payments received in the period. A close is
+  logged with the deal value + cash taken today; later payments are added on
+  the Deals page. Outstanding = deal value − payments.
+- A setter's cash/close credit comes from calls they booked; a closer's from
+  calls they took. Days/weeks/months roll over at **UK** midnight, weeks start Monday.
+- **Commission** (admin only) = % × cash collected in the period, on a basis
+  you choose per person (their closes, the calls they set, or all team cash).
+
+## Audit trail
+
+Database triggers record every insert / edit / delete on calls, deals and
+payments (who, when, old → new values). Managers and admin can read it at
+`/staff/audit`; nobody can edit it.
+
+## Not built yet (next phases)
+
+Flags for "dropped the ball" (unchased deposits, missing outcomes), Calendly
+sync + calendar view, GHL appointment sync, daily dials form, and the
+Slack/email digest. Campaign/source is a manual field on each booked call for
+now; it can be filled automatically from Calendly UTMs in the Calendly phase.

@@ -43,6 +43,17 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Staff area: everything under /staff needs a session except the login and
+  // no-access pages. Role checks happen in the pages themselves (requireStaff).
+  if (
+    !user &&
+    pathname.startsWith("/staff") &&
+    pathname !== "/staff/login" &&
+    pathname !== "/staff/no-access"
+  ) {
+    return NextResponse.redirect(new URL("/staff/login", request.url));
+  }
+
   if (user && pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
