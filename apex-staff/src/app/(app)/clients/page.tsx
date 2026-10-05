@@ -132,6 +132,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
           <Field label="Pays on day of month (blank = signing day)">
             <input name="billing_day" inputMode="numeric" className={inputCls} placeholder="9" />
           </Field>
+          <Field label="Client postcode (puts them on the territory map)">
+            <input name="postcode" className={inputCls} placeholder="NG1 5FS" />
+          </Field>
+          <Field label="Exclusive radius (km)">
+            <input name="radius_km" inputMode="decimal" className={inputCls} placeholder="15" />
+          </Field>
           <div className="flex items-end sm:col-span-4">
             <SubmitButton>Add client</SubmitButton>
           </div>

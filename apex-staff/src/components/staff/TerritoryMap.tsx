@@ -24,10 +24,22 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       const L = (await import("leaflet")).default;
       if (dead || !el.current || map.current) return;
       const m = L.map(el.current, { scrollWheelZoom: true, zoomControl: true }).setView([54.0, -2.5], 6);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      // No API key needed. If the dark tiles fail to load, fall back to standard OpenStreetMap.
+      const dark = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
         attribution: "&copy; OpenStreetMap &copy; CARTO",
         maxZoom: 18,
       }).addTo(m);
+      let swapped = false;
+      dark.on("tileerror", () => {
+        if (swapped) return;
+        swapped = true;
+        m.removeLayer(dark);
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+          maxZoom: 18,
+        }).addTo(m);
+      });
+      setTimeout(() => m.invalidateSize(), 300);
       for (const t of territories) {
         // Soft filled zone plus a dashed edge; overlapping zones build up so busy areas look denser.
         L.circle([t.lat, t.lng], {
