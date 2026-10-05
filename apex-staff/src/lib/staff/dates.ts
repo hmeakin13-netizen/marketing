@@ -115,3 +115,10 @@ export function todayIso(now = new Date()): string {
   const z = (n: number) => String(n).padStart(2, "0");
   return `${p.year}-${z(p.month)}-${z(p.day)}`;
 }
+
+/** UK wall-clock parts of an instant, plus ISO weekday (1 = Monday … 7 = Sunday). */
+export function ukParts(d: Date) {
+  const p = parts(d);
+  const isoDow = ((new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay() + 6) % 7) + 1;
+  return { year: p.year, month: p.month, day: p.day, hour: p.hour, minute: p.minute, isoDow };
+}

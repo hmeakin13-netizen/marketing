@@ -8,6 +8,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
 
   const items: NavItem[] = [
     { href: "/", label: "Dashboard", icon: "◧" },
+    { href: "/calendar", label: "Calendar", icon: "▦" },
     { href: "/calls", label: "Calls", icon: "☎" },
     { href: "/attention", label: "Needs attention", icon: "⚑" },
     { href: "/deals", label: "Deals & cash", icon: "£" },
@@ -18,6 +19,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   if (me.role === "admin") {
     items.push({ href: "/team", label: "Team", icon: "☺" });
     items.push({ href: "/pay", label: "Pay & commission", icon: "◈" });
+    items.push({ href: "/settings", label: "Settings", icon: "⚙" });
   }
 
   return (
