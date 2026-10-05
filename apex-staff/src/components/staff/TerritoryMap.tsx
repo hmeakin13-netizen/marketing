@@ -62,11 +62,10 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
     (async () => {
       const ml = await import("maplibre-gl");
       if (dead || !el.current || map.current) return;
-      const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-      const style = process.env.NEXT_PUBLIC_MAPTILER_STYLE || "dataviz-dark";
+      // OpenFreeMap: free vector map, no account or key. Attribution is shown by the map itself.
       const m = new ml.Map({
         container: el.current,
-        style: key ? `https://api.maptiler.com/maps/${style}/style.json?key=${key}` : OSM_STYLE,
+        style: "https://tiles.openfreemap.org/styles/positron",
         center: [-2.5, 54.0],
         zoom: 4.8,
       });
@@ -90,10 +89,9 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       };
       let fellBack = false;
       m.on("style.load", addOverlay);
-      m.on("error", (e) => {
-        // If MapTiler rejects the key/style, fall back to plain OpenStreetMap.
-        const status = (e as unknown as { error?: { status?: number } }).error?.status;
-        if (!fellBack && key && (status === 401 || status === 403 || status === 404)) {
+      m.on("error", () => {
+        // If the base map can't load for any reason, fall back to plain OpenStreetMap tiles.
+        if (!fellBack && !m.isStyleLoaded()) {
           fellBack = true;
           m.setStyle(OSM_STYLE);
         }
