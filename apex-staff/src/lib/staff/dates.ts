@@ -122,3 +122,106 @@ export function ukParts(d: Date) {
   const isoDow = ((new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay() + 6) % 7) + 1;
   return { year: p.year, month: p.month, day: p.day, hour: p.hour, minute: p.minute, isoDow };
 }
+
+const monthName = (d: Date) =>
+  d.toLocaleDateString("en-GB", { timeZone: "Europe/London", month: "long", year: "numeric" });
+
+export type RunKind = "month_end" | "mid_month";
+export type PaySchedule = "monthly" | "semi_monthly";
+
+/**
+ * One pay run = one invoice. Paid on the 1st (month_end) or the 15th (mid_month).
+ *  - commission is worked out on cash collected in [commissionFrom, commissionTo)
+ *  - retainer and the managed-setter override cover the whole month [monthFrom, monthTo),
+ *    and are only included on the month_end run
+ */
+export interface PayRun {
+  kind: RunKind;
+  from: Date; // identifies the invoice (unique per person)
+  to: Date;
+  label: string;
+  commissionFrom: Date;
+  commissionTo: Date;
+  commissionLabel: string;
+  monthFrom: Date;
+  monthTo: Date;
+  monthLabel: string;
+  includeMonthly: boolean;
+}
+
+/** The run paid on the 1st: covers the month that just ended. */
+export function monthEndRun(schedule: PaySchedule, now = new Date()): PayRun {
+  const p = ukParts(now);
+  const monthFrom = ukWallClockToUtc(p.year, p.month - 1, 1);
+  const monthTo = ukWallClockToUtc(p.year, p.month, 1);
+  const mid = ukWallClockToUtc(p.year, p.month - 1, 15);
+  const monthLabel = monthName(new Date(monthFrom.getTime() + 12 * 3600e3));
+  const semi = schedule === "semi_monthly";
+  const commissionFrom = semi ? mid : monthFrom;
+  return {
+    kind: "month_end",
+    from: monthFrom,
+    to: monthTo,
+    label: monthLabel,
+    commissionFrom,
+    commissionTo: monthTo,
+    commissionLabel: semi
+      ? `sales 15 ${monthName(new Date(monthFrom.getTime() + 12 * 3600e3))} to month end`
+      : `sales in ${monthLabel}`,
+    monthFrom,
+    monthTo,
+    monthLabel,
+    includeMonthly: true,
+  };
+}
+
+/** The run paid on the 15th: commission on sales from the 1st to the 14th of this month. */
+export function midMonthRun(now = new Date()): PayRun {
+  const p = ukParts(now);
+  const from = ukWallClockToUtc(p.year, p.month, 1);
+  const to = ukWallClockToUtc(p.year, p.month, 15);
+  const monthTo = ukWallClockToUtc(p.year, p.month + 1, 1);
+  const label = `1–14 ${monthName(new Date(from.getTime() + 12 * 3600e3))}`;
+  return {
+    kind: "mid_month",
+    from,
+    to,
+    label,
+    commissionFrom: from,
+    commissionTo: to,
+    commissionLabel: `sales ${label}`,
+    monthFrom: from,
+    monthTo,
+    monthLabel: monthName(new Date(from.getTime() + 12 * 3600e3)),
+    includeMonthly: false,
+  };
+}
+
+/** Runs that are due to be invoiced right now for someone on this schedule. */
+export function dueRuns(schedule: PaySchedule, now = new Date()): PayRun[] {
+  const runs = [monthEndRun(schedule, now)];
+  if (schedule === "semi_monthly" && ukParts(now).day >= 15) runs.push(midMonthRun(now));
+  return runs;
+}
+
+/** The month so far, as a single "projection" run (for the Pay overview). */
+export function monthToDateRun(now = new Date(), previous = false): PayRun {
+  const p = ukParts(now);
+  const off = previous ? -1 : 0;
+  const from = ukWallClockToUtc(p.year, p.month + off, 1);
+  const to = ukWallClockToUtc(p.year, p.month + off + 1, 1);
+  const label = monthName(new Date(from.getTime() + 12 * 3600e3));
+  return {
+    kind: "month_end",
+    from,
+    to,
+    label,
+    commissionFrom: from,
+    commissionTo: to,
+    commissionLabel: `sales in ${label}`,
+    monthFrom: from,
+    monthTo: to,
+    monthLabel: label,
+    includeMonthly: true,
+  };
+}

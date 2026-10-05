@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const open = pathname === "/login" || pathname === "/no-access" || pathname.startsWith("/auth") || pathname.startsWith("/api/calendly");
+  const open = pathname === "/login" || pathname === "/no-access" || pathname.startsWith("/auth") || pathname.startsWith("/api/calendly") || pathname.startsWith("/api/cron");
   if (!user && !open) return NextResponse.redirect(new URL("/login", request.url));
   if (user && pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
 

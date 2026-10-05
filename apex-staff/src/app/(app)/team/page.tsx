@@ -52,7 +52,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
       <div className="mb-8 space-y-3">
         {active.map((s) => (
           <Card key={s.id}>
-            <form action={updatePerson} className="grid gap-3 sm:grid-cols-[1.2fr_1.4fr_1fr_1fr_auto] sm:items-end">
+            <form action={updatePerson} className="grid gap-3 sm:grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_auto] sm:items-end">
               <input type="hidden" name="staff_id" value={s.id} />
               <Field label="Name">
                 <input name="full_name" defaultValue={s.full_name} className={inputCls} />
@@ -67,6 +67,16 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
                   ))}
                 </select>
                 {s.id === me.id ? <input type="hidden" name="role" value={s.role} /> : null}
+              </Field>
+              <Field label="Reports to">
+                <select name="manager_id" defaultValue={s.manager_id ?? ""} className={inputCls}>
+                  <option value="">— nobody —</option>
+                  {active
+                    .filter((m) => m.id !== s.id && (m.role === "manager" || m.role === "admin"))
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>{m.full_name}</option>
+                    ))}
+                </select>
               </Field>
               <Field label="Calendly email">
                 <input name="calendly_email" defaultValue={s.calendly_email ?? ""} placeholder="for later sync" className={inputCls} />
