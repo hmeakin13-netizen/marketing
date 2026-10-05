@@ -3,7 +3,7 @@ import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
 import { parseRange, rangeBounds, fmtDate, fmtDateTime } from "@/lib/staff/dates";
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
-import { CONFIRMATION_LABEL } from "@/lib/staff/types";
+import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
 import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
@@ -51,10 +51,19 @@ export default async function DashboardPage({
     .sort((a, b) => a.call_at.localeCompare(b.call_at));
 
   // Next calls coming up (a closer sees their own), with whether the setter has confirmed them.
-  const nextCalls = calls
-    .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now && (me.role !== "closer" || c.closer_id === me.id))
-    .sort((a, b) => a.call_at.localeCompare(b.call_at))
-    .slice(0, me.role === "closer" ? 10 : 6);
+  const todayR = rangeBounds("today");
+  const inToday = (c: { call_at: string }) => {
+    const t = new Date(c.call_at).getTime();
+    return t >= todayR.from.getTime() && t < todayR.to.getTime();
+  };
+  // Closers only see THEIR calls for today; everyone else sees the next calls across the team.
+  const nextCalls =
+    me.role === "closer"
+      ? calls.filter((c) => c.closer_id === me.id && inToday(c) && c.outcome !== "cancelled").sort((a, b) => a.call_at.localeCompare(b.call_at))
+      : calls
+          .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now)
+          .sort((a, b) => a.call_at.localeCompare(b.call_at))
+          .slice(0, 6);
 
   // Recent changes to upcoming calls (confirmed, no answer, moved to a new time) so the closer
   // on the call sees them without having to go looking. Shows for 48 hours.
@@ -172,14 +181,14 @@ export default async function DashboardPage({
 
       {nextCalls.length === 0 && me.role === "closer" ? (
         <Card className="mt-6">
-          <SectionTitle>Your next calls</SectionTitle>
-          <p className="text-sm text-zinc-500">No upcoming calls assigned to you yet.</p>
+          <SectionTitle>Your calls today</SectionTitle>
+          <p className="text-sm text-zinc-500">No calls today.</p>
         </Card>
       ) : null}
 
       {nextCalls.length > 0 ? (
         <Card className="mt-6">
-          <SectionTitle>{me.role === "closer" ? "Your next calls" : "Next calls"}</SectionTitle>
+          <SectionTitle>{me.role === "closer" ? "Your calls today" : "Next calls"}</SectionTitle>
           <ul className="divide-y divide-white/5 text-sm">
             {nextCalls.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -190,9 +199,13 @@ export default async function DashboardPage({
                     {me.role === "closer" ? ` · set by ${nameOf(staff, c.setter_id)}${c.source ? ` · ${c.source}` : ""}` : ` · ${nameOf(staff, c.closer_id)}`}
                   </span>
                 </span>
-                <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
-                  {CONFIRMATION_LABEL[c.confirmation]}
-                </Badge>
+                {c.outcome !== "scheduled" ? (
+                  <Badge tone={c.outcome === "closed" ? "good" : c.outcome === "no_show" ? "bad" : "default"}>{OUTCOME_LABEL[c.outcome]}</Badge>
+                ) : (
+                  <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
+                    {CONFIRMATION_LABEL[c.confirmation]}
+                  </Badge>
+                )}
               </li>
             ))}
           </ul>
