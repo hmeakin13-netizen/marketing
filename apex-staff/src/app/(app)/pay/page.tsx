@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/staff/auth";
 import { monthToDateRun, ukIso } from "@/lib/staff/dates";
 import { money } from "@/lib/staff/metrics";
-import { computeRunPay, dealPayoutsInRange } from "@/lib/staff/pay";
+import { computeRunPay, dealPayoutsInRange, pendingDealPayouts } from "@/lib/staff/pay";
 import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
 import { savePay } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
@@ -38,12 +38,13 @@ export default async function PayPage({
   const people = staff.filter((s) => s.role !== "admin");
 
   const saleLines = dealPayoutsInRange(closes, staff, pay, ukIso(run.monthFrom), ukIso(run.monthTo));
+  const pending = pendingDealPayouts(closes, staff, pay);
   const rows = people.map((p) => {
     const cfg = pay.get(p.id);
-    const periodic = computeRunPay(p, cfg, run, clients);
+    const periodic = computeRunPay(p, cfg, run, clients, closes, staff);
     const sales = saleLines.get(p.id) ?? [];
     const salesTotal = sales.reduce((t, l) => t + l.amount, 0);
-    return { p, cfg, lines: [...sales, ...periodic.lines], salesTotal, periodic, total: periodic.total + salesTotal };
+    return { p, cfg, onHold: pending.get(p.id) ?? [], lines: [...sales, ...periodic.lines], salesTotal, periodic, total: periodic.total + salesTotal };
   });
   const sumOf = (f: (r: (typeof rows)[number]) => number) => rows.reduce((t, r) => t + f(r), 0);
 
@@ -80,13 +81,13 @@ export default async function PayPage({
         <Stat label="Flat monthly fees" value={money(sumOf((r) => r.periodic.retainer))} />
       </div>
       <p className="mb-6 text-xs text-zinc-500">
-        Sale payouts (commission, setter pay, overrides) are paid and invoiced the same day a sale has its full payment in
-        and its contract signed. Client retainer shares and flat fees are invoiced on the 15th and the 1st.
+        Sale payouts (closer commission and setter pay) are paid and invoiced the same day a sale has its full payment in
+        and its contract signed. Manager overrides are paid at month end. Client retainer shares and flat fees are invoiced on the 15th and the 1st.
       </p>
 
       <div className="space-y-4">
         {rows.length === 0 ? <p className="text-sm text-zinc-500">No staff yet. Add people on the Team page.</p> : null}
-        {rows.map(({ p, cfg, lines, total }) => (
+        {rows.map(({ p, cfg, lines, total, onHold }) => (
           <Card key={p.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -100,6 +101,11 @@ export default async function PayPage({
                   {lines.map((l, i) => (
                     <li key={i}>
                       {l.description} = {money(l.amount)}
+                    </li>
+                  ))}
+                  {onHold.map((l, i) => (
+                    <li key={`h${i}`} className="text-amber-400/80">
+                      On hold: {l.description} = {money(l.amount)} — {l.reason}
                     </li>
                   ))}
                 </ul>

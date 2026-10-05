@@ -4,6 +4,7 @@ import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
 import { parseRange, rangeBounds, fmtDateTime } from "@/lib/staff/dates";
 import { computeStats, money, outstanding, pct } from "@/lib/staff/metrics";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
+import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
 
 export const metadata = { title: "Dashboard | Apex Team" };
@@ -25,7 +26,7 @@ export default async function DashboardPage({
   );
 
   const { flags } = await loadFlags(supabase);
-  const myFlags = flags.filter((f) => isManager(me.role) || f.ownerId === me.id);
+  const myFlags = flags.filter((f) => f.ownerId === me.id);
   const highFlags = myFlags.filter((f) => f.severity === "high").length;
   const team = computeStats(calls, closes, from, to);
   const owing = outstanding(closes);
@@ -33,8 +34,8 @@ export default async function DashboardPage({
 
   const myRole = me.role === "closer" || me.role === "setter" ? me.role : null;
   const myTargets = targets.filter((t) => t.staff_id === me.id);
-  const myWeek = myRole ? computeStats(calls, closes, week.from, week.to, { staffId: me.id, role: myRole }) : null;
-  const myMonth = myRole ? computeStats(calls, closes, month.from, month.to, { staffId: me.id, role: myRole }) : null;
+  const myWeek = myRole ? computeStats(calls, closes, week.from, week.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
+  const myMonth = myRole ? computeStats(calls, closes, month.from, month.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
 
   // Calls that already happened but nobody has logged what happened.
   const now = Date.now();
@@ -81,6 +82,8 @@ export default async function DashboardPage({
         <Stat label="Deal value closed" value={money(team.revenue)} />
       </div>
 
+      <CashGoal closes={closes} />
+
       {myFlags.length > 0 ? (
         <Card className={`mt-6 ${highFlags > 0 ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -126,7 +129,7 @@ export default async function DashboardPage({
           <PeopleTable
             rows={people.map((p) => ({
               p,
-              s: computeStats(calls, closes, from, to, { staffId: p.id, role: p.role as "setter" | "closer" }),
+              s: computeStats(calls, closes, from, to, { staffId: p.id, role: p.role as "setter" | "closer", name: p.full_name }),
             }))}
           />
         </Card>
@@ -158,7 +161,7 @@ export default async function DashboardPage({
           <SetterTable
             rows={people
               .filter((p) => p.role === "setter")
-              .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "setter" }) }))}
+              .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "setter", name: p.full_name }) }))}
           />
         </Card>
 

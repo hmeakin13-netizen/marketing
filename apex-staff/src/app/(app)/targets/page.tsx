@@ -33,8 +33,8 @@ export default async function TargetsPage({ searchParams }: { searchParams: { ok
         {people.map((p) => {
           const role = p.role as "setter" | "closer";
           const mine = targets.filter((t) => t.staff_id === p.id);
-          const wk = computeStats(calls, closes, week.from, week.to, { staffId: p.id, role });
-          const mo = computeStats(calls, closes, month.from, month.to, { staffId: p.id, role });
+          const wk = computeStats(calls, closes, week.from, week.to, { staffId: p.id, role, name: p.full_name });
+          const mo = computeStats(calls, closes, month.from, month.to, { staffId: p.id, role, name: p.full_name });
           const get = (m: TargetMetric, period: "week" | "month") =>
             mine.find((t) => t.metric === m && t.period === period)?.target;
           return (

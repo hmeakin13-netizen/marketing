@@ -58,6 +58,9 @@ export function computeFlags(
   const t = now.getTime();
   const today = now.toISOString().slice(0, 10);
   const flags: Flag[] = [];
+  // Chasing leads and balances is the setter's job, so those flags land on the
+  // setter (Kyle) rather than the closer. Falls back to the closer if no setter.
+  const chaser = staff.find((p) => p.active && p.role === "setter")?.id ?? null;
 
   const lastChase = (key: "close_id" | "call_id", id: string): number | null => {
     let best: number | null = null;
@@ -102,7 +105,7 @@ export function computeFlags(
           severity: "high",
           title: `${who} — payment ${late} day${late === 1 ? "" : "s"} overdue`,
           detail: `${base} Last chased/touched ${since} day${since === 1 ? "" : "s"} ago.`,
-          ownerId: c.closer_id,
+          ownerId: chaser ?? c.closer_id,
           daysLate: late,
           closeId: c.id,
         });
@@ -114,7 +117,7 @@ export function computeFlags(
         severity: since >= 7 ? "high" : "medium",
         title: `${who} — balance not chased for ${since} days`,
         detail: base,
-        ownerId: c.closer_id,
+        ownerId: chaser ?? c.closer_id,
         daysLate: since,
         closeId: c.id,
       });
@@ -126,7 +129,7 @@ export function computeFlags(
         severity: "low",
         title: `${who} — balance has no due date`,
         detail: `${base} Set a next payment date on the Deals page so it can be tracked.`,
-        ownerId: c.closer_id,
+        ownerId: chaser ?? c.closer_id,
         daysLate: 0,
         closeId: c.id,
       });
@@ -175,7 +178,7 @@ export function computeFlags(
         severity: hrs >= RULES.noShowChaseWithinHours ? "high" : "medium",
         title: `${c.lead_name} — no-show, no follow-up logged`,
         detail: `${base}. No-showed ${hrs < 48 ? `${hrs}h` : `${days(t - at)}d`} ago.`,
-        ownerId: owner,
+        ownerId: chaser ?? owner,
         daysLate: days(t - at),
         callId: c.id,
       });
@@ -191,7 +194,7 @@ export function computeFlags(
           severity: since >= 7 ? "high" : "medium",
           title: `${c.lead_name} — follow-up gone cold (${since} days)`,
           detail: `${base}. Marked "follow up" but nothing logged since.`,
-          ownerId: owner,
+          ownerId: chaser ?? owner,
           daysLate: since,
           callId: c.id,
         });

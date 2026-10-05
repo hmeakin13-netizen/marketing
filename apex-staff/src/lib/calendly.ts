@@ -135,12 +135,13 @@ export async function upsertInvitee(admin: SupabaseClient, inv: Invitee, opts: {
   const host = inv.scheduled_event.event_memberships?.[0]?.user_email ?? null;
   let source: string | null = inv.tracking?.utm_campaign || inv.tracking?.utm_source || null;
   let setterId = pickSetter(inv.tracking, staff);
-  // A booking with no campaign tag at all is one a setter made by hand. With a single
-  // setter, that's them: credit the booking (and the source) to them.
+  // With a single setter, they set every call. A booking with no campaign tag at all is one they
+  // booked by hand, so its source is their name (that's what counts towards their "calls booked").
   const setters = staff.filter((x) => x.active && x.role === "setter");
-  if (!setterId && !source && setters.length === 1) {
-    setterId = setters[0].id;
-    source = setters[0].full_name.split(" ")[0];
+  if (!setterId && setters.length === 1) setterId = setters[0].id;
+  if (!source && setterId) {
+    const who = staff.find((x) => x.id === setterId);
+    if (who) source = who.full_name.split(" ")[0];
   }
 
   const row = {

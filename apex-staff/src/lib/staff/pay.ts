@@ -35,7 +35,9 @@ export function computeRunPay(
   person: Pick<StaffRow, "id" | "role">,
   cfg: PayRow | undefined,
   run: PayRun,
-  clients: RetainerClient[] = []
+  clients: RetainerClient[] = [],
+  closes: CloseRow[] = [],
+  allStaff: StaffRow[] = []
 ): PayResult {
   const lines: PayLine[] = [];
 
@@ -62,7 +64,34 @@ export function computeRunPay(
     clientShare = round2(clientShare);
   }
 
-  return { lines, retainer, clientShare, total: round2(retainer + clientShare) };
+  // Manager override: paid once, at the END of the month, on the value of the sales set by the
+  // setters they manage that became payable (fully paid + contract signed) during that month.
+  let override = 0;
+  const ovr = Number(cfg?.override_pct ?? 0);
+  if (run.includeMonthly && ovr > 0) {
+    const managed = allStaff.filter((x) => x.manager_id === person.id);
+    const ids = managed.map((x) => x.id);
+    const fromD = ukIso(run.monthFrom);
+    const toD = ukIso(run.monthTo);
+    let base = 0;
+    const leads: string[] = [];
+    for (const c of closes) {
+      if (!c.setter_id || !ids.includes(c.setter_id)) continue;
+      const on = dealPayableOn(c);
+      if (!on || on < fromD || on >= toD) continue;
+      base += Number(c.deal_value);
+      leads.push(c.calls?.lead_name ?? "sale");
+    }
+    override = round2((base * ovr) / 100);
+    if (override > 0) {
+      lines.push({
+        description: `${ovr}% override on ${gbp(base)} of sales set by ${managed.map((x) => x.full_name).join(", ")} (paid in full and signed in ${run.monthLabel}: ${leads.join(", ")})`,
+        amount: override,
+      });
+    }
+  }
+
+  return { lines, retainer, clientShare, total: round2(retainer + clientShare + override) };
 }
 
 // ------------------------------------------------------------------ sale payouts (same day)
@@ -82,7 +111,7 @@ export function dealPayableOn(c: CloseRow): string | null {
  * Everything owed because of ONE sale, per person, once it's payable:
  *  - the closer's commission % of the sale value
  *  - the setter's one-time % (and/or flat £) for setting it
- *  - a manager's override % when the setter reports to them
+ * (A manager's override is NOT here: it's paid once, at the end of the month; see computeRunPay.)
  */
 export function computeDealPayouts(
   c: CloseRow,
@@ -119,17 +148,6 @@ export function computeDealPayouts(
         description: `One-time payment for setting ${lead}: ${parts.join(" + ")}`,
         amount: round2((value * setPct) / 100 + setFlat),
       });
-    }
-
-    const ovr = Number(cfg.override_pct ?? 0);
-    if (ovr > 0 && c.setter_id) {
-      const setter = staff.find((x) => x.id === c.setter_id);
-      if (setter?.manager_id === s.id) {
-        lines.push({
-          description: `${ovr}% override on ${lead}'s ${gbp(value)} sale set by ${setter.full_name}`,
-          amount: round2((value * ovr) / 100),
-        });
-      }
     }
 
     const filtered = lines.filter((l) => l.amount > 0);
@@ -202,4 +220,30 @@ export function payoutDateFor(iso: string, schedule: PayRow["pay_schedule"]): st
   const next = (yy: number, mm: number, dd: number) => `${mm > 12 ? yy + 1 : yy}-${pad(mm > 12 ? 1 : mm)}-${pad(dd)}`;
   if (schedule === "semi_monthly" && d <= 14) return `${y}-${pad(m)}-15`;
   return next(y, m + 1, 1);
+}
+
+/** Why a sale's payouts are on hold, or null if nothing is holding them. */
+export function dealWaitingFor(c: CloseRow): string | null {
+  if (dealPayableOn(c)) return null;
+  const left = round2(Number(c.deal_value) - sum2(c.payments.map((p) => Number(p.amount))));
+  const parts = [left > 0.005 ? `the remaining ${gbp(left)}` : "", !c.contract_signed_at ? "the contract to be signed" : ""].filter(Boolean);
+  return parts.join(" and ");
+}
+
+/** What is owed once each not-yet-payable sale clears, per person. */
+export function pendingDealPayouts(
+  closes: CloseRow[],
+  staff: StaffRow[],
+  pays: Map<string, PayRow>
+): Map<string, { description: string; amount: number; reason: string }[]> {
+  const out = new Map<string, { description: string; amount: number; reason: string }[]>();
+  for (const c of closes) {
+    const reason = dealWaitingFor(c);
+    if (!reason) continue;
+    computeDealPayouts(c, staff, pays).forEach((lines, id) => {
+      const rows = lines.map((l) => ({ ...l, reason: `${c.calls?.lead_name ?? "sale"}: waiting for ${reason}` }));
+      out.set(id, [...(out.get(id) ?? []), ...rows]);
+    });
+  }
+  return out;
 }
