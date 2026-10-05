@@ -174,7 +174,7 @@ export function computeFlags(
       });
     }
 
-    if (needsRecording(c.outcome) && !c.recording_url && at < t) {
+    if (needsRecording(c.outcome) && !c.recording_url && !c.recording_waived && at < t) {
       const late = days(t - at);
       flags.push({
         id: `mr-${c.id}`,

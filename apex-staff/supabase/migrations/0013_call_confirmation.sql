@@ -9,3 +9,6 @@ alter table public.calls add constraint calls_confirmation_valid
 
 -- Calendly's per-invitee reschedule link, shown to the setter when the lead wants to move the call. Applied live.
 alter table public.calls add column if not exists reschedule_url text;
+
+-- Admin can waive the Fathom requirement for a one-off call (e.g. a sale entered after the fact). Applied live.
+alter table public.calls add column if not exists recording_waived boolean not null default false;
