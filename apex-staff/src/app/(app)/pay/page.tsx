@@ -89,7 +89,7 @@ export default async function PayPage({
       </div>
       <p className="mb-6 text-xs text-zinc-500">
         Sale payouts (closer commission and setter pay) are paid and invoiced the same day a sale has its full payment in
-        and its contract signed. Manager overrides are paid at month end. Client retainer shares are invoiced on the 15th and the 1st. "Left for Apex" is this month's cash collected on sales plus client retainers due, minus everything owed to the team.
+        and its contract signed. Manager overrides are paid at month end. Client retainer shares are invoiced on the 15th and the 1st. &ldquo;Left for Apex&rdquo; is the cash collected this month on sales plus client retainers due, minus everything owed to the team.
       </p>
 
       <div className="space-y-4">
