@@ -87,6 +87,8 @@ export async function logOutcome(formData: FormData) {
     .eq("id", callId)
     .single();
   if (!call) back(path, "error", "Couldn't find that call.");
+  const mayLog = me.role === "admin" || me.role === "manager" || call!.closer_id === me.id || (!call!.closer_id && me.role === "closer");
+  if (!mayLog) back(path, "error", "Only the closer on this call can log its outcome.");
   if (call!.outcome === "closed") {
     back(path, "error", "That call is already closed — edit the deal on the Deals page.");
   }

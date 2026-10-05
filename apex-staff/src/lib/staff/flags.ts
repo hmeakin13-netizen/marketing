@@ -141,7 +141,7 @@ export function computeFlags(
   // ---- calls
   for (const c of calls) {
     const at = new Date(c.call_at).getTime();
-    const owner = c.closer_id ?? c.setter_id;
+    const owner = c.closer_id; // the closer logs outcomes; unassigned calls are shown as unassigned
     const base = `Setter: ${nameOf(staff, c.setter_id)} · Closer: ${nameOf(staff, c.closer_id)}${c.source ? ` · ${c.source}` : ""}`;
 
     if (c.outcome === "scheduled" && t - at >= RULES.missingOutcomeAfterHours * 3600000) {
