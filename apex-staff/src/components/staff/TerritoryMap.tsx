@@ -28,7 +28,7 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       // standard OpenStreetMap tiles, which need no key, darkened with a CSS filter.
       const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
       if (key) {
-        L.tileLayer(`https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key=${key}`, {
+        L.tileLayer(`https://api.maptiler.com/maps/${process.env.NEXT_PUBLIC_MAPTILER_STYLE || "dataviz-dark"}/{z}/{x}/{y}.png?key=${key}`, {
           attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
           maxZoom: 18,
         }).addTo(m);
