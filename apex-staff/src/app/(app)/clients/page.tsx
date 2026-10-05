@@ -138,6 +138,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
         {active.map((c) => {
           const cfg = pay.get(c.closer_id ?? "");
           const next = nextRetainerDate(c);
+          const setter = staff.find((x) => x.id === c.setter_id);
+          const mgr = staff.find((x) => x.id === setter?.manager_id);
+          const mgrPct = Number(pay.get(mgr?.id ?? "")?.override_pct ?? 0);
+          const mgrBasisClient = (pay.get(mgr?.id ?? "")?.override_basis ?? "client_fee") === "client_fee";
           return (
             <Card key={c.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -158,6 +162,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                       </>
                     ) : null}
                   </p>
+                  {mgr && mgrPct > 0 && mgrBasisClient ? (
+                    <p className="mt-1 text-sm text-zinc-300">
+                      {mgr.full_name} also earns a one-time{" "}
+                      <b className="text-emerald-400">{money((Number(c.monthly_fee) * mgrPct) / 100)}</b> ({mgrPct}% override
+                      because {setter?.full_name} set this client), paid at the end of the month they signed.
+                    </p>
+                  ) : null}
                   {!cfg || Number(cfg.retainer_share_pct) === 0 ? (
                     <p className="mt-1 text-xs text-amber-300">
                       No retainer share set for {nameOf(staff, c.closer_id)} yet. Set it on the Pay page.

@@ -75,9 +75,11 @@ export async function buildInvoicePdf(inv: InvoiceRow, payee: Payee, company: Co
   let yl = y;
   text(payee.name, M, yl, 11, bold);
   yl -= 14;
-  for (const l of wrap(payee.address || "Address not on file", font, 10, 240)) {
-    text(l, M, yl);
-    yl -= 13;
+  if (payee.address) {
+    for (const l of wrap(payee.address, font, 10, 240)) {
+      text(l, M, yl);
+      yl -= 13;
+    }
   }
   if (payee.vatNumber) {
     text(`VAT no: ${payee.vatNumber}`, M, yl);

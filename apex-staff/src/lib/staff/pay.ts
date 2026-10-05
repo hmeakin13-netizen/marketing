@@ -92,27 +92,41 @@ export function computeRunPay(
     });
   }
 
-  // Override on managed setters' sales
+  // Override on the setters this person manages (month-end run only, one-time per sale)
   let override = 0;
   const overridePct = Number(cfg?.override_pct ?? 0);
   if (run.includeMonthly && overridePct > 0) {
     const managed = allStaff.filter((s) => s.manager_id === person.id).map((s) => s.id);
     if (managed.length > 0) {
-      const byCash = cfg?.override_basis === "cash";
+      const mode = cfg?.override_basis ?? "client_fee";
+      const names = allStaff.filter((s) => managed.includes(s.id)).map((s) => s.full_name).join(", ");
       let overBase = 0;
-      for (const c of closes) {
-        if (!c.setter_id || !managed.includes(c.setter_id)) continue;
-        if (byCash) {
-          for (const pm of c.payments) if (inRange(pm.paid_at, run.monthFrom, run.monthTo)) overBase += Number(pm.amount);
-        } else if (inRange(c.closed_at, run.monthFrom, run.monthTo)) {
-          overBase += Number(c.deal_value);
+      let what = "";
+      if (mode === "client_fee") {
+        // Automatic from the Clients list: new clients a managed setter set, signed in this month.
+        const fromD = run.monthFrom.toISOString().slice(0, 10);
+        const toD = run.monthTo.toISOString().slice(0, 10);
+        const newClients = clients.filter(
+          (c) => c.setter_id && managed.includes(c.setter_id) && c.start_date >= fromD && c.start_date < toD
+        );
+        for (const c of newClients) overBase += Number(c.monthly_fee);
+        what = `new clients set by ${names}: ${newClients.map((c) => c.name).join(", ")}`;
+      } else {
+        const byCash = mode === "cash";
+        for (const c of closes) {
+          if (!c.setter_id || !managed.includes(c.setter_id)) continue;
+          if (byCash) {
+            for (const pm of c.payments) if (inRange(pm.paid_at, run.monthFrom, run.monthTo)) overBase += Number(pm.amount);
+          } else if (inRange(c.closed_at, run.monthFrom, run.monthTo)) {
+            overBase += Number(c.deal_value);
+          }
         }
+        what = `${byCash ? "cash collected from" : "new sales"} set by ${names}`;
       }
       override = round2((overBase * overridePct) / 100);
       if (override > 0) {
-        const names = allStaff.filter((s) => managed.includes(s.id)).map((s) => s.full_name).join(", ");
         lines.push({
-          description: `${overridePct}% override on ${gbp(overBase)} ${byCash ? "cash collected from" : "new sales"} set by ${names} (${run.monthLabel})`,
+          description: `${overridePct}% one-time override on ${gbp(overBase)} (${what}) — ${run.monthLabel}`,
           amount: override,
         });
       }
