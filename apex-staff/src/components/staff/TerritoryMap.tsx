@@ -27,17 +27,28 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       // Optional MapTiler key (NEXT_PUBLIC_MAPTILER_KEY) gives a dark styled map. Without one we use
       // standard OpenStreetMap tiles, which need no key, darkened with a CSS filter.
       const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-      if (key) {
-        L.tileLayer(`https://api.maptiler.com/maps/${process.env.NEXT_PUBLIC_MAPTILER_STYLE || "dataviz-dark"}/{z}/{x}/{y}.png?key=${key}`, {
-          attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
-          maxZoom: 18,
-        }).addTo(m);
-      } else {
+      const osm = () =>
         L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "&copy; OpenStreetMap contributors",
           maxZoom: 18,
           className: "osm-dark",
         }).addTo(m);
+      if (key) {
+        const style = process.env.NEXT_PUBLIC_MAPTILER_STYLE || "dataviz-dark";
+        const mt = L.tileLayer(`https://api.maptiler.com/maps/${style}/256/{z}/{x}/{y}.png?key=${key}`, {
+          attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
+          maxZoom: 18,
+        }).addTo(m);
+        let swapped = false;
+        // If MapTiler rejects the key or style, fall back to plain OpenStreetMap so the map still works.
+        mt.on("tileerror", () => {
+          if (swapped) return;
+          swapped = true;
+          m.removeLayer(mt);
+          osm();
+        });
+      } else {
+        osm();
       }
       setTimeout(() => m.invalidateSize(), 300);
       for (const t of territories) {
