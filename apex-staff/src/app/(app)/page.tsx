@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
-import { parseRange, rangeBounds, fmtDateTime } from "@/lib/staff/dates";
+import { parseRange, rangeBounds, fmtDate, fmtDateTime } from "@/lib/staff/dates";
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
 import { CONFIRMATION_LABEL } from "@/lib/staff/types";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
@@ -92,7 +92,7 @@ export default async function DashboardPage({
     <>
       <PageHeader
         title={`Hey ${me.full_name.split(" ")[0]} 👋`}
-        subtitle="Here's how the team is doing."
+        subtitle={`Showing ${range === "today" ? "today" : range === "week" ? "this week" : "this month"}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
         action={<RangeTabs base="/" range={range} />}
       />
 
