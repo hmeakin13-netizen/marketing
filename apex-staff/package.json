@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.2",
+    "@types/leaflet": "^1.9.22",
+    "leaflet": "^1.9.4",
     "next": "14.2.35",
     "pdf-lib": "^1.17.1",
     "react": "^18",

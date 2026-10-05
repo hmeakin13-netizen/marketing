@@ -2,8 +2,9 @@ import { requireRole } from "@/lib/staff/auth";
 import { fmtDate, todayIso } from "@/lib/staff/dates";
 import { money, nameOf } from "@/lib/staff/metrics";
 import { fmtIsoDay, nextRetainerDate, payoutDateFor } from "@/lib/staff/pay";
+import type { Territory } from "@/lib/staff/geo";
 import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
-import { addClient, endClient, reinstateClient, updateClient } from "../../actions";
+import { addClient, endClient, saveClientLocation, reinstateClient, updateClient } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, Stat, inputCls } from "@/components/staff/ui";
 
@@ -11,12 +12,14 @@ export const metadata = { title: "Clients | Apex Team" };
 
 export default async function ClientsPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase } = await requireRole("admin");
-  const [{ data: clientData }, { data: staffData }, { data: payData }, { data: dealData }] = await Promise.all([
+  const [{ data: clientData }, { data: staffData }, { data: payData }, { data: dealData }, { data: terrData }] = await Promise.all([
     supabase.from("retainer_clients").select("*").order("created_at", { ascending: false }),
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
     supabase.from("staff_pay").select("*"),
     supabase.from("closes").select("id, closed_at, calls(lead_name)").order("closed_at", { ascending: false }).limit(100),
+    supabase.from("territories").select("*"),
   ]);
+  const territories = new Map(((terrData ?? []) as Territory[]).map((t) => [t.client_id, t]));
   const clients = (clientData ?? []) as RetainerClient[];
   const staff = (staffData ?? []) as StaffRow[];
   const pay = new Map(((payData ?? []) as PayRow[]).map((p) => [p.staff_id, p]));
@@ -207,6 +210,16 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                   <div className="flex items-end">
                     <SubmitButton>Save</SubmitButton>
                   </div>
+                </form>
+                <form action={saveClientLocation} className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-3">
+                  <input type="hidden" name="client_id" value={c.id} />
+                  <Field label="Client postcode (blocks the area on the territory map)">
+                    <input name="postcode" defaultValue={territories.get(c.id)?.postcode ?? ""} className={inputCls} placeholder="NG1 5FS" />
+                  </Field>
+                  <Field label="Exclusive radius (km)">
+                    <input name="radius_km" inputMode="decimal" defaultValue={String(territories.get(c.id)?.radius_km ?? 15)} className={inputCls} />
+                  </Field>
+                  <SubmitButton>Save location</SubmitButton>
                 </form>
                 <form action={endClient} className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-3">
                   <input type="hidden" name="client_id" value={c.id} />
