@@ -99,3 +99,6 @@ Each client pays a monthly fee. The closer who signed them earns a **share (%)**
 
 ## Setters paid per client (no retainer)
 For a setter paid once per client they set (e.g. Kyle), leave Commission % at 0 and use **"One-time % of the setup fee on clients they set"** and/or **"a flat £ per client"** on their Pay card. It is calculated automatically from the Clients list (client's setter + signing date) and paid in the run covering the signing date (1st–14th on the 15th, 15th–end on the 1st). There is no retainer or monthly payment.
+
+## Fixing who set / closed a call
+Admins can edit the setter and closer on any call (Calls page → "Edit setter / closer"); the deal behind it follows, so pay stays correct. Everyone else is blocked at the database level, not just in the UI. Settings → "Re-apply shifts to upcoming calls" re-picks the closer on every upcoming, unworked call from the shifts. When a closer logs a close with a monthly retainer, the client is added to the Clients list automatically.

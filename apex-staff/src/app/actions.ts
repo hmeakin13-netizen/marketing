@@ -6,10 +6,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { midMonthRun, monthEndRun, parseUkLocal } from "@/lib/staff/dates";
+import { midMonthRun, monthEndRun, parseUkLocal, todayIso } from "@/lib/staff/dates";
 import { createInvoice, emailInvoice } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
-import { cal, getConfig, getStored, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
+import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
+import type { ShiftRow, StaffRow } from "@/lib/staff/types";
 import type { StaffRole, PaymentType } from "@/lib/staff/types";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -123,6 +124,26 @@ export async function logOutcome(formData: FormData) {
         .from("payments")
         .insert({ close_id: close!.id, amount: cash });
       if (payErr) back(path, "error", payErr.message);
+    }
+
+    // They're staying on a monthly retainer: add them to the Clients list straight away.
+    const monthly = num(formData, "monthly_retainer");
+    if (monthly > 0) {
+      try {
+        const today = todayIso();
+        await createAdminClient().from("retainer_clients").insert({
+          name: call!.lead_name,
+          closer_id: closerId,
+          setter_id: call!.setter_id,
+          close_id: close!.id,
+          setup_fee: dealValue,
+          monthly_fee: monthly,
+          start_date: today,
+          billing_day: Number(today.slice(8, 10)),
+        });
+      } catch {
+        // The deal itself is saved; the client can still be added by hand on the Clients page.
+      }
     }
   } else {
     const { error } = await supabase.from("calls").update(update).eq("id", callId);
@@ -677,4 +698,46 @@ export async function reinstateClient(formData: FormData) {
   if (error) back("/clients", "error", error.message);
   revalidatePath("/", "layout");
   back("/clients", "ok", "Client reinstated.");
+}
+
+// ------------------------------------------------------------------ call assignment (admin)
+
+export async function assignCall(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const callId = str(formData, "call_id");
+  const setterId = optStr(formData, "setter_id");
+  const closerId = optStr(formData, "closer_id");
+
+  const { error } = await supabase.from("calls").update({ setter_id: setterId, closer_id: closerId }).eq("id", callId);
+  if (error) back("/calls", "error", error.message);
+
+  // If this call was already closed, pay follows the deal, so keep the deal in step.
+  await supabase.from("closes").update({ setter_id: setterId, closer_id: closerId }).eq("call_id", callId);
+
+  revalidatePath("/", "layout");
+  back("/calls", "ok", "Updated who set and who closed that call.");
+}
+
+/** Re-pick the closer on every upcoming, not-yet-worked call from the shifts under Settings. */
+export async function reapplyShifts() {
+  await requireRole("admin");
+  const admin = createAdminClient();
+  const [{ data: shiftData }, { data: staffData }, { data: callData }] = await Promise.all([
+    admin.from("closer_shifts").select("*"),
+    admin.from("staff").select("*"),
+    admin.from("calls").select("id, call_at, closer_id").eq("outcome", "scheduled").gte("call_at", new Date().toISOString()),
+  ]);
+  const shifts = (shiftData ?? []) as ShiftRow[];
+  if (shifts.length === 0) back("/settings", "error", "Set at least one closer shift first.");
+  const staff = (staffData ?? []) as StaffRow[];
+  let changed = 0;
+  for (const c of callData ?? []) {
+    const pick = pickCloser(c.call_at, shifts, staff, null);
+    if (pick && pick !== c.closer_id) {
+      await admin.from("calls").update({ closer_id: pick }).eq("id", c.id);
+      changed++;
+    }
+  }
+  revalidatePath("/", "layout");
+  back("/settings", "ok", `Re-applied shifts: ${changed} upcoming call${changed === 1 ? "" : "s"} reassigned.`);
 }

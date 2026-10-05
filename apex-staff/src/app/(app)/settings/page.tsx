@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getConfig, getStored } from "@/lib/calendly";
 import { fmtDateTime } from "@/lib/staff/dates";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
-import { connectCalendly, saveShift, syncCalendly } from "../../actions";
+import { connectCalendly, reapplyShifts, saveShift, syncCalendly } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
 
@@ -128,6 +128,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
           );
         })}
       </div>
+      {closers.length > 0 ? (
+        <form action={reapplyShifts} className="mt-4 flex flex-wrap items-center gap-3">
+          <SubmitButton pendingText="Re-applying…">Re-apply shifts to upcoming calls</SubmitButton>
+          <span className="text-xs text-zinc-500">Re-picks the closer on every upcoming call that hasn&apos;t been worked yet.</span>
+        </form>
+      ) : null}
       <p className="mt-6 text-xs text-zinc-600">
         Tip: tag a setter&apos;s booking link with <code>?utm_content=kyle</code> and the booking is credited to them
         automatically. Add <code>utm_campaign</code> to track which ad it came from.
