@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Map as LeafletMap, LayerGroup } from "leaflet";
-import "leaflet/dist/leaflet.css";
+import type { Map as MapLibreMap, StyleSpecification, GeoJSONSource } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { distanceKm, geocodePostcode, type Territory } from "@/lib/staff/geo";
 
 type Result =
@@ -10,73 +10,111 @@ type Result =
   | { kind: "free"; postcode: string; nearest: { t: Territory; km: number } | null }
   | { kind: "unknown" };
 
+const OSM_STYLE: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: "&copy; OpenStreetMap contributors", maxzoom: 18 },
+  },
+  layers: [{ id: "osm", type: "raster", source: "osm", paint: { "raster-brightness-max": 0.55, "raster-saturation": -0.6, "raster-contrast": 0.2 } }],
+};
+
+/** A circle of `km` radius as a polygon ring. */
+function circle(lat: number, lng: number, km: number, steps = 72): [number, number][] {
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * 2 * Math.PI;
+    const dLat = (km / 6371) * Math.cos(a);
+    const dLng = ((km / 6371) * Math.sin(a)) / Math.cos((lat * Math.PI) / 180);
+    pts.push([lng + (dLng * 180) / Math.PI, lat + (dLat * 180) / Math.PI]);
+  }
+  return pts;
+}
+
 export function TerritoryMap({ territories }: { territories: Territory[] }) {
   const el = useRef<HTMLDivElement>(null);
-  const map = useRef<LeafletMap | null>(null);
-  const marks = useRef<LayerGroup | null>(null);
+  const map = useRef<MapLibreMap | null>(null);
+  const searched = useRef<{ lat: number; lng: number; taken: boolean } | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
+  const zones = () => ({
+    type: "FeatureCollection" as const,
+    features: territories.map((t) => ({
+      type: "Feature" as const,
+      properties: { name: `${t.name} — ${t.postcode} (${Number(t.radius_km)} km)` },
+      geometry: { type: "Polygon" as const, coordinates: [circle(t.lat, t.lng, Number(t.radius_km))] },
+    })),
+  });
+  const centres = () => ({
+    type: "FeatureCollection" as const,
+    features: territories.map((t) => ({ type: "Feature" as const, properties: {}, geometry: { type: "Point" as const, coordinates: [t.lng, t.lat] } })),
+  });
+  const pin = () => ({
+    type: "FeatureCollection" as const,
+    features: searched.current
+      ? [{ type: "Feature" as const, properties: { taken: searched.current.taken }, geometry: { type: "Point" as const, coordinates: [searched.current.lng, searched.current.lat] } }]
+      : [],
+  });
+
   useEffect(() => {
     let dead = false;
     (async () => {
-      const L = (await import("leaflet")).default;
+      const ml = await import("maplibre-gl");
       if (dead || !el.current || map.current) return;
-      const m = L.map(el.current, { scrollWheelZoom: true, zoomControl: true }).setView([54.0, -2.5], 6);
-      // Optional MapTiler key (NEXT_PUBLIC_MAPTILER_KEY) gives a dark styled map. Without one we use
-      // standard OpenStreetMap tiles, which need no key, darkened with a CSS filter.
       const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-      const osm = () =>
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "&copy; OpenStreetMap contributors",
-          maxZoom: 18,
-          className: "osm-dark",
-        }).addTo(m);
-      if (key) {
-        const style = process.env.NEXT_PUBLIC_MAPTILER_STYLE || "dataviz-dark";
-        const mt = L.tileLayer(`https://api.maptiler.com/maps/${style}/256/{z}/{x}/{y}.png?key=${key}`, {
-          attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
-          maxZoom: 18,
-        }).addTo(m);
-        let swapped = false;
-        // If MapTiler rejects the key or style, fall back to plain OpenStreetMap so the map still works.
-        mt.on("tileerror", () => {
-          if (swapped) return;
-          swapped = true;
-          m.removeLayer(mt);
-          osm();
+      const style = process.env.NEXT_PUBLIC_MAPTILER_STYLE || "dataviz-dark";
+      const m = new ml.Map({
+        container: el.current,
+        style: key ? `https://api.maptiler.com/maps/${style}/style.json?key=${key}` : OSM_STYLE,
+        center: [-2.5, 54.0],
+        zoom: 4.8,
+      });
+      m.addControl(new ml.NavigationControl({ showCompass: false }), "top-right");
+
+      // Our red zones go on top of whichever base style loaded.
+      const addOverlay = () => {
+        if (m.getSource("zones")) return;
+        m.addSource("zones", { type: "geojson", data: zones() });
+        m.addSource("centres", { type: "geojson", data: centres() });
+        m.addSource("pin", { type: "geojson", data: pin() });
+        m.addLayer({ id: "zones-fill", type: "fill", source: "zones", paint: { "fill-color": "#f43f5e", "fill-opacity": 0.22 } });
+        m.addLayer({ id: "zones-line", type: "line", source: "zones", paint: { "line-color": "#fb7185", "line-width": 1.5, "line-dasharray": [3, 2] } });
+        m.addLayer({ id: "centres", type: "circle", source: "centres", paint: { "circle-radius": 4, "circle-color": "#f43f5e", "circle-stroke-color": "#fff", "circle-stroke-width": 1 } });
+        m.addLayer({
+          id: "pin",
+          type: "circle",
+          source: "pin",
+          paint: { "circle-radius": 9, "circle-color": ["case", ["get", "taken"], "#f43f5e", "#34d399"], "circle-stroke-color": "#fff", "circle-stroke-width": 2 },
         });
-      } else {
-        osm();
-      }
-      setTimeout(() => m.invalidateSize(), 300);
-      for (const t of territories) {
-        // Soft filled zone plus a dashed edge; overlapping zones build up so busy areas look denser.
-        L.circle([t.lat, t.lng], {
-          radius: Number(t.radius_km) * 1000,
-          color: "#fb7185",
-          weight: 1.5,
-          dashArray: "6 6",
-          fillColor: "#f43f5e",
-          fillOpacity: 0.22,
-        })
-          .bindTooltip(`${t.name} — ${t.postcode} (${Number(t.radius_km)} km)`)
-          .addTo(m);
-        L.circleMarker([t.lat, t.lng], { radius: 4, color: "#fff", weight: 1, fillColor: "#f43f5e", fillOpacity: 1 }).addTo(m);
-      }
-      marks.current = L.layerGroup().addTo(m);
-      map.current = m;
+      };
+      let fellBack = false;
+      m.on("style.load", addOverlay);
+      m.on("error", (e) => {
+        // If MapTiler rejects the key/style, fall back to plain OpenStreetMap.
+        const status = (e as unknown as { error?: { status?: number } }).error?.status;
+        if (!fellBack && key && (status === 401 || status === 403 || status === 404)) {
+          fellBack = true;
+          m.setStyle(OSM_STYLE);
+        }
+      });
+      m.on("click", "zones-fill", (e) => {
+        const f = e.features?.[0];
+        if (f) new ml.Popup().setLngLat(e.lngLat).setText(String(f.properties?.name)).addTo(m);
+      });
       if (territories.length > 0) {
-        const b = L.latLngBounds(territories.map((t) => [t.lat, t.lng] as [number, number]));
-        m.fitBounds(b.pad(0.6), { maxZoom: 9 });
+        const b = new ml.LngLatBounds();
+        for (const t of territories) b.extend([t.lng, t.lat]);
+        m.fitBounds(b, { padding: 120, maxZoom: 8, animate: false });
       }
+      map.current = m;
     })();
     return () => {
       dead = true;
       map.current?.remove();
       map.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [territories]);
 
   async function check(e: FormEvent) {
@@ -93,19 +131,12 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       if (!nearest || km < nearest.km) nearest = { t, km };
     }
     const hit = nearest && nearest.km < Number(nearest.t.radius_km) ? nearest : null;
-    const taken = hit !== null;
     setResult(hit ? { kind: "taken", postcode: g.postcode, by: hit.t, km: hit.km } : { kind: "free", postcode: g.postcode, nearest });
 
-    const L = (await import("leaflet")).default;
-    marks.current?.clearLayers();
-    L.circleMarker([g.lat, g.lng], {
-      radius: 9,
-      color: "#fff",
-      weight: 2,
-      fillColor: taken ? "#f43f5e" : "#34d399",
-      fillOpacity: 1,
-    }).addTo(marks.current!);
-    map.current?.setView([g.lat, g.lng], Math.max(map.current.getZoom(), 9));
+    searched.current = { lat: g.lat, lng: g.lng, taken: hit !== null };
+    const src = map.current?.getSource("pin") as GeoJSONSource | undefined;
+    src?.setData(pin());
+    map.current?.flyTo({ center: [g.lng, g.lat], zoom: Math.max(map.current.getZoom(), 8.5) });
   }
 
   return (
