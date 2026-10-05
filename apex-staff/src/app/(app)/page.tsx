@@ -155,9 +155,9 @@ export default async function DashboardPage({
         </Card>
       ) : null}
 
-      {callUpdates.length > 0 ? (
+      {me.role === "admin" && callUpdates.length > 0 ? (
         <Card className="mt-6 border-sky-500/30 bg-sky-500/5">
-          <SectionTitle>Updates on {me.role === "closer" ? "your" : "upcoming"} calls</SectionTitle>
+          <SectionTitle>Updates on upcoming calls</SectionTitle>
           <ul className="space-y-2 text-sm">
             {callUpdates.map(({ c, moved, conf }) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
