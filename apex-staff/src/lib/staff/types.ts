@@ -43,6 +43,7 @@ export interface CallRow {
   confirmation_by: string | null;
   reschedule_url: string | null;
   recording_waived: boolean;
+  rescheduled_at: string | null;
 }
 
 export interface PaymentRow {
