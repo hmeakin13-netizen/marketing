@@ -100,11 +100,17 @@ export async function logOutcome(formData: FormData) {
     }
   }
 
+  // Notes are mandatory for any call that happened, same as the recording.
+  const notes = optStr(formData, "notes");
+  if (needsRecording(outcome) && (!notes || notes.trim().length < 5)) {
+    back(path, "error", "Call notes are required: what was discussed, what they decided and the next step.");
+  }
+
   const update: Record<string, unknown> = {
     outcome,
     outcome_logged_at: new Date().toISOString(),
     recording_url: recordingUrl,
-    notes: optStr(formData, "notes"),
+    notes,
   };
   // Whoever logs a closer's outcome and there's no closer yet becomes the closer.
   if (!call!.closer_id && me.role === "closer") update.closer_id = me.id;
@@ -815,6 +821,18 @@ export async function reapplyShifts() {
   }
   revalidatePath("/", "layout");
   back("/settings", "ok", `Re-applied shifts: ${changed} upcoming call${changed === 1 ? "" : "s"} reassigned.`);
+}
+
+/** Add the call notes to a call that's already been logged. */
+export async function addCallNotes(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const notes = str(formData, "notes").trim();
+  if (notes.length < 5) back("/attention", "error", "Write what was discussed, what they decided and the next step.");
+  const { data, error } = await supabase.from("calls").update({ notes }).eq("id", str(formData, "call_id")).select("id");
+  if (error) back("/attention", "error", error.message);
+  if (!data || data.length === 0) back("/attention", "error", "You can only add notes to your own calls.");
+  revalidatePath("/", "layout");
+  back("/attention", "ok", "Notes saved.");
 }
 
 /** Attach (or fix) the Fathom link on a call that's already been logged. */

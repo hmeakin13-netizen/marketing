@@ -6,7 +6,7 @@ import type { CallRow, CloseRow, ChaseRow, StaffRow } from "./types";
 export const RULES = {
   balanceChaseEveryDays: 3, // owed money must be chased at least this often
   overdueChaseEveryDays: 1, // once past the due date, chase daily
-  missingOutcomeAfterHours: 12, // call happened, nobody logged what happened
+  missingOutcomeAfterHours: 1, // call has finished, its owner must log the outcome + notes
   noShowChaseWithinHours: 24, // no-show must be followed up within a day
   followUpEveryDays: 3, // "follow up" calls must be chased this often
   followUpGiveUpAfterDays: 30,
@@ -20,6 +20,7 @@ export type FlagKind =
   | "no_show_unchased"
   | "follow_up_stale"
   | "missing_recording"
+  | "missing_notes"
   | "contract_unsigned";
 
 export interface Flag {
@@ -42,6 +43,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   no_show_unchased: "No-show not followed up",
   follow_up_stale: "Follow-up gone cold",
   missing_recording: "No Fathom recording",
+  missing_notes: "No call notes",
   contract_unsigned: "Contract not signed",
 };
 
@@ -147,9 +149,9 @@ export function computeFlags(
       flags.push({
         id: `mo-${c.id}`,
         kind: "missing_outcome",
-        severity: late >= 1 ? "high" : "medium",
+        severity: t - at >= 3 * 3600000 ? "high" : "medium",
         title: `${c.lead_name} — call happened, no outcome logged`,
-        detail: `${base}. Show / no-show / closed still unknown, so it's missing from the numbers.`,
+        detail: `${base}. Log the outcome, Fathom link and notes. Until you do, this call is missing from the numbers.`,
         ownerId: owner,
         daysLate: late,
         callId: c.id,
@@ -166,6 +168,19 @@ export function computeFlags(
         detail: `${base}. Logged as "${c.outcome.replace("_", " ")}" but no recording link was attached.`,
         ownerId: owner,
         daysLate: late,
+        callId: c.id,
+      });
+    }
+
+    if (needsRecording(c.outcome) && !(c.notes ?? "").trim() && at < t) {
+      flags.push({
+        id: `mn-${c.id}`,
+        kind: "missing_notes",
+        severity: "medium",
+        title: `${c.lead_name} — no call notes written up`,
+        detail: `${base}. Logged as "${c.outcome.replace("_", " ")}" but no notes were added.`,
+        ownerId: owner,
+        daysLate: days(t - at),
         callId: c.id,
       });
     }

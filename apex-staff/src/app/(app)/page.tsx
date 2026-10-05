@@ -37,14 +37,15 @@ export default async function DashboardPage({
   const myWeek = myRole ? computeStats(calls, closes, week.from, week.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
   const myMonth = myRole ? computeStats(calls, closes, month.from, month.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
 
-  // Calls that already happened but nobody has logged what happened.
+  // Calls that already happened but nobody has logged what happened. The closer on the call owns
+  // the outcome (the setter only if there's no closer yet); admin and managers see everyone's.
   const now = Date.now();
   const needsOutcome = calls
     .filter(
       (c) =>
         c.outcome === "scheduled" &&
         new Date(c.call_at).getTime() < now &&
-        (isManager(me.role) || c.closer_id === me.id || c.setter_id === me.id)
+        (isManager(me.role) || (c.closer_id ?? c.setter_id) === me.id)
     )
     .sort((a, b) => a.call_at.localeCompare(b.call_at));
 
@@ -106,7 +107,7 @@ export default async function DashboardPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-semibold text-amber-300">
-                {needsOutcome.length} call{needsOutcome.length === 1 ? "" : "s"} waiting for an outcome
+                {needsOutcome.length} call{needsOutcome.length === 1 ? "" : "s"} waiting for an outcome and notes
               </p>
               <p className="mt-1 text-sm text-zinc-400">
                 {needsOutcome

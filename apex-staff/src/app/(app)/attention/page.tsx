@@ -3,7 +3,7 @@ import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadFlags } from "@/lib/staff/data";
 import { FLAG_LABEL, RULES, type Flag } from "@/lib/staff/flags";
 import { nameOf } from "@/lib/staff/metrics";
-import { addRecording, logChase, markFollowUpLost } from "../../actions";
+import { addRecording, addCallNotes, logChase, markFollowUpLost } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, Stat, inputCls } from "@/components/staff/ui";
 
@@ -111,7 +111,7 @@ function Pill({ href, label, active, danger }: { href: string; label: string; ac
 }
 
 function FlagCard({ f, owner, showOwner }: { f: Flag; owner: string; showOwner: boolean }) {
-  const chaseable = f.kind !== "no_due_date" && f.kind !== "missing_outcome" && f.kind !== "missing_recording" && f.kind !== "contract_unsigned";
+  const chaseable = f.kind !== "no_due_date" && f.kind !== "missing_outcome" && f.kind !== "missing_recording" && f.kind !== "missing_notes" && f.kind !== "contract_unsigned";
   return (
     <Card className={f.severity === "high" ? "border-rose-500/30" : f.severity === "medium" ? "border-amber-500/20" : ""}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -132,6 +132,16 @@ function FlagCard({ f, owner, showOwner }: { f: Flag; owner: string; showOwner: 
             <input name="recording_url" type="url" required placeholder="https://fathom.video/share/…" className={inputCls} />
           </Field>
           <SubmitButton>Add recording</SubmitButton>
+        </form>
+      ) : null}
+
+      {f.kind === "missing_notes" && f.callId ? (
+        <form action={addCallNotes} className="mt-3 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="call_id" value={f.callId} />
+          <Field label="Call notes" className="min-w-[16rem] flex-1">
+            <textarea name="notes" required rows={3} placeholder="What was discussed, what they decided, next step…" className={inputCls} />
+          </Field>
+          <SubmitButton>Save notes</SubmitButton>
         </form>
       ) : null}
 

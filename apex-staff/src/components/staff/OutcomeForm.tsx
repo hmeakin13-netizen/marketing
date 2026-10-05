@@ -90,8 +90,15 @@ export function OutcomeForm({ callId, existingNotes }: { callId: string; existin
               <input name="recording_url" type="url" className={inputCls} placeholder="https://fathom.video/share/…" />
             </Field>
           )}
-          <Field label="Notes (optional)">
-            <input name="notes" defaultValue={existingNotes ?? ""} className={inputCls} placeholder="Objections, next steps…" />
+          <Field label={needsRecording(outcome) ? "Call notes * (required)" : "Notes (optional)"}>
+            <textarea
+              name="notes"
+              rows={3}
+              required={needsRecording(outcome)}
+              defaultValue={existingNotes ?? ""}
+              className={inputCls}
+              placeholder="What was discussed, objections, what they decided, next steps…"
+            />
           </Field>
           <SubmitButton>Save outcome</SubmitButton>
         </>
