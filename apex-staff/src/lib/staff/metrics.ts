@@ -43,12 +43,24 @@ export function computeStats(
   closes: CloseRow[],
   from: Date,
   to: Date,
-  by?: { staffId: string; role: "setter" | "closer" }
+  by?: { staffId: string; role: "setter" | "closer"; name?: string }
 ): Stats {
   const mine = (c: { setter_id: string | null; closer_id: string | null }) =>
     !by || (by.role === "setter" ? c.setter_id === by.staffId : c.closer_id === by.staffId);
 
-  const booked = calls.filter((c) => mine(c) && inRange(c.booked_at, from, to)).length;
+  // A setter's "calls booked" are the bookings that carry THEIR name as the source (the ones they
+  // booked by hand), counted on the day the booking was made. Shows/closes/cash still follow
+  // whoever is the setter on the call.
+  const bookedBySource = (c: { source: string | null }) => {
+    if (!by || by.role !== "setter" || !by.name) return null;
+    const src = (c.source ?? "").trim().toLowerCase();
+    return src === by.name.toLowerCase() || src === by.name.split(" ")[0].toLowerCase();
+  };
+  const booked = calls.filter((c) => {
+    if (!inRange(c.booked_at, from, to)) return false;
+    const viaSource = bookedBySource(c);
+    return viaSource === null ? mine(c) : viaSource;
+  }).length;
   const dueCalls = calls.filter((c) => mine(c) && inRange(c.call_at, from, to));
   const showed = dueCalls.filter((c) => SHOWED.has(c.outcome)).length;
   const noShow = dueCalls.filter((c) => c.outcome === "no_show").length;

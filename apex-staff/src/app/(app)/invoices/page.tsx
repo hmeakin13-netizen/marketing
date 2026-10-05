@@ -4,8 +4,8 @@ import { emailConfigured, INVOICE_TO } from "@/lib/email";
 import { invoiceNumber } from "@/lib/invoicePdf";
 import { fmtDate } from "@/lib/staff/dates";
 import { money, nameOf } from "@/lib/staff/metrics";
-import type { InvoiceRow, PayRow, StaffRow } from "@/lib/staff/types";
-import { generateInvoice, resendInvoice, setInvoiceStatus } from "../../actions";
+import type { CloseRow, InvoiceRow, PayRow, StaffRow } from "@/lib/staff/types";
+import { createSaleInvoices, generateInvoice, resendInvoice, setInvoiceStatus } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Notice, PageHeader, SectionTitle } from "@/components/staff/ui";
 
@@ -14,11 +14,13 @@ export const metadata = { title: "Invoices | Apex Team" };
 export default async function InvoicesPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase } = await requireRole("admin");
   const admin = createAdminClient();
-  const [{ data: inv }, { data: staffData }, { data: payData }] = await Promise.all([
+  const [{ data: inv }, { data: staffData }, { data: payData }, { data: closeData }] = await Promise.all([
     admin.from("invoices").select("*").order("seq", { ascending: false }).limit(200),
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
     supabase.from("staff_pay").select("*"),
+    supabase.from("closes").select("*, payments(*), calls(lead_name)").order("closed_at", { ascending: false }).limit(100),
   ]);
+  const sales = (closeData ?? []) as CloseRow[];
   const invoices = (inv ?? []) as InvoiceRow[];
   const staff = (staffData ?? []) as StaffRow[];
   const pays = new Map(((payData ?? []) as PayRow[]).map((p) => [p.staff_id, p]));
@@ -64,6 +66,29 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { o
             </form>
           ))}
         </div>
+      </Card>
+
+      <SectionTitle>Same-day sale invoice</SectionTitle>
+      <Card className="mb-8">
+        <p className="mb-3 text-sm text-zinc-400">
+          Sale payouts (closer commission and setter pay) are invoiced automatically the day a sale is paid in full and
+          its contract is signed. Use this to raise them yourself for a sale. Tick the box to pay out before it is fully
+          paid or signed.
+        </p>
+        <form action={createSaleInvoices} className="flex flex-wrap items-center gap-3">
+          <select name="close_id" required className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white">
+            <option value="">Choose a sale…</option>
+            {sales.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.calls?.lead_name ?? "Sale"} — {money(Number(c.deal_value))} ({fmtDate(c.closed_at)})
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-sm text-zinc-300">
+            <input type="checkbox" name="force" /> Pay out now anyway
+          </label>
+          <SubmitButton pendingText="Creating…">Create sale invoices</SubmitButton>
+        </form>
       </Card>
 
       <SectionTitle>All invoices ({invoices.length})</SectionTitle>

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { companyFromEnv, buildInvoicePdf, invoiceNumber } from "./invoicePdf";
 import { emailConfigured, sendEmail } from "./email";
 import { computeDealPayouts, computeRunPay, dealPayableOn } from "./staff/pay";
+import { todayIso } from "./staff/dates";
 import type { PayRun } from "./staff/dates";
 import type { CloseRow, InvoiceLine, InvoiceRow, PayRow, RetainerClient, StaffRow } from "./staff/types";
 
@@ -15,15 +16,24 @@ export async function createInvoice(
   staffId: string,
   run: PayRun
 ): Promise<{ invoice?: InvoiceRow; skipped?: "nothing_owed" | "exists" }> {
-  const [{ data: staff }, { data: cfg }, { data: clients }] = await Promise.all([
-    admin.from("staff").select("*").eq("id", staffId).single(),
+  const [{ data: allStaff }, { data: cfg }, { data: clients }, { data: closes }] = await Promise.all([
+    admin.from("staff").select("*"),
     admin.from("staff_pay").select("*").eq("staff_id", staffId).maybeSingle(),
     admin.from("retainer_clients").select("*"),
+    admin.from("closes").select("*, payments(*), calls(lead_name)").limit(2000),
   ]);
-  if (!staff) throw new Error("Staff member not found");
-  const s = staff as StaffRow;
+  const staffList = (allStaff ?? []) as StaffRow[];
+  const s = staffList.find((x) => x.id === staffId);
+  if (!s) throw new Error("Staff member not found");
 
-  const pay = computeRunPay(s, (cfg ?? undefined) as PayRow | undefined, run, (clients ?? []) as RetainerClient[]);
+  const pay = computeRunPay(
+    s,
+    (cfg ?? undefined) as PayRow | undefined,
+    run,
+    (clients ?? []) as RetainerClient[],
+    (closes ?? []) as CloseRow[],
+    staffList
+  );
   if (pay.total <= 0) return { skipped: "nothing_owed" };
 
   const lines: InvoiceLine[] = pay.lines;
@@ -55,7 +65,11 @@ export async function createInvoice(
  * (and email) one self-billing invoice per person owed something. Safe to call repeatedly: a
  * person is only ever invoiced once per sale, even if the invoice was later voided.
  */
-export async function issueDealInvoices(admin: SupabaseClient, closeId?: string): Promise<number> {
+export async function issueDealInvoices(
+  admin: SupabaseClient,
+  closeId?: string,
+  opts: { force?: boolean } = {}
+): Promise<number> {
   let q = admin.from("closes").select("*, payments(*), calls(lead_name)").limit(2000);
   if (closeId) q = q.eq("id", closeId);
   const [{ data: closes }, { data: staffData }, { data: payData }, { data: existing }] = await Promise.all([
@@ -70,7 +84,8 @@ export async function issueDealInvoices(admin: SupabaseClient, closeId?: string)
 
   let created = 0;
   for (const c of (closes ?? []) as CloseRow[]) {
-    const payableOn = dealPayableOn(c);
+    // "force" lets the admin pay out today even if the full payment or contract isn't in yet.
+    const payableOn = dealPayableOn(c) ?? (opts.force ? todayIso() : null);
     if (!payableOn) continue;
     const payouts = computeDealPayouts(c, staff, pays);
     for (const [staffId, lines] of Array.from(payouts.entries())) {

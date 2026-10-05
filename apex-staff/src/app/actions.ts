@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { midMonthRun, monthEndRun, parseUkLocal, todayIso } from "@/lib/staff/dates";
+import { dealWaitingFor } from "@/lib/staff/pay";
+import type { CloseRow } from "@/lib/staff/types";
 import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/recording";
 import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
@@ -792,4 +794,37 @@ export async function markContractSigned(formData: FormData) {
   await issuePayouts(closeId);
   revalidatePath("/", "layout");
   back("/deals", "ok", "Contract marked signed. If the full payment is in, the commission invoices have been created.");
+}
+
+/** Create the same-day invoices for one sale right now (admin). */
+export async function createSaleInvoices(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const path = "/invoices";
+  const closeId = str(formData, "close_id");
+  const force = formData.get("force") === "on";
+  if (!closeId) back(path, "error", "Pick a sale.");
+
+  const { data: close } = await supabase.from("closes").select("*, payments(*), calls(lead_name)").eq("id", closeId).single();
+  if (!close) back(path, "error", "Couldn't find that sale.");
+  const waiting = dealWaitingFor(close as CloseRow);
+  if (waiting && !force) {
+    back(path, "error", `Not payable yet: still waiting for ${waiting}. Tick "pay out now anyway" if you want to pay it today regardless.`);
+  }
+
+  let made = 0;
+  let failed: string | null = null;
+  try {
+    made = await issueDealInvoices(createAdminClient(), closeId, { force });
+  } catch (e) {
+    failed = e instanceof Error ? e.message : "unknown error";
+  }
+  if (failed) back(path, "error", failed);
+  revalidatePath("/", "layout");
+  back(
+    path,
+    "ok",
+    made > 0
+      ? `Created ${made} invoice${made === 1 ? "" : "s"} for that sale${emailConfigured() ? " and emailed them" : " (email isn't switched on yet, so download them below)"}.`
+      : "Nothing new to create: everyone owed on that sale already has an invoice (or nobody has a pay rate set)."
+  );
 }

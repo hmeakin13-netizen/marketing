@@ -20,7 +20,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
     .sort((a, b) => b.s.cash - a.s.cash || b.s.closed - a.s.closed);
   const setters = staff
     .filter((s) => s.active && s.role === "setter")
-    .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "setter" }) }))
+    .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "setter", name: p.full_name }) }))
     .sort((a, b) => b.s.booked - a.s.booked || b.s.cash - a.s.cash);
 
   const rowCls = (id: string) => (id === me.id ? "bg-emerald-500/10" : "");
