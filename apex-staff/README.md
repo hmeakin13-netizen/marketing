@@ -102,3 +102,6 @@ For a setter paid once per client they set (e.g. Kyle), leave Commission % at 0 
 
 ## Fixing who set / closed a call
 Admins can edit the setter and closer on any call (Calls page → "Edit setter / closer"); the deal behind it follows, so pay stays correct. Everyone else is blocked at the database level, not just in the UI. Settings → "Re-apply shifts to upcoming calls" re-picks the closer on every upcoming, unworked call from the shifts. When a closer logs a close with a monthly retainer, the client is added to the Clients list automatically.
+
+## Fathom recordings are mandatory
+Logging a call as **Closed**, **Showed – follow up** or **Showed – lost** requires a Fathom link (validated on the server, so it can't be skipped). No-shows and cancellations don't need one. Any such call without a link shows on **Needs attention** ("No Fathom recording", high priority after 2 days) with a box to add it, and as "no recording" in the Calls list.

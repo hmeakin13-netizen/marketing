@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { midMonthRun, monthEndRun, parseUkLocal, todayIso } from "@/lib/staff/dates";
+import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/recording";
 import { createInvoice, emailInvoice } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
 import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
@@ -78,10 +79,19 @@ export async function logOutcome(formData: FormData) {
     back(path, "error", "That call is already closed — edit the deal on the Deals page.");
   }
 
+  // A call that happened must have its Fathom recording attached. No exceptions.
+  let recordingUrl: string | null = optStr(formData, "recording_url");
+  if (needsRecording(outcome)) {
+    recordingUrl = cleanFathomUrl(recordingUrl ?? "");
+    if (!recordingUrl) {
+      back(path, "error", `The Fathom recording link is required, and it has to be a Fathom link. ${RECORDING_HELP}`);
+    }
+  }
+
   const update: Record<string, unknown> = {
     outcome,
     outcome_logged_at: new Date().toISOString(),
-    recording_url: optStr(formData, "recording_url"),
+    recording_url: recordingUrl,
     notes: optStr(formData, "notes"),
   };
   // Whoever logs a closer's outcome and there's no closer yet becomes the closer.
@@ -740,4 +750,20 @@ export async function reapplyShifts() {
   }
   revalidatePath("/", "layout");
   back("/settings", "ok", `Re-applied shifts: ${changed} upcoming call${changed === 1 ? "" : "s"} reassigned.`);
+}
+
+/** Attach (or fix) the Fathom link on a call that's already been logged. */
+export async function addRecording(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const url = cleanFathomUrl(str(formData, "recording_url"));
+  if (!url) back("/attention", "error", `That isn't a Fathom link. ${RECORDING_HELP}`);
+  const { data, error } = await supabase
+    .from("calls")
+    .update({ recording_url: url })
+    .eq("id", str(formData, "call_id"))
+    .select("id");
+  if (error) back("/attention", "error", error.message);
+  if (!data || data.length === 0) back("/attention", "error", "You can only add a recording to your own calls.");
+  revalidatePath("/", "layout");
+  back("/attention", "ok", "Recording added.");
 }

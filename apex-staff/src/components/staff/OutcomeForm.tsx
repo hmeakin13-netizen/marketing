@@ -4,6 +4,7 @@ import { useState } from "react";
 import { logOutcome } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import { Field, inputCls } from "./ui";
+import { needsRecording } from "@/lib/staff/recording";
 
 export function OutcomeForm({ callId, existingNotes }: { callId: string; existingNotes: string | null }) {
   const [outcome, setOutcome] = useState("");
@@ -70,14 +71,20 @@ export function OutcomeForm({ callId, existingNotes }: { callId: string; existin
 
       {outcome ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Notes (optional)">
-              <input name="notes" defaultValue={existingNotes ?? ""} className={inputCls} placeholder="Objections, next steps…" />
+          {needsRecording(outcome) ? (
+            <Field label="Fathom recording link * (required)">
+              <input
+                name="recording_url"
+                type="url"
+                required
+                className={inputCls}
+                placeholder="https://fathom.video/share/…"
+              />
             </Field>
-            <Field label="Recording link (optional, e.g. Fathom)">
-              <input name="recording_url" type="url" className={inputCls} placeholder="https://fathom.video/…" />
-            </Field>
-          </div>
+          ) : null}
+          <Field label="Notes (optional)">
+            <input name="notes" defaultValue={existingNotes ?? ""} className={inputCls} placeholder="Objections, next steps…" />
+          </Field>
           <SubmitButton>Save outcome</SubmitButton>
         </>
       ) : (

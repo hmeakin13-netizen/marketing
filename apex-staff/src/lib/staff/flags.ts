@@ -1,4 +1,5 @@
 import { owed, money, nameOf, paidTotal } from "./metrics";
+import { needsRecording } from "./recording";
 import type { CallRow, CloseRow, ChaseRow, StaffRow } from "./types";
 
 // How long before each thing counts as "dropped the ball". Tweak here.
@@ -17,7 +18,8 @@ export type FlagKind =
   | "no_due_date"
   | "missing_outcome"
   | "no_show_unchased"
-  | "follow_up_stale";
+  | "follow_up_stale"
+  | "missing_recording";
 
 export interface Flag {
   id: string;
@@ -38,6 +40,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   missing_outcome: "No outcome logged",
   no_show_unchased: "No-show not followed up",
   follow_up_stale: "Follow-up gone cold",
+  missing_recording: "No Fathom recording",
 };
 
 const DAY = 86400000;
@@ -128,6 +131,20 @@ export function computeFlags(
         severity: late >= 1 ? "high" : "medium",
         title: `${c.lead_name} — call happened, no outcome logged`,
         detail: `${base}. Show / no-show / closed still unknown, so it's missing from the numbers.`,
+        ownerId: owner,
+        daysLate: late,
+        callId: c.id,
+      });
+    }
+
+    if (needsRecording(c.outcome) && !c.recording_url && at < t) {
+      const late = days(t - at);
+      flags.push({
+        id: `mr-${c.id}`,
+        kind: "missing_recording",
+        severity: late >= 2 ? "high" : "medium",
+        title: `${c.lead_name} — no Fathom recording on this call`,
+        detail: `${base}. Logged as "${c.outcome.replace("_", " ")}" but no recording link was attached.`,
         ownerId: owner,
         daysLate: late,
         callId: c.id,
