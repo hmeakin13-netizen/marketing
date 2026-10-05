@@ -77,9 +77,9 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
         m.addSource("zones", { type: "geojson", data: zones() });
         m.addSource("centres", { type: "geojson", data: centres() });
         m.addSource("pin", { type: "geojson", data: pin() });
-        m.addLayer({ id: "zones-fill", type: "fill", source: "zones", paint: { "fill-color": "#f43f5e", "fill-opacity": 0.22 } });
-        m.addLayer({ id: "zones-line", type: "line", source: "zones", paint: { "line-color": "#fb7185", "line-width": 1.5, "line-dasharray": [3, 2] } });
-        m.addLayer({ id: "centres", type: "circle", source: "centres", paint: { "circle-radius": 4, "circle-color": "#f43f5e", "circle-stroke-color": "#fff", "circle-stroke-width": 1 } });
+        m.addLayer({ id: "zones-fill", type: "fill", source: "zones", paint: { "fill-color": "#f43f5e", "fill-opacity": 0.4 } });
+        m.addLayer({ id: "zones-line", type: "line", source: "zones", paint: { "line-color": "#fb7185", "line-width": 2, "line-dasharray": [3, 2] } });
+        m.addLayer({ id: "centres", type: "circle", source: "centres", paint: { "circle-radius": 6, "circle-color": "#f43f5e", "circle-stroke-color": "#fff", "circle-stroke-width": 1 } });
         m.addLayer({
           id: "pin",
           type: "circle",
@@ -108,7 +108,7 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       if (territories.length > 0) {
         const b = new ml.LngLatBounds();
         for (const t of territories) b.extend([t.lng, t.lat]);
-        m.fitBounds(b, { padding: 120, maxZoom: 8, animate: false });
+        m.fitBounds(b, { padding: 120, maxZoom: 9, animate: false });
       }
       map.current = m;
     })();
@@ -188,6 +188,21 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
         Red zones are taken. Anywhere outside them is free. {territories.length} active client area
         {territories.length === 1 ? "" : "s"}.
       </p>
+      {territories.length > 0 ? (
+        <ul className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-300">
+          {territories.map((t) => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => map.current?.flyTo({ center: [t.lng, t.lat], zoom: 9 })}
+                className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 hover:bg-rose-500/20"
+              >
+                {t.name} · {t.postcode} · {Number(t.radius_km)} km
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
