@@ -10,6 +10,8 @@ project and logins.
 
 - **Dashboard** – calls booked, calls taken, show rate, close rate, cash collected, cash forecast, setter handoff quality, results by campaign/source
 - **Needs attention** – auto-flags where the ball was dropped: unchased deposits/balances, overdue payments, calls with no outcome, no-shows never followed up, cold follow-ups. Staff log a chase with a note; managers see it by person
+- **Calendar** – week view of every booked call, with closer and outcome
+- **Settings** (admin) – connect Calendly, set closer shifts
 - **Calls** – book calls, log outcomes (closed / follow up / lost / no-show / cancelled), recording links
 - **Deals & cash** – deal value, payments received, what's still owed, due dates, overdue flags
 - **Leaderboard** – day / week / month, closers and setters
@@ -68,4 +70,11 @@ npm run dev
 ```
 
 ## Not built yet
-Calendly sync + calendar, GHL sync, daily dials form, Slack/email digest. Campaign/source is a manual field on each booked call for now.
+GHL sync, daily dials form, Slack/email digest. Campaign/source is a manual field on each booked call for now.
+
+## Calendly
+Settings → paste a Calendly personal access token → bookings and cancellations arrive automatically (webhook, Standard plan or above).
+- The **closer** is picked from the time of the call using the shifts set under Settings (UK time), so one shared event type works.
+- Tag a setter's link with `?utm_content=kyle` to credit them; `utm_campaign` (or `utm_source`) becomes the call's source.
+- Webhook endpoint: `/api/calendly/webhook` (public, but only accepts requests signed with the key stored at connect time).
+- Migrations: `0003` is applied in the live project as `staff_portal_6/7`; see `supabase/migrations/0003_calendly.sql`.

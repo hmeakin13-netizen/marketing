@@ -17,6 +17,7 @@ export interface StaffRow {
   role: StaffRole;
   active: boolean;
   calendly_email: string | null;
+  login_enabled: boolean;
   created_at: string;
   deactivated_at: string | null;
 }
@@ -134,4 +135,11 @@ export interface ChaseRow {
   chased_by: string | null;
   chased_by_email: string | null;
   chased_at: string;
+}
+
+export interface ShiftRow {
+  staff_id: string;
+  start_time: string; // "12:00:00"
+  end_time: string;
+  days: number[]; // ISO weekdays, 1 = Monday
 }

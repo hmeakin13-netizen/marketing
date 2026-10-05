@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/staff/auth";
 import { ROLE_LABEL, type StaffRow } from "@/lib/staff/types";
-import { addPerson, updatePerson } from "../../actions";
+import { addPerson, giveAccess, updatePerson } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
 
@@ -38,6 +38,10 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
           <div className="flex items-end">
             <SubmitButton pendingText="Adding…">Add person</SubmitButton>
           </div>
+          <label className="flex items-center gap-2 text-sm text-zinc-300 sm:col-span-4">
+            <input type="checkbox" name="give_login" defaultChecked className="accent-emerald-500" />
+            Give login now (untick to add them without access — you can switch it on later)
+          </label>
         </form>
         <p className="mt-3 text-xs text-zinc-500">
           They log in on the team login page with that email — no password, just an emailed link.
@@ -71,6 +75,13 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
                 <SubmitButton>Save</SubmitButton>
               </div>
             </form>
+            {!s.login_enabled ? (
+              <form action={giveAccess} className="mt-3 flex items-center gap-3">
+                <input type="hidden" name="staff_id" value={s.id} />
+                <Badge tone="warn">No login yet</Badge>
+                <button className="text-xs font-medium text-emerald-400 hover:text-emerald-300">Give access</button>
+              </form>
+            ) : null}
             {s.id !== me.id ? (
               <form action={updatePerson} className="mt-3">
                 <input type="hidden" name="staff_id" value={s.id} />

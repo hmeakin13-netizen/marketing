@@ -1,10 +1,13 @@
 "use server";
 
+import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseUkLocal } from "@/lib/staff/dates";
+import { cal, getConfig, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { StaffRole, PaymentType } from "@/lib/staff/types";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -295,27 +298,54 @@ export async function addPerson(formData: FormData) {
     await supabase.from("staff_pay").insert({ staff_id: created!.id, basis: DEFAULT_BASIS[role] });
   }
 
-  // Make sure a login exists (public sign-up is off, so we create it here).
-  try {
-    const admin = createAdminClient();
-    const { error } = await admin.auth.admin.createUser({ email, email_confirm: true });
-    if (error && !/already|registered|exists/i.test(error.message)) throw error;
-    await admin.auth.admin.listUsers().then(async ({ data }) => {
-      const u = data?.users.find((x) => x.email?.toLowerCase() === email);
-      if (u) await admin.auth.admin.updateUserById(u.id, { ban_duration: "none" });
-    });
-  } catch (e) {
-    back(
-      path,
-      "error",
-      `${fullName} was added but their login couldn't be created (${
-        e instanceof Error ? e.message : "unknown error"
-      }). Check SUPABASE_SERVICE_ROLE_KEY.`
-    );
+  // Optionally give them a login now (public sign-up is off, so we create it here).
+  // Leave "Give login now" unticked to add someone for attribution only.
+  const giveLogin = formData.get("give_login") === "on";
+  if (giveLogin) {
+    const failed = await createLogin(email);
+    if (failed) {
+      back(path, "error", `${fullName} was added but their login couldn't be created (${failed}). Check SUPABASE_SERVICE_ROLE_KEY.`);
+    }
+    await supabase.from("staff").update({ login_enabled: true }).eq("email", email);
+  } else {
+    await supabase.from("staff").update({ login_enabled: false }).eq("email", email);
   }
 
   revalidatePath("/", "layout");
-  back(path, "ok", `${fullName} added. Tell them to open the team login page and use ${email}.`);
+  back(
+    path,
+    "ok",
+    giveLogin
+      ? `${fullName} added. Tell them to open the team login page and use ${email}.`
+      : `${fullName} added with no login yet. Click "Give access" when you want them to be able to sign in.`
+  );
+}
+
+/** Creates (or un-bans) the Supabase Auth user. Returns an error message, or null on success. */
+async function createLogin(email: string): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.createUser({ email, email_confirm: true });
+    if (error && !/already|registered|exists/i.test(error.message)) return error.message;
+    const { data } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    const u = data?.users.find((x) => x.email?.toLowerCase() === email);
+    if (u) await admin.auth.admin.updateUserById(u.id, { ban_duration: "none" });
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : "unknown error";
+  }
+}
+
+export async function giveAccess(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const path = "/team";
+  const { data: person } = await supabase.from("staff").select("*").eq("id", str(formData, "staff_id")).single();
+  if (!person) back(path, "error", "Couldn't find that person.");
+  const failed = await createLogin(person!.email);
+  if (failed) back(path, "error", `Couldn't create the login: ${failed}`);
+  await supabase.from("staff").update({ login_enabled: true }).eq("id", person!.id);
+  revalidatePath("/", "layout");
+  back(path, "ok", `${person!.full_name} can now sign in with ${person!.email}.`);
 }
 
 export async function updatePerson(formData: FormData) {
@@ -379,4 +409,102 @@ export async function savePay(formData: FormData) {
   if (error) back("/pay", "error", error.message);
   revalidatePath("/pay");
   back("/pay", "ok", "Pay settings saved.");
+}
+
+// ------------------------------------------------------------------ calendly (admin)
+
+export async function connectCalendly(formData: FormData) {
+  await requireRole("admin");
+  const path = "/settings";
+  const token = str(formData, "token");
+  if (!token) back(path, "error", "Paste your Calendly personal access token.");
+
+  const h = headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const callback = `${proto}://${host}/api/calendly/webhook`;
+
+  let error: string | null = null;
+  let count = 0;
+  try {
+    const me = await cal<{ resource: { uri: string; current_organization: string } }>(token, "/users/me");
+    const organization = me.resource.current_organization;
+    const user = me.resource.uri;
+    const admin = createAdminClient();
+
+    // Replace any older subscription pointing at this site so we always know the signing key.
+    const existing = await cal<{ collection: { uri: string; callback_url: string }[] }>(
+      token,
+      `/webhook_subscriptions?organization=${encodeURIComponent(organization)}&scope=organization&count=100`
+    );
+    for (const w of existing.collection) {
+      if (w.callback_url === callback) await cal(token, w.uri, { method: "DELETE" });
+    }
+
+    const signing_key = crypto.randomBytes(32).toString("hex");
+    const created = await cal<{ resource: { uri: string } }>(token, "/webhook_subscriptions", {
+      method: "POST",
+      body: JSON.stringify({
+        url: callback,
+        events: ["invitee.created", "invitee.canceled"],
+        organization,
+        scope: "organization",
+        signing_key,
+      }),
+    });
+
+    const config: CalendlyConfig = {
+      token,
+      signing_key,
+      organization,
+      user,
+      webhook_uri: created.resource.uri,
+      connected_at: new Date().toISOString(),
+    };
+    await saveConfig(admin, config);
+    count = await syncUpcoming(admin, config);
+  } catch (e) {
+    error = e instanceof Error ? e.message : "unknown error";
+  }
+  if (error) back(path, "error", `Couldn't connect Calendly: ${error}`);
+  revalidatePath("/", "layout");
+  back(path, "ok", `Calendly connected. New bookings now arrive automatically; ${count} upcoming booking${count === 1 ? "" : "s"} imported.`);
+}
+
+export async function syncCalendly() {
+  await requireRole("admin", "manager");
+  const admin = createAdminClient();
+  const config = await getConfig(admin);
+  if (!config) back("/settings", "error", "Calendly isn't connected yet.");
+  let count = 0;
+  let error: string | null = null;
+  try {
+    count = await syncUpcoming(admin, config!);
+  } catch (e) {
+    error = e instanceof Error ? e.message : "unknown error";
+  }
+  if (error) back("/settings", "error", `Sync failed: ${error}`);
+  revalidatePath("/", "layout");
+  back("/settings", "ok", `Synced ${count} upcoming booking${count === 1 ? "" : "s"}.`);
+}
+
+export async function saveShift(formData: FormData) {
+  const { supabase } = await requireRole("admin", "manager");
+  const staffId = str(formData, "staff_id");
+  if (formData.get("clear") === "1") {
+    await supabase.from("closer_shifts").delete().eq("staff_id", staffId);
+    revalidatePath("/", "layout");
+    back("/settings", "ok", "Shift cleared.");
+  }
+  const start = str(formData, "start_time");
+  const end = str(formData, "end_time");
+  const days = [1, 2, 3, 4, 5, 6, 7].filter((d) => formData.get(`d${d}`) === "on");
+  if (!start || !end || end <= start) back("/settings", "error", "Pick a start time that's before the end time.");
+  if (days.length === 0) back("/settings", "error", "Pick at least one day.");
+  const { error } = await supabase
+    .from("closer_shifts")
+    .upsert({ staff_id: staffId, start_time: start, end_time: end, days }, { onConflict: "staff_id" });
+  if (error) back("/settings", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/settings", "ok", "Shift saved.");
 }
