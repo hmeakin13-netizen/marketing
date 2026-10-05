@@ -405,12 +405,14 @@ export async function savePay(formData: FormData) {
   const pct = num(formData, "commission_pct");
   const ovr = num(formData, "override_pct");
   const ret = num(formData, "retainer_monthly");
+  const share = num(formData, "retainer_share_pct");
   const { error } = await supabase.from("staff_pay").upsert(
     {
       staff_id: str(formData, "staff_id"),
       commission_pct: Number.isNaN(pct) ? 0 : pct,
       basis: str(formData, "basis"),
       retainer_monthly: Number.isNaN(ret) ? 0 : ret,
+      retainer_share_pct: Number.isNaN(share) ? 0 : share,
       override_pct: Number.isNaN(ovr) ? 0 : ovr,
       override_basis: str(formData, "override_basis") === "cash" ? "cash" : "deal_value",
       pay_schedule: str(formData, "pay_schedule") === "semi_monthly" ? "semi_monthly" : "monthly",
@@ -578,4 +580,94 @@ export async function saveShift(formData: FormData) {
   if (error) back("/settings", "error", error.message);
   revalidatePath("/", "layout");
   back("/settings", "ok", "Shift saved.");
+}
+
+// ------------------------------------------------------------------ retainer clients (admin)
+
+export async function addClient(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const path = "/clients";
+  const fee = num(formData, "monthly_fee");
+  const closeId = optStr(formData, "close_id");
+
+  let name = str(formData, "name");
+  let closerId = optStr(formData, "closer_id");
+  let setterId = optStr(formData, "setter_id");
+  let startDate = optStr(formData, "start_date");
+
+  // Pre-fill anything left blank from the closed deal it came from.
+  if (closeId) {
+    const { data: deal } = await supabase
+      .from("closes")
+      .select("closer_id, setter_id, closed_at, calls(lead_name)")
+      .eq("id", closeId)
+      .single();
+    if (deal) {
+      name ||= (deal.calls as unknown as { lead_name?: string } | null)?.lead_name ?? "";
+      closerId ||= deal.closer_id;
+      setterId ||= deal.setter_id;
+      startDate ||= String(deal.closed_at).slice(0, 10);
+    }
+  }
+  if (!name) back(path, "error", "Add the client's name.");
+  if (!startDate) back(path, "error", "Add the date they signed.");
+  if (Number.isNaN(fee) || fee < 0) back(path, "error", "Add their monthly retainer (£).");
+  if (!closerId) back(path, "error", "Pick who closed them.");
+
+  const billing = parseInt(str(formData, "billing_day"), 10);
+  const billingDay = billing >= 1 && billing <= 31 ? billing : Number(startDate!.slice(8, 10));
+
+  const { error } = await supabase.from("retainer_clients").insert({
+    name,
+    closer_id: closerId,
+    setter_id: setterId,
+    close_id: closeId,
+    monthly_fee: fee,
+    start_date: startDate,
+    billing_day: billingDay,
+    notes: optStr(formData, "notes"),
+  });
+  if (error) back(path, "error", error.message);
+  revalidatePath("/", "layout");
+  back(path, "ok", `${name} added.`);
+}
+
+export async function updateClient(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const fee = num(formData, "monthly_fee");
+  if (Number.isNaN(fee) || fee < 0) back("/clients", "error", "Enter the monthly retainer.");
+  const billing = parseInt(str(formData, "billing_day"), 10);
+  const { error } = await supabase
+    .from("retainer_clients")
+    .update({
+      monthly_fee: fee,
+      billing_day: billing >= 1 && billing <= 31 ? billing : 1,
+      closer_id: optStr(formData, "closer_id"),
+      setter_id: optStr(formData, "setter_id"),
+      notes: optStr(formData, "notes"),
+    })
+    .eq("id", str(formData, "client_id"));
+  if (error) back("/clients", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", "Client updated.");
+}
+
+export async function endClient(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const leftOn = optStr(formData, "end_date") ?? new Date().toISOString().slice(0, 10);
+  const { error } = await supabase
+    .from("retainer_clients")
+    .update({ end_date: leftOn })
+    .eq("id", str(formData, "client_id"));
+  if (error) back("/clients", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", "Client ended. Nothing further is owed on them from the next payment onwards.");
+}
+
+export async function reinstateClient(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const { error } = await supabase.from("retainer_clients").update({ end_date: null }).eq("id", str(formData, "client_id"));
+  if (error) back("/clients", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", "Client reinstated.");
 }
