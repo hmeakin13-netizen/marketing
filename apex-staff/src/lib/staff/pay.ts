@@ -109,8 +109,8 @@ export function computeRunPay(
         const newClients = clients.filter(
           (c) => c.setter_id && managed.includes(c.setter_id) && c.start_date >= fromD && c.start_date < toD
         );
-        for (const c of newClients) overBase += Number(c.monthly_fee);
-        what = `new clients set by ${names}: ${newClients.map((c) => c.name).join(", ")}`;
+        for (const c of newClients) overBase += Number(c.setup_fee);
+        what = `setup fees of new clients set by ${names}: ${newClients.filter((c) => Number(c.setup_fee) > 0).map((c) => c.name).join(", ")}`;
       } else {
         const byCash = mode === "cash";
         for (const c of closes) {

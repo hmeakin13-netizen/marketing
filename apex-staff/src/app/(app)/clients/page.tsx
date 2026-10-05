@@ -101,8 +101,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
           <Field label="Client name">
             <input name="name" className={inputCls} placeholder="Sam McCann" />
           </Field>
+          <Field label="Setup fee (£, one-time)">
+            <input name="setup_fee" inputMode="decimal" className={inputCls} placeholder="1500" />
+          </Field>
           <Field label="Monthly retainer (£) *">
-            <input name="monthly_fee" inputMode="decimal" required className={inputCls} />
+            <input name="monthly_fee" inputMode="decimal" required className={inputCls} placeholder="1000" />
           </Field>
           <Field label="Closed by">
             <select name="closer_id" className={inputCls} defaultValue="">
@@ -162,11 +165,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                       </>
                     ) : null}
                   </p>
-                  {mgr && mgrPct > 0 && mgrBasisClient ? (
+                  {mgr && mgrPct > 0 && mgrBasisClient && Number(c.setup_fee) > 0 ? (
                     <p className="mt-1 text-sm text-zinc-300">
                       {mgr.full_name} also earns a one-time{" "}
-                      <b className="text-emerald-400">{money((Number(c.monthly_fee) * mgrPct) / 100)}</b> ({mgrPct}% override
-                      because {setter?.full_name} set this client), paid at the end of the month they signed.
+                      <b className="text-emerald-400">{money((Number(c.setup_fee) * mgrPct) / 100)}</b> ({mgrPct}% of the{" "}
+                      {money(Number(c.setup_fee))} setup fee, because {setter?.full_name} set this client), paid on the 1st after the
+                      month they signed.
                     </p>
                   ) : null}
                   {!cfg || Number(cfg.retainer_share_pct) === 0 ? (
@@ -178,12 +182,18 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                 <p className="text-right text-lg font-semibold tabular-nums text-white">
                   {money(Number(c.monthly_fee))}
                   <span className="text-xs font-normal text-zinc-500"> /mo</span>
+                  {Number(c.setup_fee) > 0 ? (
+                    <span className="block text-xs font-normal text-zinc-500">+ {money(Number(c.setup_fee))} setup (one-time)</span>
+                  ) : null}
                 </p>
               </div>
               <details className="mt-3 rounded-xl border border-white/10 p-3">
                 <summary className="cursor-pointer text-sm font-medium text-zinc-300">Edit or end this client</summary>
-                <form action={updateClient} className="mt-3 grid gap-3 sm:grid-cols-5">
+                <form action={updateClient} className="mt-3 grid gap-3 sm:grid-cols-6">
                   <input type="hidden" name="client_id" value={c.id} />
+                  <Field label="Setup fee (£)">
+                    <input name="setup_fee" inputMode="decimal" defaultValue={String(c.setup_fee)} className={inputCls} />
+                  </Field>
                   <Field label="Monthly retainer (£)">
                     <input name="monthly_fee" inputMode="decimal" defaultValue={String(c.monthly_fee)} className={inputCls} />
                   </Field>

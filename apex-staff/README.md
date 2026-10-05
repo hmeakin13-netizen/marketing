@@ -85,7 +85,7 @@ Settings → paste a Calendly personal access token → bookings and cancellatio
 Set per person under **Pay & commission**:
 - **Retainer / flat fee** – fixed £ per month, paid on the 1st.
 - **Commission %** on cash collected, either once a month (the 1st) or **twice a month**: sales from the **1st–14th are paid on the 15th**; sales from the **15th–month end are paid on the 1st**.
-- **Override %** for a manager (e.g. Jish's 5%): set "Reports to" on each setter on the Team page, then enter the % on the manager's pay card. It is **automatic and one-time**: every new client a managed setter set (from the Clients list) earns the manager the % of that client's monthly fee, paid on the 1st after the month they signed. (Alternative bases: deal value of sales logged on Calls, or cash collected.)
+- **Override %** for a manager (e.g. Jish's 5%): set "Reports to" on each setter on the Team page, then enter the % on the manager's pay card. It is **automatic and one-time**: every new client a managed setter set (from the Clients list) earns the manager the % of that client's one-time setup fee, paid on the 1st after the month they signed. (Alternative bases: deal value of sales logged on Calls, or cash collected.)
 
 A daily job (`vercel.json` cron → `/api/cron/invoices`) creates one self-billing invoice per person per pay run and emails the PDF to `INVOICE_TO` (default info@apex-leads.co.uk). It's safe to run repeatedly: one invoice per person per run.
 

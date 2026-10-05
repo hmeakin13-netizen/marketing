@@ -183,7 +183,8 @@ export interface RetainerClient {
   closer_id: string | null;
   setter_id: string | null;
   close_id: string | null;
-  monthly_fee: number;
+  setup_fee: number; // one-time
+  monthly_fee: number; // recurring retainer
   start_date: string; // YYYY-MM-DD
   billing_day: number;
   end_date: string | null;

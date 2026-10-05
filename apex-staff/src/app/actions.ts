@@ -587,6 +587,7 @@ export async function addClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const path = "/clients";
   const fee = num(formData, "monthly_fee");
+  const setup = num(formData, "setup_fee");
   const closeId = optStr(formData, "close_id");
 
   let name = str(formData, "name");
@@ -622,6 +623,7 @@ export async function addClient(formData: FormData) {
     setter_id: setterId,
     close_id: closeId,
     monthly_fee: fee,
+    setup_fee: Number.isNaN(setup) || setup < 0 ? 0 : setup,
     start_date: startDate,
     billing_day: billingDay,
     notes: optStr(formData, "notes"),
@@ -636,10 +638,12 @@ export async function updateClient(formData: FormData) {
   const fee = num(formData, "monthly_fee");
   if (Number.isNaN(fee) || fee < 0) back("/clients", "error", "Enter the monthly retainer.");
   const billing = parseInt(str(formData, "billing_day"), 10);
+  const setupFee = num(formData, "setup_fee");
   const { error } = await supabase
     .from("retainer_clients")
     .update({
       monthly_fee: fee,
+      setup_fee: Number.isNaN(setupFee) || setupFee < 0 ? 0 : setupFee,
       billing_day: billing >= 1 && billing <= 31 ? billing : 1,
       closer_id: optStr(formData, "closer_id"),
       setter_id: optStr(formData, "setter_id"),

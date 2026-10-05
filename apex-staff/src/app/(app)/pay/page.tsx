@@ -133,7 +133,7 @@ export default async function PayPage({
                 </Field>
                 <Field label="Override calculated on">
                   <select name="override_basis" defaultValue={cfg?.override_basis ?? "client_fee"} className={inputCls}>
-                    <option value="client_fee">New client monthly fee (from the Clients list, automatic)</option>
+                    <option value="client_fee">Setup fee of new clients (from the Clients list, automatic)</option>
                     <option value="deal_value">Deal value of sales logged on Calls</option>
                     <option value="cash">Cash collected on those sales</option>
                   </select>
