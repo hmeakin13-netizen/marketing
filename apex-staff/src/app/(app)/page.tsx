@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
 import { parseRange, rangeBounds, fmtDateTime } from "@/lib/staff/dates";
-import { computeStats, money, outstanding, pct } from "@/lib/staff/metrics";
+import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
+import { CONFIRMATION_LABEL } from "@/lib/staff/types";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
 import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
@@ -48,6 +49,12 @@ export default async function DashboardPage({
         (isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer"))
     )
     .sort((a, b) => a.call_at.localeCompare(b.call_at));
+
+  // Next calls coming up (a closer sees their own), with whether the setter has confirmed them.
+  const nextCalls = calls
+    .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now && (me.role !== "closer" || c.closer_id === me.id))
+    .sort((a, b) => a.call_at.localeCompare(b.call_at))
+    .slice(0, 6);
 
   // Campaign / source performance for the selected range.
   const sources = new Map<string, { calls: number; showed: number; closed: number }>();
@@ -121,6 +128,27 @@ export default async function DashboardPage({
               Log outcomes
             </Link>
           </div>
+        </Card>
+      ) : null}
+
+      {nextCalls.length > 0 ? (
+        <Card className="mt-6">
+          <SectionTitle>{me.role === "closer" ? "Your next calls" : "Next calls"}</SectionTitle>
+          <ul className="divide-y divide-white/5 text-sm">
+            {nextCalls.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-zinc-100">
+                  {c.lead_name} <span className="text-xs text-zinc-500">· {fmtDateTime(c.call_at)} · {nameOf(staff, c.closer_id)}</span>
+                </span>
+                <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
+                  {CONFIRMATION_LABEL[c.confirmation]}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+          <Link href="/calls" className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
+            All calls →
+          </Link>
         </Card>
       ) : null}
 
