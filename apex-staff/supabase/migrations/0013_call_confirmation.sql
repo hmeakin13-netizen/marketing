@@ -12,3 +12,6 @@ alter table public.calls add column if not exists reschedule_url text;
 
 -- Admin can waive the Fathom requirement for a one-off call (e.g. a sale entered after the fact). Applied live.
 alter table public.calls add column if not exists recording_waived boolean not null default false;
+
+-- When Calendly moved a call to a new time, so the closer can be shown an "updated" notice. Applied live.
+alter table public.calls add column if not exists rescheduled_at timestamptz;

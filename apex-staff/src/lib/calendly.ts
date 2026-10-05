@@ -191,6 +191,7 @@ export async function upsertInvitee(admin: SupabaseClient, inv: Invitee, opts: {
       };
       if (timeChanged) {
         // New time: it needs confirming again, and the closer on shift may be different.
+        update.rescheduled_at = new Date().toISOString();
         update.confirmation = "unconfirmed";
         update.confirmation_note = null;
         update.confirmation_at = null;

@@ -56,6 +56,21 @@ export default async function DashboardPage({
     .sort((a, b) => a.call_at.localeCompare(b.call_at))
     .slice(0, 6);
 
+  // Recent changes to upcoming calls (confirmed, no answer, moved to a new time) so the closer
+  // on the call sees them without having to go looking. Shows for 48 hours.
+  const cutoff = now - 48 * 3600000;
+  const callUpdates = calls
+    .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now && (me.role !== "closer" || c.closer_id === me.id))
+    .map((c) => {
+      const moved = c.rescheduled_at && new Date(c.rescheduled_at).getTime() >= cutoff ? c.rescheduled_at : null;
+      const conf = c.confirmation !== "unconfirmed" && c.confirmation_at && new Date(c.confirmation_at).getTime() >= cutoff ? c.confirmation_at : null;
+      const at = [moved, conf].filter(Boolean).sort().pop() ?? null;
+      return { c, moved: !!moved, conf: !!conf, at };
+    })
+    .filter((x) => x.at)
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+    .slice(0, 8);
+
   // Campaign / source performance for the selected range.
   const sources = new Map<string, { calls: number; showed: number; closed: number }>();
   for (const c of calls) {
@@ -128,6 +143,30 @@ export default async function DashboardPage({
               Log outcomes
             </Link>
           </div>
+        </Card>
+      ) : null}
+
+      {callUpdates.length > 0 ? (
+        <Card className="mt-6 border-sky-500/30 bg-sky-500/5">
+          <SectionTitle>Updates on {me.role === "closer" ? "your" : "upcoming"} calls</SectionTitle>
+          <ul className="space-y-2 text-sm">
+            {callUpdates.map(({ c, moved, conf }) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-zinc-100">
+                  {c.lead_name} <span className="text-xs text-zinc-500">· {fmtDateTime(c.call_at)} · {nameOf(staff, c.closer_id)}</span>
+                </span>
+                <span className="flex flex-wrap items-center gap-2">
+                  {moved ? <Badge tone="warn">Moved to a new time</Badge> : null}
+                  {conf ? (
+                    <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
+                      {CONFIRMATION_LABEL[c.confirmation]}
+                      {c.confirmation_note ? ` — ${c.confirmation_note}` : ""}
+                    </Badge>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
         </Card>
       ) : null}
 
