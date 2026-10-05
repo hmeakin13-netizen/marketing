@@ -6,7 +6,9 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseUkLocal } from "@/lib/staff/dates";
+import { midMonthRun, monthEndRun, parseUkLocal } from "@/lib/staff/dates";
+import { createInvoice, emailInvoice } from "@/lib/invoices";
+import { emailConfigured } from "@/lib/email";
 import { cal, getConfig, getStored, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { StaffRole, PaymentType } from "@/lib/staff/types";
 
@@ -384,7 +386,12 @@ export async function updatePerson(formData: FormData) {
   if (person!.id === me.id && role !== "admin") back(path, "error", "You can't change your own role.");
   const { error } = await supabase
     .from("staff")
-    .update({ role, full_name: fullName, calendly_email: optStr(formData, "calendly_email") })
+    .update({
+      role,
+      full_name: fullName,
+      calendly_email: optStr(formData, "calendly_email"),
+      manager_id: optStr(formData, "manager_id"),
+    })
     .eq("id", id);
   if (error) back(path, "error", error.message);
   revalidatePath("/", "layout");
@@ -396,19 +403,82 @@ export async function updatePerson(formData: FormData) {
 export async function savePay(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const pct = num(formData, "commission_pct");
-  const base = num(formData, "base_pay_weekly");
+  const ovr = num(formData, "override_pct");
+  const ret = num(formData, "retainer_monthly");
   const { error } = await supabase.from("staff_pay").upsert(
     {
       staff_id: str(formData, "staff_id"),
       commission_pct: Number.isNaN(pct) ? 0 : pct,
-      base_pay_weekly: Number.isNaN(base) ? 0 : base,
       basis: str(formData, "basis"),
+      retainer_monthly: Number.isNaN(ret) ? 0 : ret,
+      override_pct: Number.isNaN(ovr) ? 0 : ovr,
+      override_basis: str(formData, "override_basis") === "cash" ? "cash" : "deal_value",
+      pay_schedule: str(formData, "pay_schedule") === "semi_monthly" ? "semi_monthly" : "monthly",
+      payee_name: optStr(formData, "payee_name"),
+      payee_address: optStr(formData, "payee_address"),
+      vat_number: optStr(formData, "vat_number"),
+      agreement_date: optStr(formData, "agreement_date"),
     },
     { onConflict: "staff_id" }
   );
   if (error) back("/pay", "error", error.message);
   revalidatePath("/pay");
   back("/pay", "ok", "Pay settings saved.");
+}
+
+// ------------------------------------------------------------------ invoices (admin)
+
+export async function generateInvoice(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const path = "/invoices";
+  const staffId = str(formData, "staff_id");
+  const { data: cfg } = await supabase.from("staff_pay").select("pay_schedule").eq("staff_id", staffId).maybeSingle();
+  const schedule = cfg?.pay_schedule === "semi_monthly" ? "semi_monthly" : "monthly";
+  const run = str(formData, "which") === "mid_month" ? midMonthRun() : monthEndRun(schedule);
+
+  let message = "";
+  let failed: string | null = null;
+  try {
+    const admin = createAdminClient();
+    const res = await createInvoice(admin, staffId, run);
+    if (res.skipped === "nothing_owed") message = `Nothing owed for ${run.label}, so no invoice was created.`;
+    else if (res.skipped === "exists") message = `An invoice for ${run.label} already exists.`;
+    else if (res.invoice) {
+      const err = emailConfigured() ? await emailInvoice(admin, res.invoice) : "email not set up yet";
+      message = err
+        ? `Invoice created for ${run.label}, but it wasn't emailed (${err}). You can download it below.`
+        : `Invoice created for ${run.label} and emailed.`;
+    }
+  } catch (e) {
+    failed = e instanceof Error ? e.message : "unknown error";
+  }
+  if (failed) back(path, "error", failed);
+  revalidatePath("/invoices");
+  back(path, "ok", message);
+}
+
+export async function resendInvoice(formData: FormData) {
+  await requireRole("admin");
+  const admin = createAdminClient();
+  const { data: inv } = await admin.from("invoices").select("*").eq("id", str(formData, "invoice_id")).single();
+  if (!inv) back("/invoices", "error", "Couldn't find that invoice.");
+  const err = await emailInvoice(admin, inv!);
+  revalidatePath("/invoices");
+  if (err) back("/invoices", "error", `Not emailed: ${err}`);
+  back("/invoices", "ok", "Invoice emailed.");
+}
+
+export async function setInvoiceStatus(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const status = str(formData, "status");
+  if (!["issued", "paid", "void"].includes(status)) back("/invoices", "error", "Bad status.");
+  const { error } = await supabase
+    .from("invoices")
+    .update({ status, paid_at: status === "paid" ? new Date().toISOString() : null })
+    .eq("id", str(formData, "invoice_id"));
+  if (error) back("/invoices", "error", error.message);
+  revalidatePath("/invoices");
+  back("/invoices", "ok", status === "void" ? "Invoice voided — you can generate a new one for that period." : "Updated.");
 }
 
 // ------------------------------------------------------------------ calendly (admin)

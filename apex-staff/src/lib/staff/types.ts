@@ -18,6 +18,7 @@ export interface StaffRow {
   active: boolean;
   calendly_email: string | null;
   login_enabled: boolean;
+  manager_id: string | null;
   created_at: string;
   deactivated_at: string | null;
 }
@@ -82,7 +83,38 @@ export interface PayRow {
   staff_id: string;
   commission_pct: number;
   basis: "own_closes" | "own_bookings" | "team_cash";
-  base_pay_weekly: number;
+  base_pay_weekly: number; // legacy, unused
+  retainer_monthly: number;
+  override_pct: number;
+  override_basis: "deal_value" | "cash";
+  pay_schedule: "monthly" | "semi_monthly";
+  payee_name: string | null;
+  payee_address: string | null;
+  vat_number: string | null;
+  agreement_date: string | null;
+}
+
+export interface InvoiceLine {
+  description: string;
+  amount: number;
+}
+
+export interface InvoiceRow {
+  id: string;
+  seq: number;
+  staff_id: string;
+  period_start: string;
+  period_end: string;
+  period_label: string;
+  lines: InvoiceLine[];
+  subtotal: number;
+  vat: number;
+  total: number;
+  status: "issued" | "paid" | "void";
+  emailed_at: string | null;
+  email_error: string | null;
+  paid_at: string | null;
+  created_at: string;
 }
 
 export interface AuditRow {

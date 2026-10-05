@@ -18,7 +18,8 @@ project and logins.
 - **Targets** – per-person weekly and monthly KPIs with progress bars
 - **Audit trail** – every change to calls, deals and payments (managers + admin)
 - **Team** – add / remove people, change roles (admin only)
-- **Pay & commission** – admin only
+- **Pay & commission** – admin only: retainer/flat fee, commission (paid on the 1st and/or the 15th), and an override on the setters someone manages
+- **Invoices** – admin only: self-billing invoices (PDF) created automatically each pay run and emailed to the business inbox
 
 | | Admin | Manager | Closer | Setter |
 |---|---|---|---|---|
@@ -78,3 +79,13 @@ Settings → paste a Calendly personal access token → bookings and cancellatio
 - Tag a setter's link with `?utm_content=kyle` to credit them; `utm_campaign` (or `utm_source`) becomes the call's source.
 - Webhook endpoint: `/api/calendly/webhook` (public, but only accepts requests signed with the key stored at connect time).
 - Migrations: `0003` is applied in the live project as `staff_portal_6/7`; see `supabase/migrations/0003_calendly.sql`.
+
+## Pay runs and self-billing invoices
+Set per person under **Pay & commission**:
+- **Retainer / flat fee** – fixed £ per month, paid on the 1st.
+- **Commission %** on cash collected, either once a month (the 1st) or **twice a month**: sales from the **1st–14th are paid on the 15th**; sales from the **15th–month end are paid on the 1st**.
+- **Override %** on sales set by the setters someone manages (set "Reports to" on the Team page), paid on the 1st for the month just ended; calculated on deal value of new sales or on cash collected.
+
+A daily job (`vercel.json` cron → `/api/cron/invoices`) creates one self-billing invoice per person per pay run and emails the PDF to `INVOICE_TO` (default info@apex-leads.co.uk). It's safe to run repeatedly: one invoice per person per run.
+
+Environment variables for invoices: `CRON_SECRET` (protects the job), `RESEND_API_KEY` + `EMAIL_FROM` (to send email), optional `INVOICE_TO`, `COMPANY_NAME`, `COMPANY_ADDRESS`, `COMPANY_VAT`.
