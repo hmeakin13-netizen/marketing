@@ -69,6 +69,24 @@ No custom admin UI exists for this by design — v1 creates clients by hand:
 
 That's the whole flow — no code changes or redeploys needed per client.
 
+### If a new client can't log in ("Signups not allowed")
+
+Supabase's invite link expires after about an hour. If the client clicks it late
+(or never), their account stays **unconfirmed**, and the normal `/login` page then
+refuses them with *"Signups not allowed for this instance"*. Nothing is broken.
+The account just needs confirming:
+
+- **Easiest prevention:** in step 2 use **Authentication > Users > Add user >
+  Create new user**, enter their email, and tick **Auto Confirm User**. They can then
+  log in from `/login` at any time, with no invite link to expire.
+- **Already invited and stuck?** Run this in the SQL editor (swap in their email):
+  ```sql
+  update auth.users set email_confirmed_at = now()
+  where lower(email) = lower('client@example.com') and email_confirmed_at is null;
+  ```
+  Then ask them to use `/login` and request a fresh link.
+
+
 ## How the Live Updates feed works
 
 Each client's Notion page is fetched fresh on every dashboard load. The
