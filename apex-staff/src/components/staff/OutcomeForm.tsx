@@ -62,6 +62,9 @@ export function OutcomeForm({ callId, existingNotes }: { callId: string; existin
               <input name="next_payment_due" type="date" className={inputCls} />
             </Field>
           ) : null}
+          <Field label="Monthly retainer (£), if they're staying on" className="sm:col-span-2">
+            <input name="monthly_retainer" inputMode="decimal" className={inputCls} placeholder="1000 — leave blank if it's a one-off" />
+          </Field>
         </div>
       ) : null}
 

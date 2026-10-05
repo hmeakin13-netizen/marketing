@@ -2,7 +2,7 @@ import { requireStaff, isManager } from "@/lib/staff/auth";
 import { fmtDateTime, toUkLocalInput } from "@/lib/staff/dates";
 import { nameOf } from "@/lib/staff/metrics";
 import { OUTCOME_LABEL, type CallRow, type CallOutcome, type StaffRow } from "@/lib/staff/types";
-import { bookCall } from "../../actions";
+import { assignCall, bookCall } from "../../actions";
 import { OutcomeForm } from "@/components/staff/OutcomeForm";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
@@ -121,6 +121,7 @@ export default async function CallsPage({
                   </div>
                   <Badge tone="warn">Needs outcome</Badge>
                 </div>
+                {me.role === "admin" ? <div className="mb-3"><AssignForm call={c} staff={staff} /></div> : null}
                 <OutcomeForm callId={c.id} existingNotes={c.notes} />
               </Card>
             ))}
@@ -133,12 +134,42 @@ export default async function CallsPage({
       ) : null}
 
       <SectionTitle>Upcoming ({upcoming.length})</SectionTitle>
-      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." />
+      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} />
 
       <div className="mt-8" />
       <SectionTitle>Recent results</SectionTitle>
-      <CallList calls={done} staff={staff} empty="No results logged yet." showOutcome />
+      <CallList calls={done} staff={staff} empty="No results logged yet." showOutcome admin={me.role === "admin"} />
     </>
+  );
+}
+
+function AssignForm({ call, staff }: { call: CallRow; staff: StaffRow[] }) {
+  return (
+    <details className="inline-block text-left">
+      <summary className="cursor-pointer text-xs font-medium text-zinc-400 hover:text-white">Edit setter / closer</summary>
+      <form action={assignCall} className="mt-2 flex flex-wrap items-end gap-2">
+        <input type="hidden" name="call_id" value={call.id} />
+        <label className="text-xs text-zinc-500">
+          Setter
+          <select name="setter_id" defaultValue={call.setter_id ?? ""} className={`${inputCls} mt-1 w-36`}>
+            <option value="">— none —</option>
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>{s.full_name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs text-zinc-500">
+          Closer
+          <select name="closer_id" defaultValue={call.closer_id ?? ""} className={`${inputCls} mt-1 w-36`}>
+            <option value="">— none —</option>
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>{s.full_name}</option>
+            ))}
+          </select>
+        </label>
+        <SubmitButton>Save</SubmitButton>
+      </form>
+    </details>
   );
 }
 
@@ -147,11 +178,13 @@ function CallList({
   staff,
   empty,
   showOutcome,
+  admin,
 }: {
   calls: CallRow[];
   staff: StaffRow[];
   empty: string;
   showOutcome?: boolean;
+  admin?: boolean;
 }) {
   if (calls.length === 0) return <p className="text-sm text-zinc-500">{empty}</p>;
   return (
@@ -185,6 +218,7 @@ function CallList({
                     ▶ recording
                   </a>
                 ) : null}
+                {admin ? <div className="mt-1"><AssignForm call={c} staff={staff} /></div> : null}
               </td>
             </tr>
           ))}
