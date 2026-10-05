@@ -2,8 +2,8 @@ import { requireStaff, isManager } from "@/lib/staff/auth";
 import { fmtDateTime, toUkLocalInput } from "@/lib/staff/dates";
 import { nameOf } from "@/lib/staff/metrics";
 import { needsRecording } from "@/lib/staff/recording";
-import { OUTCOME_LABEL, type CallRow, type CallOutcome, type StaffRow } from "@/lib/staff/types";
-import { assignCall, bookCall } from "../../actions";
+import { CONFIRMATION_LABEL, OUTCOME_LABEL, type CallConfirmation, type CallRow, type CallOutcome, type StaffRow } from "@/lib/staff/types";
+import { assignCall, bookCall, setConfirmation } from "../../actions";
 import { OutcomeForm } from "@/components/staff/OutcomeForm";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
@@ -136,7 +136,7 @@ export default async function CallsPage({
       ) : null}
 
       <SectionTitle>Upcoming ({upcoming.length})</SectionTitle>
-      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} />
+      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} confirm />
 
       <div className="mt-8" />
       <SectionTitle>Recent results</SectionTitle>
@@ -181,12 +181,14 @@ function CallList({
   empty,
   showOutcome,
   admin,
+  confirm,
 }: {
   calls: CallRow[];
   staff: StaffRow[];
   empty: string;
   showOutcome?: boolean;
   admin?: boolean;
+  confirm?: boolean;
 }) {
   if (calls.length === 0) return <p className="text-sm text-zinc-500">{empty}</p>;
   return (
@@ -199,6 +201,7 @@ function CallList({
             <th className="px-3 py-3 font-medium">Setter</th>
             <th className="px-3 py-3 font-medium">Closer</th>
             <th className="px-3 py-3 font-medium">Source</th>
+            {confirm ? <th className="px-3 py-3 font-medium">Confirmation</th> : null}
             <th className="px-5 py-3 font-medium">{showOutcome ? "Outcome" : ""}</th>
           </tr>
         </thead>
@@ -213,6 +216,11 @@ function CallList({
               <td className="px-3 py-3 text-zinc-300">{nameOf(staff, c.setter_id)}</td>
               <td className="px-3 py-3 text-zinc-300">{nameOf(staff, c.closer_id)}</td>
               <td className="px-3 py-3 text-zinc-400">{c.source ?? "–"}</td>
+              {confirm ? (
+                <td className="px-3 py-3">
+                  <ConfirmCell call={c} />
+                </td>
+              ) : null}
               <td className="px-5 py-3">
                 {showOutcome ? <Badge tone={toneOf(c.outcome)}>{OUTCOME_LABEL[c.outcome]}</Badge> : null}
                 {showOutcome && needsRecording(c.outcome) && !c.recording_url ? (
@@ -230,5 +238,36 @@ function CallList({
         </tbody>
       </table>
     </Card>
+  );
+}
+
+const CONFIRM_TONE: Record<CallConfirmation, "good" | "warn" | "bad" | "default"> = {
+  confirmed: "good",
+  unconfirmed: "warn",
+  no_answer: "bad",
+  left_message: "warn",
+  reschedule: "warn",
+  other: "default",
+};
+
+/** Status badge plus a small form so the setter can update it in two clicks. */
+function ConfirmCell({ call }: { call: CallRow }) {
+  return (
+    <details className="text-left">
+      <summary className="cursor-pointer list-none">
+        <Badge tone={CONFIRM_TONE[call.confirmation]}>{CONFIRMATION_LABEL[call.confirmation]}</Badge>
+        {call.confirmation_note ? <span className="ml-2 text-xs text-zinc-500">{call.confirmation_note}</span> : null}
+      </summary>
+      <form action={setConfirmation} className="mt-2 flex min-w-[15rem] flex-col gap-2">
+        <input type="hidden" name="call_id" value={call.id} />
+        <select name="confirmation" defaultValue={call.confirmation} className={inputCls}>
+          {(Object.keys(CONFIRMATION_LABEL) as CallConfirmation[]).map((k) => (
+            <option key={k} value={k}>{CONFIRMATION_LABEL[k]}</option>
+          ))}
+        </select>
+        <input name="confirmation_note" defaultValue={call.confirmation_note ?? ""} placeholder="Note (optional)" className={inputCls} />
+        <SubmitButton>Save</SubmitButton>
+      </form>
+    </details>
   );
 }
