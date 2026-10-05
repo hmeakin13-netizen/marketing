@@ -17,10 +17,16 @@ export interface CalendlyConfig {
   last_sync_count?: number;
 }
 
-export async function getConfig(admin: SupabaseClient): Promise<CalendlyConfig | null> {
+/** Whatever is stored, even a token with no webhook yet. */
+export async function getStored(admin: SupabaseClient): Promise<Partial<CalendlyConfig> | null> {
   const { data } = await admin.from("integrations").select("config").eq("provider", "calendly").maybeSingle();
-  const c = data?.config as CalendlyConfig | undefined;
-  return c?.token ? c : null;
+  return (data?.config as Partial<CalendlyConfig> | undefined) ?? null;
+}
+
+/** Only a fully connected setup (token + webhook + signing key). */
+export async function getConfig(admin: SupabaseClient): Promise<CalendlyConfig | null> {
+  const c = await getStored(admin);
+  return c?.token && c.signing_key && c.webhook_uri ? (c as CalendlyConfig) : null;
 }
 
 export async function saveConfig(admin: SupabaseClient, config: CalendlyConfig) {

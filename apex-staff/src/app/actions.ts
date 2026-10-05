@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseUkLocal } from "@/lib/staff/dates";
-import { cal, getConfig, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
+import { cal, getConfig, getStored, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { StaffRole, PaymentType } from "@/lib/staff/types";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
@@ -416,7 +416,8 @@ export async function savePay(formData: FormData) {
 export async function connectCalendly(formData: FormData) {
   await requireRole("admin");
   const path = "/settings";
-  const token = str(formData, "token");
+  // A pasted token wins; otherwise use the one already saved on the server.
+  const token = str(formData, "token") || (await getStored(createAdminClient()))?.token || "";
   if (!token) back(path, "error", "Paste your Calendly personal access token.");
 
   const h = headers();

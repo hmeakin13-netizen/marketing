@@ -1,6 +1,6 @@
 import { requireRole } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getConfig } from "@/lib/calendly";
+import { getConfig, getStored } from "@/lib/calendly";
 import { fmtDateTime } from "@/lib/staff/dates";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
 import { connectCalendly, saveShift, syncCalendly } from "../../actions";
@@ -13,7 +13,9 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default async function SettingsPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase } = await requireRole("admin");
-  const config = await getConfig(createAdminClient());
+  const admin = createAdminClient();
+  const config = await getConfig(admin);
+  const hasSavedToken = Boolean((await getStored(admin))?.token);
   const [{ data: staffData }, { data: shiftData }] = await Promise.all([
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
     supabase.from("closer_shifts").select("*"),
@@ -40,8 +42,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
             </form>
           </div>
         ) : (
-          <div className="mb-4">
+          <div className="mb-4 flex flex-wrap items-center gap-3">
             <Badge tone="warn">Not connected</Badge>
+            {hasSavedToken ? (
+              <>
+                <span className="text-sm text-zinc-400">A Calendly token is saved — one click to finish.</span>
+                <form action={connectCalendly} className="ml-auto">
+                  <SubmitButton pendingText="Connecting…">Connect Calendly</SubmitButton>
+                </form>
+              </>
+            ) : null}
           </div>
         )}
         <p className="mb-4 text-sm text-zinc-400">
