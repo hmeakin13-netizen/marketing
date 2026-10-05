@@ -1,5 +1,6 @@
 "use server";
 
+import { geocodePostcode } from "@/lib/staff/geo";
 import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -705,6 +706,38 @@ export async function updateClient(formData: FormData) {
   back("/clients", "ok", "Client updated.");
 }
 
+/** Set where a client is based; blocks `radius_km` around their postcode for new clients. Admin only. */
+export async function saveClientLocation(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const clientId = str(formData, "client_id");
+  const postcode = str(formData, "postcode");
+  const radius = num(formData, "radius_km");
+  const { data: client } = await supabase.from("retainer_clients").select("name, end_date").eq("id", clientId).single();
+  if (!client) back("/clients", "error", "Client not found.");
+  if (!postcode) {
+    await supabase.from("territories").delete().eq("client_id", clientId);
+    revalidatePath("/", "layout");
+    back("/clients", "ok", "Location removed from the map.");
+  }
+  const geo = await geocodePostcode(postcode);
+  if (!geo) back("/clients", "error", `Couldn't find the postcode "${postcode}". Check it and try again.`);
+  const { error } = await supabase.from("territories").upsert(
+    {
+      client_id: clientId,
+      name: client!.name,
+      postcode: geo!.postcode,
+      lat: geo!.lat,
+      lng: geo!.lng,
+      radius_km: Number.isNaN(radius) || radius <= 0 ? 15 : radius,
+      active: !client!.end_date,
+    },
+    { onConflict: "client_id" }
+  );
+  if (error) back("/clients", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", `${client!.name} is on the map (${geo!.postcode}).`);
+}
+
 export async function endClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const leftOn = optStr(formData, "end_date") ?? new Date().toISOString().slice(0, 10);
@@ -713,6 +746,7 @@ export async function endClient(formData: FormData) {
     .update({ end_date: leftOn })
     .eq("id", str(formData, "client_id"));
   if (error) back("/clients", "error", error.message);
+  await supabase.from("territories").update({ active: false }).eq("client_id", str(formData, "client_id"));
   revalidatePath("/", "layout");
   back("/clients", "ok", "Client ended. Nothing further is owed on them from the next payment onwards.");
 }
@@ -721,6 +755,7 @@ export async function reinstateClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const { error } = await supabase.from("retainer_clients").update({ end_date: null }).eq("id", str(formData, "client_id"));
   if (error) back("/clients", "error", error.message);
+  await supabase.from("territories").update({ active: true }).eq("client_id", str(formData, "client_id"));
   revalidatePath("/", "layout");
   back("/clients", "ok", "Client reinstated.");
 }

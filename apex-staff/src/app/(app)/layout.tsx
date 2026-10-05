@@ -14,6 +14,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/deals", label: "Deals & cash", icon: "£" },
     { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
     { href: "/targets", label: "Targets", icon: "◎" },
+    { href: "/territories", label: "Territory map", icon: "⌖" },
   ];
   if (isManager(me.role)) items.push({ href: "/audit", label: "Audit trail", icon: "✎" });
   if (me.role === "admin") {
