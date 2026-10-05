@@ -2,7 +2,7 @@ import { requireRole } from "@/lib/staff/auth";
 import { monthToDateRun } from "@/lib/staff/dates";
 import { money } from "@/lib/staff/metrics";
 import { computeRunPay } from "@/lib/staff/pay";
-import type { CloseRow, PayRow, StaffRow } from "@/lib/staff/types";
+import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
 import { savePay } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, Stat, inputCls } from "@/components/staff/ui";
@@ -25,11 +25,13 @@ export default async function PayPage({
   const previous = searchParams.month === "last";
   const run = monthToDateRun(new Date(), previous);
 
-  const [{ data: staffData }, { data: closeData }, { data: payData }] = await Promise.all([
+  const [{ data: staffData }, { data: closeData }, { data: payData }, { data: clientData }] = await Promise.all([
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
     supabase.from("closes").select("*, payments(*)").limit(2000),
     supabase.from("staff_pay").select("*"),
+    supabase.from("retainer_clients").select("*"),
   ]);
+  const clients = (clientData ?? []) as RetainerClient[];
   const staff = (staffData ?? []) as StaffRow[];
   const closes = (closeData ?? []) as CloseRow[];
   const pay = new Map(((payData ?? []) as PayRow[]).map((p) => [p.staff_id, p]));
@@ -37,9 +39,9 @@ export default async function PayPage({
 
   const rows = people.map((p) => {
     const cfg = pay.get(p.id);
-    return { p, cfg, r: computeRunPay(p, cfg, closes, staff, run) };
+    return { p, cfg, r: computeRunPay(p, cfg, closes, staff, run, clients) };
   });
-  const sum = (k: "retainer" | "commission" | "override" | "total") => rows.reduce((t, x) => t + x.r[k], 0);
+  const sum = (k: "retainer" | "clientShare" | "commission" | "override" | "total") => rows.reduce((t, x) => t + x.r[k], 0);
 
   return (
     <>
@@ -69,7 +71,7 @@ export default async function PayPage({
 
       <div className="mb-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label={`Total — ${run.label}`} value={money(sum("total"))} tone="warn" />
-        <Stat label="Retainers" value={money(sum("retainer"))} />
+        <Stat label="Client retainer shares" value={money(sum("clientShare") + sum("retainer"))} />
         <Stat label="Commission" value={money(sum("commission"))} />
         <Stat label="Overrides" value={money(sum("override"))} />
       </div>
@@ -104,7 +106,10 @@ export default async function PayPage({
               <summary className="cursor-pointer text-sm font-medium text-zinc-300">Edit pay &amp; invoice details</summary>
               <form action={savePay} className="mt-3 grid gap-3 sm:grid-cols-4">
                 <input type="hidden" name="staff_id" value={p.id} />
-                <Field label="Retainer / flat fee (£ per month)">
+                <Field label="Share of each client's monthly retainer (%)">
+                  <input name="retainer_share_pct" inputMode="decimal" defaultValue={cfg?.retainer_share_pct ?? 0} className={inputCls} />
+                </Field>
+                <Field label="Flat monthly fee (£), if on a flat fee">
                   <input name="retainer_monthly" inputMode="decimal" defaultValue={cfg?.retainer_monthly ?? 0} className={inputCls} />
                 </Field>
                 <Field label="Commission %">

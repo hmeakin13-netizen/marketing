@@ -19,6 +19,7 @@ project and logins.
 - **Audit trail** – every change to calls, deals and payments (managers + admin)
 - **Team** – add / remove people, change roles (admin only)
 - **Pay & commission** – admin only: retainer/flat fee, commission (paid on the 1st and/or the 15th), and an override on the setters someone manages
+- **Clients** – admin only: every retainer client, who closed them, what they pay and who earns what; end a client when they leave and the closer's share stops automatically
 - **Invoices** – admin only: self-billing invoices (PDF) created automatically each pay run and emailed to the business inbox
 
 | | Admin | Manager | Closer | Setter |
@@ -89,3 +90,9 @@ Set per person under **Pay & commission**:
 A daily job (`vercel.json` cron → `/api/cron/invoices`) creates one self-billing invoice per person per pay run and emails the PDF to `INVOICE_TO` (default info@apex-leads.co.uk). It's safe to run repeatedly: one invoice per person per run.
 
 Environment variables for invoices: `CRON_SECRET` (protects the job), `RESEND_API_KEY` + `EMAIL_FROM` (to send email), optional `INVOICE_TO`, `COMPANY_NAME`, `COMPANY_ADDRESS`, `COMPANY_VAT`.
+
+## Client retainers
+Each client pays a monthly fee. The closer who signed them earns a **share (%)** of that fee every month the client stays (set per person on the Pay page). Add clients on **Clients**; click "has left" to stop it.
+- The first payment (the sale itself) is paid as normal commission; the retainer share starts from the month after sign-up.
+- A client's fee falls due on their billing day each month. Fees due 1st–14th are paid on the 15th; 15th–month end on the 1st (for people paid twice a month).
+- If a client leaves before a due date, nothing is owed for that date; history and past invoices are untouched.

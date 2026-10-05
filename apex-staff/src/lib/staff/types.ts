@@ -84,7 +84,8 @@ export interface PayRow {
   commission_pct: number;
   basis: "own_closes" | "own_bookings" | "team_cash";
   base_pay_weekly: number; // legacy, unused
-  retainer_monthly: number;
+  retainer_monthly: number; // flat monthly fee (for people paid a flat fee)
+  retainer_share_pct: number; // % of each active client's monthly fee
   override_pct: number;
   override_basis: "deal_value" | "cash";
   pay_schedule: "monthly" | "semi_monthly";
@@ -174,4 +175,18 @@ export interface ShiftRow {
   start_time: string; // "12:00:00"
   end_time: string;
   days: number[]; // ISO weekdays, 1 = Monday
+}
+
+export interface RetainerClient {
+  id: string;
+  name: string;
+  closer_id: string | null;
+  setter_id: string | null;
+  close_id: string | null;
+  monthly_fee: number;
+  start_date: string; // YYYY-MM-DD
+  billing_day: number;
+  end_date: string | null;
+  notes: string | null;
+  created_at: string;
 }

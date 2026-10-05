@@ -4,7 +4,7 @@ import { companyFromEnv, buildInvoicePdf, invoiceNumber } from "./invoicePdf";
 import { emailConfigured, sendEmail } from "./email";
 import { computeRunPay } from "./staff/pay";
 import type { PayRun } from "./staff/dates";
-import type { CloseRow, InvoiceLine, InvoiceRow, PayRow, StaffRow } from "./staff/types";
+import type { CloseRow, InvoiceLine, InvoiceRow, PayRow, RetainerClient, StaffRow } from "./staff/types";
 
 const gbp = (n: number) => `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -15,16 +15,17 @@ export async function createInvoice(
   staffId: string,
   run: PayRun
 ): Promise<{ invoice?: InvoiceRow; skipped?: "nothing_owed" | "exists" }> {
-  const [{ data: allStaff }, { data: cfg }, { data: closes }] = await Promise.all([
+  const [{ data: allStaff }, { data: cfg }, { data: closes }, { data: clients }] = await Promise.all([
     admin.from("staff").select("*"),
     admin.from("staff_pay").select("*").eq("staff_id", staffId).maybeSingle(),
     admin.from("closes").select("*, payments(*)").limit(2000),
+    admin.from("retainer_clients").select("*"),
   ]);
   const staffList = (allStaff ?? []) as StaffRow[];
   const s = staffList.find((x) => x.id === staffId);
   if (!s) throw new Error("Staff member not found");
 
-  const pay = computeRunPay(s, (cfg ?? undefined) as PayRow | undefined, (closes ?? []) as CloseRow[], staffList, run);
+  const pay = computeRunPay(s, (cfg ?? undefined) as PayRow | undefined, (closes ?? []) as CloseRow[], staffList, run, (clients ?? []) as RetainerClient[]);
   if (pay.total <= 0) return { skipped: "nothing_owed" };
 
   const lines: InvoiceLine[] = pay.lines;
