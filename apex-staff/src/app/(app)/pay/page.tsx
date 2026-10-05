@@ -41,7 +41,7 @@ export default async function PayPage({
     const cfg = pay.get(p.id);
     return { p, cfg, r: computeRunPay(p, cfg, closes, staff, run, clients) };
   });
-  const sum = (k: "retainer" | "clientShare" | "commission" | "override" | "total") => rows.reduce((t, x) => t + x.r[k], 0);
+  const sum = (k: "retainer" | "clientShare" | "setupCommission" | "commission" | "override" | "total") => rows.reduce((t, x) => t + x.r[k], 0);
 
   return (
     <>
@@ -72,7 +72,7 @@ export default async function PayPage({
       <div className="mb-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label={`Total — ${run.label}`} value={money(sum("total"))} tone="warn" />
         <Stat label="Client retainer shares" value={money(sum("clientShare") + sum("retainer"))} />
-        <Stat label="Commission" value={money(sum("commission"))} />
+        <Stat label="Commission" value={money(sum("commission") + sum("setupCommission"))} />
         <Stat label="Overrides" value={money(sum("override"))} />
       </div>
       <p className="mb-6 text-xs text-zinc-500">
@@ -106,6 +106,12 @@ export default async function PayPage({
               <summary className="cursor-pointer text-sm font-medium text-zinc-300">Edit pay &amp; invoice details</summary>
               <form action={savePay} className="mt-3 grid gap-3 sm:grid-cols-4">
                 <input type="hidden" name="staff_id" value={p.id} />
+                <Field label="One-time % of the setup fee on clients they SET">
+                  <input name="setup_commission_pct" inputMode="decimal" defaultValue={cfg?.setup_commission_pct ?? 0} className={inputCls} />
+                </Field>
+                <Field label="…or a flat £ per client they set (one-time)">
+                  <input name="setup_commission_flat" inputMode="decimal" defaultValue={cfg?.setup_commission_flat ?? 0} className={inputCls} />
+                </Field>
                 <Field label="Share of each client's monthly retainer (%)">
                   <input name="retainer_share_pct" inputMode="decimal" defaultValue={cfg?.retainer_share_pct ?? 0} className={inputCls} />
                 </Field>

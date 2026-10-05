@@ -96,3 +96,6 @@ Each client pays a monthly fee. The closer who signed them earns a **share (%)**
 - The first payment (the sale itself) is paid as normal commission; the retainer share starts from the month after sign-up.
 - A client's fee falls due on their billing day each month. Fees due 1st–14th are paid on the 15th; 15th–month end on the 1st (for people paid twice a month).
 - If a client leaves before a due date, nothing is owed for that date; history and past invoices are untouched.
+
+## Setters paid per client (no retainer)
+For a setter paid once per client they set (e.g. Kyle), leave Commission % at 0 and use **"One-time % of the setup fee on clients they set"** and/or **"a flat £ per client"** on their Pay card. It is calculated automatically from the Clients list (client's setter + signing date) and paid in the run covering the signing date (1st–14th on the 15th, 15th–end on the 1st). There is no retainer or monthly payment.

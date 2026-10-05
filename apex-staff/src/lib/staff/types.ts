@@ -86,6 +86,8 @@ export interface PayRow {
   base_pay_weekly: number; // legacy, unused
   retainer_monthly: number; // flat monthly fee (for people paid a flat fee)
   retainer_share_pct: number; // % of each active client's monthly fee
+  setup_commission_pct: number; // one-time, % of the setup fee of each client they set
+  setup_commission_flat: number; // one-time, flat £ per client they set
   override_pct: number;
   override_basis: "client_fee" | "deal_value" | "cash";
   pay_schedule: "monthly" | "semi_monthly";
