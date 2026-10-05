@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function StaffLoginForm({ next }: { next?: string }) {
+export function StaffLoginForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">(
     "idle"
@@ -19,9 +19,7 @@ export function StaffLoginForm({ next }: { next?: string }) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback${
-          next ? `?next=${encodeURIComponent(next)}` : ""
-        }`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 

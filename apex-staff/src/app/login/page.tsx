@@ -26,7 +26,7 @@ export default function StaffLoginPage({
           </p>
         ) : null}
         <div className="mt-6">
-          <StaffLoginForm next="/" />
+          <StaffLoginForm />
         </div>
       </div>
     </div>
