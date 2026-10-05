@@ -5,7 +5,9 @@ export const money = (n: number) =>
   new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
-    maximumFractionDigits: 0,
+    // Show pence whenever there are any (£262.50, not £263); whole pounds stay clean (£1,500).
+    minimumFractionDigits: Number.isInteger(Math.round(n * 100) / 100) ? 0 : 2,
+    maximumFractionDigits: 2,
   }).format(n);
 
 export const pct = (n: number | null) => (n === null ? "–" : `${Math.round(n)}%`);

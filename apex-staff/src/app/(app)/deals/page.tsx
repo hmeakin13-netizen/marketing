@@ -151,7 +151,7 @@ function DealActions({
           <form action={addPayment} className="mt-3 grid gap-3 sm:grid-cols-4">
             <input type="hidden" name="close_id" value={c.id} />
             <Field label="Amount received (£)">
-              <input name="amount" inputMode="decimal" required className={inputCls} placeholder={String(Math.round(owed(c)))} />
+              <input name="amount" inputMode="decimal" required className={inputCls} placeholder={String(Math.round(owed(c) * 100) / 100)} />
             </Field>
             <Field label="Next payment due">
               <input name="next_payment_due" type="date" defaultValue={c.next_payment_due ?? ""} className={inputCls} />

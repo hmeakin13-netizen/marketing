@@ -1,5 +1,5 @@
 import { METRIC_LABEL, type TargetMetric, type TargetRow } from "@/lib/staff/types";
-import type { Stats } from "@/lib/staff/metrics";
+import { money, type Stats } from "@/lib/staff/metrics";
 
 export function metricValue(s: Stats, m: TargetMetric): number {
   switch (m) {
@@ -20,7 +20,7 @@ export function metricValue(s: Stats, m: TargetMetric): number {
 
 function fmt(m: TargetMetric, n: number) {
   if (m === "show_rate" || m === "close_rate") return `${Math.round(n)}%`;
-  if (m === "cash_collected") return `£${Math.round(n).toLocaleString("en-GB")}`;
+  if (m === "cash_collected") return money(n);
   return String(Math.round(n));
 }
 
