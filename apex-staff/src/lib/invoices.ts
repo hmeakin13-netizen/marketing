@@ -63,7 +63,7 @@ export async function renderInvoicePdf(admin: SupabaseClient, inv: InvoiceRow) {
     inv,
     {
       name: c?.payee_name || s.full_name,
-      address: c?.payee_address ?? null,
+      address: null,
       vatNumber: c?.vat_number ?? null,
       agreementDate: c?.agreement_date ?? null,
     },

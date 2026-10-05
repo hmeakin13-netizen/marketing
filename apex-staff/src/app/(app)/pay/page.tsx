@@ -132,12 +132,13 @@ export default async function PayPage({
                   <input name="override_pct" inputMode="decimal" defaultValue={cfg?.override_pct ?? 0} className={inputCls} />
                 </Field>
                 <Field label="Override calculated on">
-                  <select name="override_basis" defaultValue={cfg?.override_basis ?? "deal_value"} className={inputCls}>
-                    <option value="deal_value">Deal value of new sales</option>
-                    <option value="cash">Cash actually collected</option>
+                  <select name="override_basis" defaultValue={cfg?.override_basis ?? "client_fee"} className={inputCls}>
+                    <option value="client_fee">New clients' monthly fee (from the Clients list, automatic)</option>
+                    <option value="deal_value">Deal value of sales logged on Calls</option>
+                    <option value="cash">Cash collected on those sales</option>
                   </select>
                 </Field>
-                <Field label="Invoice name (their trading name)">
+                <Field label="Trading name (shown on their invoice)">
                   <input name="payee_name" defaultValue={cfg?.payee_name ?? ""} placeholder={p.full_name} className={inputCls} />
                 </Field>
                 <Field label="Self-billing agreement date">
@@ -145,9 +146,6 @@ export default async function PayPage({
                 </Field>
                 <Field label="VAT number (if registered)">
                   <input name="vat_number" defaultValue={cfg?.vat_number ?? ""} className={inputCls} />
-                </Field>
-                <Field label="Address on invoice" className="sm:col-span-2">
-                  <textarea name="payee_address" rows={2} defaultValue={cfg?.payee_address ?? ""} className={inputCls} />
                 </Field>
                 <div className="flex items-end">
                   <SubmitButton>Save</SubmitButton>

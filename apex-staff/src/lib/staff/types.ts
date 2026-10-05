@@ -87,7 +87,7 @@ export interface PayRow {
   retainer_monthly: number; // flat monthly fee (for people paid a flat fee)
   retainer_share_pct: number; // % of each active client's monthly fee
   override_pct: number;
-  override_basis: "deal_value" | "cash";
+  override_basis: "client_fee" | "deal_value" | "cash";
   pay_schedule: "monthly" | "semi_monthly";
   payee_name: string | null;
   payee_address: string | null;
