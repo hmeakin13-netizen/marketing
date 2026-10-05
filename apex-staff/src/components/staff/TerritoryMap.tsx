@@ -24,21 +24,21 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
       const L = (await import("leaflet")).default;
       if (dead || !el.current || map.current) return;
       const m = L.map(el.current, { scrollWheelZoom: true, zoomControl: true }).setView([54.0, -2.5], 6);
-      // No API key needed. If the dark tiles fail to load, fall back to standard OpenStreetMap.
-      const dark = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "&copy; OpenStreetMap &copy; CARTO",
-        maxZoom: 18,
-      }).addTo(m);
-      let swapped = false;
-      dark.on("tileerror", () => {
-        if (swapped) return;
-        swapped = true;
-        m.removeLayer(dark);
+      // Optional MapTiler key (NEXT_PUBLIC_MAPTILER_KEY) gives a dark styled map. Without one we use
+      // standard OpenStreetMap tiles, which need no key, darkened with a CSS filter.
+      const key = process.env.NEXT_PUBLIC_MAPTILER_KEY;
+      if (key) {
+        L.tileLayer(`https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key=${key}`, {
+          attribution: "&copy; MapTiler &copy; OpenStreetMap contributors",
+          maxZoom: 18,
+        }).addTo(m);
+      } else {
         L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "&copy; OpenStreetMap contributors",
           maxZoom: 18,
+          className: "osm-dark",
         }).addTo(m);
-      });
+      }
       setTimeout(() => m.invalidateSize(), 300);
       for (const t of territories) {
         // Soft filled zone plus a dashed edge; overlapping zones build up so busy areas look denser.
