@@ -33,7 +33,8 @@ export default async function CallsPage({
   const setters = staff.filter((s) => s.role !== "closer");
   const closers = staff.filter((s) => s.role !== "setter");
   const now = Date.now();
-  const canEdit = (c: CallRow) => isManager(me.role) || c.setter_id === me.id || c.closer_id === me.id;
+  // Closers log the outcome of their own calls (or an unassigned one they pick up); setters don't.
+  const canEdit = (c: CallRow) => isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer");
 
   const needsOutcome = calls.filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() < now && canEdit(c));
   const upcoming = calls

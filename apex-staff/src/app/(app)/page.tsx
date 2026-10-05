@@ -45,7 +45,7 @@ export default async function DashboardPage({
       (c) =>
         c.outcome === "scheduled" &&
         new Date(c.call_at).getTime() < now &&
-        (isManager(me.role) || (c.closer_id ?? c.setter_id) === me.id)
+        (isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer"))
     )
     .sort((a, b) => a.call_at.localeCompare(b.call_at));
 
