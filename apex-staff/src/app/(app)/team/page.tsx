@@ -72,7 +72,7 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
                 <select name="manager_id" defaultValue={s.manager_id ?? ""} className={inputCls}>
                   <option value="">— nobody —</option>
                   {active
-                    .filter((m) => m.id !== s.id && (m.role === "manager" || m.role === "admin"))
+                    .filter((m) => m.id !== s.id)
                     .map((m) => (
                       <option key={m.id} value={m.id}>{m.full_name}</option>
                     ))}
