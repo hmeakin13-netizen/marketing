@@ -66,6 +66,10 @@ export interface Invitee {
   name?: string | null;
   status?: string;
   text_reminder_number?: string | null;
+  reschedule_url?: string | null;
+  rescheduled?: boolean;
+  old_invitee?: string | null; // set on the NEW invitee when someone reschedules
+  new_invitee?: string | null; // set on the OLD invitee when someone reschedules
   tracking?: Record<string, string | null> | null;
   scheduled_event: {
     uri: string;
@@ -119,11 +123,32 @@ export async function upsertInvitee(admin: SupabaseClient, inv: Invitee, opts: {
   const shifts = (shiftData ?? []) as ShiftRow[];
   const start = inv.scheduled_event.start_time;
 
-  const { data: existing } = await admin
+  let { data: existing } = await admin
     .from("calls")
-    .select("id, outcome")
+    .select("id, outcome, closer_id, call_at")
     .eq("calendly_invitee_uri", inv.uri)
     .maybeSingle();
+
+  // A reschedule arrives as a cancel of the old booking plus a new booking that points back at it.
+  // Treat it as the SAME call moving: keep its notes, source, setter and original booking date.
+  let moved = false;
+  if (!existing && inv.old_invitee) {
+    const { data: old } = await admin
+      .from("calls")
+      .select("id, outcome, closer_id, call_at")
+      .eq("calendly_invitee_uri", inv.old_invitee)
+      .maybeSingle();
+    if (old) {
+      await admin.from("calls").update({ calendly_invitee_uri: inv.uri }).eq("id", old.id);
+      existing = old;
+      moved = true;
+    }
+  }
+
+  if (inv.rescheduled && (inv.status === "canceled" || inv.scheduled_event.status === "canceled")) {
+    // The new booking carries the call forward, so don't mark this one cancelled.
+    return "rescheduled";
+  }
 
   if (inv.status === "canceled" || inv.scheduled_event.status === "canceled") {
     if (existing && existing.outcome === "scheduled") {
@@ -157,18 +182,32 @@ export async function upsertInvitee(admin: SupabaseClient, inv: Invitee, opts: {
   if (existing) {
     // Only touch calls nobody has worked on yet (e.g. a reschedule).
     if (existing.outcome === "scheduled") {
-      await admin
-        .from("calls")
-        .update({ ...row, source: undefined, ...(inv.created_at ? { booked_at: inv.created_at } : {}) })
-        .eq("id", existing.id);
+      const timeChanged = new Date(existing.call_at).getTime() !== new Date(start).getTime();
+      const update: Record<string, unknown> = {
+        ...row,
+        source: undefined,
+        reschedule_url: inv.reschedule_url ?? null,
+        ...(inv.created_at && !moved ? { booked_at: inv.created_at } : { booked_at: undefined }),
+      };
+      if (timeChanged) {
+        // New time: it needs confirming again, and the closer on shift may be different.
+        update.confirmation = "unconfirmed";
+        update.confirmation_note = null;
+        update.confirmation_at = null;
+        update.confirmation_by = null;
+        const pick = pickCloser(start, shifts, staff, host);
+        if (pick) update.closer_id = pick;
+      }
+      await admin.from("calls").update(update).eq("id", existing.id);
     }
-    return "updated";
+    return moved ? "rescheduled" : "updated";
   }
   if (opts.existingOnly) return "skipped";
 
   await admin.from("calls").insert({
     ...row,
     calendly_invitee_uri: inv.uri,
+    reschedule_url: inv.reschedule_url ?? null,
     setter_id: setterId,
     closer_id: pickCloser(start, shifts, staff, host),
   });

@@ -258,6 +258,14 @@ function ConfirmCell({ call }: { call: CallRow }) {
         <Badge tone={CONFIRM_TONE[call.confirmation]}>{CONFIRMATION_LABEL[call.confirmation]}</Badge>
         {call.confirmation_note ? <span className="ml-2 text-xs text-zinc-500">{call.confirmation_note}</span> : null}
       </summary>
+      {call.confirmation === "reschedule" && call.reschedule_url ? (
+        <p className="mt-2 text-xs text-zinc-400">
+          Send the lead this link to pick a new time. The call moves here by itself once they do:{" "}
+          <a href={call.reschedule_url} target="_blank" rel="noopener noreferrer" className="break-all text-emerald-400 underline">
+            {call.reschedule_url}
+          </a>
+        </p>
+      ) : null}
       <form action={setConfirmation} className="mt-2 flex min-w-[15rem] flex-col gap-2">
         <input type="hidden" name="call_id" value={call.id} />
         <select name="confirmation" defaultValue={call.confirmation} className={inputCls}>
