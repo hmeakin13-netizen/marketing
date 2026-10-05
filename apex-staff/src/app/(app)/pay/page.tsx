@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/staff/auth";
-import { monthToDateRun, ukIso } from "@/lib/staff/dates";
+import { inRange, monthToDateRun, ukIso } from "@/lib/staff/dates";
 import { money } from "@/lib/staff/metrics";
-import { computeRunPay, dealPayoutsInRange, pendingDealPayouts } from "@/lib/staff/pay";
+import { computeRunPay, dealPayoutsInRange, pendingDealPayouts, retainerDueDates } from "@/lib/staff/pay";
 import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
 import { savePay } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
@@ -46,6 +46,13 @@ export default async function PayPage({
     const salesTotal = sales.reduce((t, l) => t + l.amount, 0);
     return { p, cfg, onHold: pending.get(p.id) ?? [], lines: [...sales, ...periodic.lines], salesTotal, periodic, total: periodic.total + salesTotal };
   });
+  const totalPaid = rows.reduce((t, r) => t + r.total, 0);
+  const cashIn = closes.reduce(
+    (t, c) => t + c.payments.filter((p) => inRange(p.paid_at, run.monthFrom, run.monthTo)).reduce((a, p) => a + Number(p.amount), 0),
+    0
+  );
+  const retainerIn = clients.reduce((t, c) => t + retainerDueDates(c, run.monthFrom, run.monthTo).length * Number(c.monthly_fee), 0);
+  const profit = cashIn + retainerIn - totalPaid;
   const sumOf = (f: (r: (typeof rows)[number]) => number) => rows.reduce((t, r) => t + f(r), 0);
 
   return (
@@ -78,11 +85,11 @@ export default async function PayPage({
         <Stat label={`Total — ${run.label}`} value={money(sumOf((r) => r.total))} tone="warn" />
         <Stat label="Sale payouts (paid same day)" value={money(sumOf((r) => r.salesTotal))} />
         <Stat label="Client retainer shares" value={money(sumOf((r) => r.periodic.clientShare))} />
-        <Stat label="Flat monthly fees" value={money(sumOf((r) => r.periodic.retainer))} />
+        <Stat label="Left for Apex after payouts" value={money(profit)} tone={profit >= 0 ? "good" : "bad"} hint={`${money(cashIn)} cash + ${money(retainerIn)} retainers − ${money(totalPaid)} payouts`} />
       </div>
       <p className="mb-6 text-xs text-zinc-500">
         Sale payouts (closer commission and setter pay) are paid and invoiced the same day a sale has its full payment in
-        and its contract signed. Manager overrides are paid at month end. Client retainer shares and flat fees are invoiced on the 15th and the 1st.
+        and its contract signed. Manager overrides are paid at month end. Client retainer shares are invoiced on the 15th and the 1st. "Left for Apex" is this month's cash collected on sales plus client retainers due, minus everything owed to the team.
       </p>
 
       <div className="space-y-4">
@@ -125,9 +132,7 @@ export default async function PayPage({
                 <Field label="Share of each client's monthly retainer (%)">
                   <input name="retainer_share_pct" inputMode="decimal" defaultValue={cfg?.retainer_share_pct ?? 0} className={inputCls} />
                 </Field>
-                <Field label="Flat monthly fee (£), if on a flat fee">
-                  <input name="retainer_monthly" inputMode="decimal" defaultValue={cfg?.retainer_monthly ?? 0} className={inputCls} />
-                </Field>
+                <input type="hidden" name="retainer_monthly" value={cfg?.retainer_monthly ?? 0} />
                 <Field label="Commission % on each sale they CLOSE (paid same day)">
                   <input name="commission_pct" inputMode="decimal" defaultValue={cfg?.commission_pct ?? 0} className={inputCls} />
                 </Field>
