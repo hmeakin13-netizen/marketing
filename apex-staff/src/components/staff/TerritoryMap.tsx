@@ -88,12 +88,17 @@ export function TerritoryMap({ territories }: { territories: Territory[] }) {
         });
       };
       let fellBack = false;
+      // Re-add our zones whenever the base style (re)loads or is swapped.
       m.on("style.load", addOverlay);
-      m.on("error", () => {
-        // If the base map can't load for any reason, fall back to plain OpenStreetMap tiles.
-        if (!fellBack && !m.isStyleLoaded()) {
+      m.on("styledata", () => {
+        if (m.isStyleLoaded()) addOverlay();
+      });
+      m.on("error", (e) => {
+        // Only if the base STYLE itself fails to load, fall back to plain OpenStreetMap.
+        const url = String((e as unknown as { error?: { url?: string } }).error?.url ?? "");
+        if (!fellBack && url.includes("/styles/")) {
           fellBack = true;
-          m.setStyle(OSM_STYLE);
+          m.setStyle(OSM_STYLE, { diff: false });
         }
       });
       m.on("click", "zones-fill", (e) => {
