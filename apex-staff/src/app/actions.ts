@@ -8,7 +8,7 @@ import { requireRole, requireStaff, isManager } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { midMonthRun, monthEndRun, parseUkLocal, todayIso } from "@/lib/staff/dates";
 import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/recording";
-import { createInvoice, emailInvoice } from "@/lib/invoices";
+import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
 import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
@@ -23,6 +23,15 @@ const num = (f: FormData, k: string) => {
 
 function back(path: string, kind: "error" | "ok", message: string): never {
   redirect(`${path}?${kind}=${encodeURIComponent(message)}`);
+}
+
+/** Issue any same-day sale invoices that have just become payable. Never blocks the user's action. */
+async function issuePayouts(closeId: string) {
+  try {
+    await issueDealInvoices(createAdminClient(), closeId);
+  } catch {
+    // The daily job picks up anything missed.
+  }
 }
 
 // ------------------------------------------------------------------ calls
@@ -124,6 +133,7 @@ export async function logOutcome(formData: FormData) {
         deal_value: dealValue,
         payment_type: paymentType,
         next_payment_due: optStr(formData, "next_payment_due"),
+        contract_signed_at: formData.get("contract_signed") === "on" ? todayIso() : null,
       })
       .select("id")
       .single();
@@ -155,6 +165,8 @@ export async function logOutcome(formData: FormData) {
         // The deal itself is saved; the client can still be added by hand on the Clients page.
       }
     }
+
+    await issuePayouts(close!.id);
   } else {
     const { error } = await supabase.from("calls").update(update).eq("id", callId);
     if (error) back(path, "error", error.message);
@@ -197,6 +209,7 @@ export async function addPayment(formData: FormData) {
     .from("closes")
     .update({ next_payment_due: fullyPaid ? null : optStr(formData, "next_payment_due") })
     .eq("id", closeId);
+  await issuePayouts(closeId);
 
   revalidatePath("/", "layout");
   back(path, "ok", "Payment recorded.");
@@ -766,4 +779,17 @@ export async function addRecording(formData: FormData) {
   if (!data || data.length === 0) back("/attention", "error", "You can only add a recording to your own calls.");
   revalidatePath("/", "layout");
   back("/attention", "ok", "Recording added.");
+}
+
+/** Contract signed: with the full payment in, this is what releases the sale's commission. */
+export async function markContractSigned(formData: FormData) {
+  const { supabase } = await requireStaff();
+  const closeId = str(formData, "close_id");
+  const signedOn = optStr(formData, "signed_on") ?? todayIso();
+  const { data, error } = await supabase.from("closes").update({ contract_signed_at: signedOn }).eq("id", closeId).select("id");
+  if (error) back("/deals", "error", error.message);
+  if (!data || data.length === 0) back("/deals", "error", "You can only mark your own deals as signed.");
+  await issuePayouts(closeId);
+  revalidatePath("/", "layout");
+  back("/deals", "ok", "Contract marked signed. If the full payment is in, the commission invoices have been created.");
 }

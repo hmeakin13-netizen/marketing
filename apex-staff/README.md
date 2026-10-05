@@ -105,3 +105,8 @@ Admins can edit the setter and closer on any call (Calls page → "Edit setter /
 
 ## Fathom recordings are mandatory
 Logging a call as **Closed**, **Showed – follow up** or **Showed – lost** requires a Fathom link (validated on the server, so it can't be skipped). No-shows and cancellations don't need one. Any such call without a link shows on **Needs attention** ("No Fathom recording", high priority after 2 days) with a box to add it, and as "no recording" in the Calls list.
+
+## When people get paid (current rules)
+- **Sale payouts are paid the same day**: the closer's commission %, the setter's one-time % (or flat £), and a manager's override % on setters they manage. They are released the day the sale is **fully paid AND the contract is signed** (the later of the two). A self-billing invoice per person is created (and emailed) automatically at that moment. Nothing is released while either is missing; the Deals page shows what a sale is waiting for, and **Needs attention** flags a fully paid sale whose contract hasn't been marked signed.
+- **Client retainer shares and flat monthly fees** are paid on the 15th / 1st. A closer's share of a client's monthly retainer starts the month after sign-up (the first payment is the sale itself).
+- **Calls booked** counts on the day the booking was made (Calendly's booking time), not the day of the call. A booking with no campaign tag is credited to the single setter (source "Kyle").

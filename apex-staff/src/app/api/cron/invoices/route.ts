@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createInvoice, emailInvoice } from "@/lib/invoices";
+import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { dueRuns } from "@/lib/staff/dates";
 import type { PayRow, StaffRow } from "@/lib/staff/types";
 
@@ -40,6 +40,12 @@ export async function GET(request: Request) {
         results[key] = `error: ${e instanceof Error ? e.message : "unknown"}`;
       }
     }
+  }
+  // Safety net for sale payouts (normally issued the moment the sale becomes payable).
+  try {
+    results["sale payouts"] = `${await issueDealInvoices(admin)} new invoice(s)`;
+  } catch (e) {
+    results["sale payouts"] = `error: ${e instanceof Error ? e.message : "unknown"}`;
   }
   return NextResponse.json({ ok: true, results });
 }

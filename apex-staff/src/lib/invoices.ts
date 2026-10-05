@@ -2,30 +2,28 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { companyFromEnv, buildInvoicePdf, invoiceNumber } from "./invoicePdf";
 import { emailConfigured, sendEmail } from "./email";
-import { computeRunPay } from "./staff/pay";
+import { computeDealPayouts, computeRunPay, dealPayableOn } from "./staff/pay";
 import type { PayRun } from "./staff/dates";
 import type { CloseRow, InvoiceLine, InvoiceRow, PayRow, RetainerClient, StaffRow } from "./staff/types";
 
 const gbp = (n: number) => `£${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Build and store one self-billing invoice for a pay run. Returns the row, or why nothing was created. */
+/** Build and store one self-billing invoice for a periodic pay run (retainer + client shares). */
 export async function createInvoice(
   admin: SupabaseClient,
   staffId: string,
   run: PayRun
 ): Promise<{ invoice?: InvoiceRow; skipped?: "nothing_owed" | "exists" }> {
-  const [{ data: allStaff }, { data: cfg }, { data: closes }, { data: clients }] = await Promise.all([
-    admin.from("staff").select("*"),
+  const [{ data: staff }, { data: cfg }, { data: clients }] = await Promise.all([
+    admin.from("staff").select("*").eq("id", staffId).single(),
     admin.from("staff_pay").select("*").eq("staff_id", staffId).maybeSingle(),
-    admin.from("closes").select("*, payments(*)").limit(2000),
     admin.from("retainer_clients").select("*"),
   ]);
-  const staffList = (allStaff ?? []) as StaffRow[];
-  const s = staffList.find((x) => x.id === staffId);
-  if (!s) throw new Error("Staff member not found");
+  if (!staff) throw new Error("Staff member not found");
+  const s = staff as StaffRow;
 
-  const pay = computeRunPay(s, (cfg ?? undefined) as PayRow | undefined, (closes ?? []) as CloseRow[], staffList, run, (clients ?? []) as RetainerClient[]);
+  const pay = computeRunPay(s, (cfg ?? undefined) as PayRow | undefined, run, (clients ?? []) as RetainerClient[]);
   if (pay.total <= 0) return { skipped: "nothing_owed" };
 
   const lines: InvoiceLine[] = pay.lines;
@@ -50,6 +48,61 @@ export async function createInvoice(
     throw new Error(error.message);
   }
   return { invoice: data as InvoiceRow };
+}
+
+/**
+ * Same-day sale payouts. For every sale that is fully paid AND has its contract signed, create
+ * (and email) one self-billing invoice per person owed something. Safe to call repeatedly: a
+ * person is only ever invoiced once per sale, even if the invoice was later voided.
+ */
+export async function issueDealInvoices(admin: SupabaseClient, closeId?: string): Promise<number> {
+  let q = admin.from("closes").select("*, payments(*), calls(lead_name)").limit(2000);
+  if (closeId) q = q.eq("id", closeId);
+  const [{ data: closes }, { data: staffData }, { data: payData }, { data: existing }] = await Promise.all([
+    q,
+    admin.from("staff").select("*"),
+    admin.from("staff_pay").select("*"),
+    admin.from("invoices").select("staff_id, close_id").not("close_id", "is", null),
+  ]);
+  const staff = (staffData ?? []) as StaffRow[];
+  const pays = new Map(((payData ?? []) as PayRow[]).map((p) => [p.staff_id, p]));
+  const done = new Set((existing ?? []).map((e) => `${e.staff_id}:${e.close_id}`));
+
+  let created = 0;
+  for (const c of (closes ?? []) as CloseRow[]) {
+    const payableOn = dealPayableOn(c);
+    if (!payableOn) continue;
+    const payouts = computeDealPayouts(c, staff, pays);
+    for (const [staffId, lines] of Array.from(payouts.entries())) {
+      if (done.has(`${staffId}:${c.id}`)) continue;
+      const subtotal = round2(lines.reduce((t, l) => t + l.amount, 0));
+      const vat = pays.get(staffId)?.vat_number ? round2(subtotal * 0.2) : 0;
+      const lead = c.calls?.lead_name ?? "Sale";
+      const { data, error } = await admin
+        .from("invoices")
+        .insert({
+          staff_id: staffId,
+          close_id: c.id,
+          // closed_at makes each sale's invoice distinct for the same person.
+          period_start: c.closed_at,
+          period_end: new Date(`${payableOn}T12:00:00Z`).toISOString(),
+          period_label: `Sale: ${lead} (${payableOn})`,
+          lines,
+          subtotal,
+          vat,
+          total: round2(subtotal + vat),
+        })
+        .select("*")
+        .single();
+      if (error) {
+        if (/duplicate|unique/i.test(error.message)) continue;
+        throw new Error(error.message);
+      }
+      created++;
+      if (emailConfigured()) await emailInvoice(admin, data as InvoiceRow);
+    }
+  }
+  return created;
 }
 
 export async function renderInvoicePdf(admin: SupabaseClient, inv: InvoiceRow) {

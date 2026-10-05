@@ -19,7 +19,8 @@ export type FlagKind =
   | "missing_outcome"
   | "no_show_unchased"
   | "follow_up_stale"
-  | "missing_recording";
+  | "missing_recording"
+  | "contract_unsigned";
 
 export interface Flag {
   id: string;
@@ -41,6 +42,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   no_show_unchased: "No-show not followed up",
   follow_up_stale: "Follow-up gone cold",
   missing_recording: "No Fathom recording",
+  contract_unsigned: "Contract not signed",
 };
 
 const DAY = 86400000;
@@ -70,6 +72,20 @@ export function computeFlags(
   // ---- deals with money still owed
   for (const c of closes) {
     const o = owed(c);
+    if (o <= 0.001 && !c.contract_signed_at) {
+      const lastPay = c.payments.reduce((m, p) => Math.max(m, new Date(p.paid_at).getTime()), new Date(c.closed_at).getTime());
+      const late = days(t - lastPay);
+      flags.push({
+        id: `cu-${c.id}`,
+        kind: "contract_unsigned",
+        severity: late >= 1 ? "high" : "medium",
+        title: `${c.calls?.lead_name ?? "Deal"} — paid in full but contract not marked signed`,
+        detail: `Commission is on hold until the contract is signed. Closer: ${nameOf(staff, c.closer_id)}. Mark it signed on the Deals page.`,
+        ownerId: c.closer_id,
+        daysLate: late,
+        closeId: c.id,
+      });
+    }
     if (o <= 0.001) continue;
     const who = c.calls?.lead_name ?? "Deal";
     const lastPay = c.payments.reduce((m, p) => Math.max(m, new Date(p.paid_at).getTime()), 0);
