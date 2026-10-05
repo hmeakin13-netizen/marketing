@@ -827,20 +827,22 @@ export async function reapplyShifts() {
 
 /** Setter's pre-call check: confirmed on Zoom, no answer, left a message, etc. */
 export async function setConfirmation(formData: FormData) {
-  const { supabase, me } = await requireStaff();
+  const { me } = await requireStaff();
   const status = str(formData, "confirmation");
   if (!["unconfirmed", "confirmed", "no_answer", "left_message", "reschedule", "other"].includes(status)) {
     back("/calls", "error", "Pick a confirmation status.");
   }
   const note = optStr(formData, "confirmation_note");
   if (status === "other" && !note) back("/calls", "error", "Add a short note for 'Other'.");
-  const { data, error } = await supabase
+  // Confirming is a team-wide job (any logged-in staff member may set it), so it goes through the
+  // service client and only ever touches the confirmation fields.
+  const { data, error } = await createAdminClient()
     .from("calls")
     .update({ confirmation: status, confirmation_note: note, confirmation_at: new Date().toISOString(), confirmation_by: me.id })
     .eq("id", str(formData, "call_id"))
     .select("id");
   if (error) back("/calls", "error", error.message);
-  if (!data || data.length === 0) back("/calls", "error", "You can't update that call.");
+  if (!data || data.length === 0) back("/calls", "error", "Couldn't find that call.");
   revalidatePath("/", "layout");
   back("/calls", "ok", "Confirmation saved.");
 }
