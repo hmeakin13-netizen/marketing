@@ -20,7 +20,7 @@ export function metricValue(s: Stats, m: TargetMetric): number {
 
 function fmt(m: TargetMetric, n: number) {
   if (m === "show_rate" || m === "close_rate") return `${Math.round(n)}%`;
-  if (m === "cash_collected") return `£${Math.round(n).toLocaleString("en-GB")}`;
+  if (m === "cash_collected") return money(n);
   return String(Math.round(n));
 }
 
