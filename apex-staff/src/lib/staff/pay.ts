@@ -16,9 +16,6 @@ export interface PayResult {
   lines: PayLine[];
   retainer: number; // flat monthly fee
   clientShare: number; // share of active clients' monthly fees
-  setupCommission: number; // one-time pay on clients they set
-  commission: number;
-  override: number;
   total: number;
 }
 
@@ -30,24 +27,19 @@ export function defaultBasis(role: StaffRole): PayRow["basis"] {
 }
 
 /**
- * What one person is owed for one pay run:
- *  - retainer: fixed monthly amount (month-end run only)
- *  - commission: % of cash collected in the run's commission window, on their basis
- *  - override: % on sales set by the setters they manage, for the whole month (month-end run only),
- *    on the deal value of new sales ("deal_value") or the cash collected ("cash")
+ * Periodic pay (the 15th / 1st): a flat monthly fee and the share of each active client's
+ * monthly retainer. Sale payouts (commission, setter pay, overrides) are NOT here; they are paid
+ * the same day the full payment is in and the contract is signed (see computeDealPayouts).
  */
 export function computeRunPay(
   person: Pick<StaffRow, "id" | "role">,
   cfg: PayRow | undefined,
-  closes: CloseRow[],
-  allStaff: StaffRow[],
   run: PayRun,
   clients: RetainerClient[] = []
 ): PayResult {
   const lines: PayLine[] = [];
-  const basis = cfg?.basis ?? defaultBasis(person.role);
 
-  // Retainer / flat fee
+  // Flat monthly fee
   const retainer = run.includeMonthly ? round2(Number(cfg?.retainer_monthly ?? 0)) : 0;
   if (retainer > 0) lines.push({ description: `Retainer — ${run.monthLabel}`, amount: retainer });
 
@@ -70,101 +62,99 @@ export function computeRunPay(
     clientShare = round2(clientShare);
   }
 
-  // One-time commission on each new client they set (paid on the first payment, the setup fee)
-  let setupCommission = 0;
-  const setupPct = Number(cfg?.setup_commission_pct ?? 0);
-  const setupFlat = Number(cfg?.setup_commission_flat ?? 0);
-  if (setupPct > 0 || setupFlat > 0) {
-    const fromD = ukIso(run.commissionFrom);
-    const toD = ukIso(run.commissionTo);
-    for (const c of clients) {
-      if (c.setter_id !== person.id) continue;
-      if (c.start_date < fromD || c.start_date >= toD) continue;
-      const amt = round2((Number(c.setup_fee) * setupPct) / 100 + setupFlat);
-      if (amt <= 0) continue;
-      setupCommission += amt;
-      const parts = [
-        setupPct > 0 ? `${setupPct}% of the ${gbp(Number(c.setup_fee))} setup fee` : "",
-        setupFlat > 0 ? `${gbp(setupFlat)} flat` : "",
-      ].filter(Boolean);
-      lines.push({ description: `One-time payment for setting ${c.name}: ${parts.join(" + ")}`, amount: amt });
-    }
-    setupCommission = round2(setupCommission);
-  }
+  return { lines, retainer, clientShare, total: round2(retainer + clientShare) };
+}
 
-  // Commission
-  let cashBase = 0;
-  for (const c of closes) {
-    for (const pm of c.payments) {
-      if (!inRange(pm.paid_at, run.commissionFrom, run.commissionTo)) continue;
-      if (
-        basis === "team_cash" ||
-        (basis === "own_closes" && c.closer_id === person.id) ||
-        (basis === "own_bookings" && c.setter_id === person.id)
-      ) {
-        cashBase += Number(pm.amount);
-      }
-    }
-  }
-  const commissionPct = Number(cfg?.commission_pct ?? 0);
-  const commission = round2((cashBase * commissionPct) / 100);
-  if (commission > 0) {
-    lines.push({
-      description: `${commissionPct}% commission on ${gbp(cashBase)} ${BASIS_LABEL[basis]} collected (${run.commissionLabel})`,
-      amount: commission,
-    });
-  }
+// ------------------------------------------------------------------ sale payouts (same day)
 
-  // Override on the setters this person manages (month-end run only, one-time per sale)
-  let override = 0;
-  const overridePct = Number(cfg?.override_pct ?? 0);
-  if (run.includeMonthly && overridePct > 0) {
-    const managed = allStaff.filter((s) => s.manager_id === person.id).map((s) => s.id);
-    if (managed.length > 0) {
-      const mode = cfg?.override_basis ?? "client_fee";
-      const names = allStaff.filter((s) => managed.includes(s.id)).map((s) => s.full_name).join(", ");
-      let overBase = 0;
-      let what = "";
-      if (mode === "client_fee") {
-        // Automatic from the Clients list: new clients a managed setter set, signed in this month.
-        const fromD = ukIso(run.monthFrom);
-        const toD = ukIso(run.monthTo);
-        const newClients = clients.filter(
-          (c) => c.setter_id && managed.includes(c.setter_id) && c.start_date >= fromD && c.start_date < toD
-        );
-        for (const c of newClients) overBase += Number(c.setup_fee);
-        what = `setup fees of new clients set by ${names}: ${newClients.filter((c) => Number(c.setup_fee) > 0).map((c) => c.name).join(", ")}`;
-      } else {
-        const byCash = mode === "cash";
-        for (const c of closes) {
-          if (!c.setter_id || !managed.includes(c.setter_id)) continue;
-          if (byCash) {
-            for (const pm of c.payments) if (inRange(pm.paid_at, run.monthFrom, run.monthTo)) overBase += Number(pm.amount);
-          } else if (inRange(c.closed_at, run.monthFrom, run.monthTo)) {
-            overBase += Number(c.deal_value);
-          }
-        }
-        what = `${byCash ? "cash collected from" : "new sales"} set by ${names}`;
-      }
-      override = round2((overBase * overridePct) / 100);
-      if (override > 0) {
+const sum2 = (nums: number[]) => round2(nums.reduce((t, n) => t + n, 0));
+
+/** The day a sale's commission becomes payable: full payment in AND contract signed (the later of the two). */
+export function dealPayableOn(c: CloseRow): string | null {
+  if (!c.contract_signed_at) return null;
+  const paid = sum2(c.payments.map((p) => Number(p.amount)));
+  if (paid + 0.005 < Number(c.deal_value)) return null;
+  const lastPaid = c.payments.map((p) => ukIso(new Date(p.paid_at))).sort().pop() ?? c.contract_signed_at;
+  return lastPaid > c.contract_signed_at ? lastPaid : c.contract_signed_at;
+}
+
+/**
+ * Everything owed because of ONE sale, per person, once it's payable:
+ *  - the closer's commission % of the sale value
+ *  - the setter's one-time % (and/or flat £) for setting it
+ *  - a manager's override % when the setter reports to them
+ */
+export function computeDealPayouts(
+  c: CloseRow,
+  staff: StaffRow[],
+  pays: Map<string, PayRow>
+): Map<string, PayLine[]> {
+  const out = new Map<string, PayLine[]>();
+  const value = Number(c.deal_value);
+  const lead = c.calls?.lead_name ?? "sale";
+
+  for (const s of staff) {
+    if (!s.active) continue;
+    const cfg = pays.get(s.id);
+    if (!cfg) continue;
+    const lines: PayLine[] = [];
+
+    const basis = cfg.basis ?? defaultBasis(s.role);
+    const pct = Number(cfg.commission_pct ?? 0);
+    if (
+      pct > 0 &&
+      (basis === "team_cash" || (basis === "own_closes" && c.closer_id === s.id) || (basis === "own_bookings" && c.setter_id === s.id))
+    ) {
+      lines.push({
+        description: `${pct}% commission on ${lead}'s ${gbp(value)} sale (paid in full, contract signed)`,
+        amount: round2((value * pct) / 100),
+      });
+    }
+
+    const setPct = Number(cfg.setup_commission_pct ?? 0);
+    const setFlat = Number(cfg.setup_commission_flat ?? 0);
+    if (c.setter_id === s.id && (setPct > 0 || setFlat > 0)) {
+      const parts = [setPct > 0 ? `${setPct}% of the ${gbp(value)} first payment` : "", setFlat > 0 ? `${gbp(setFlat)} flat` : ""].filter(Boolean);
+      lines.push({
+        description: `One-time payment for setting ${lead}: ${parts.join(" + ")}`,
+        amount: round2((value * setPct) / 100 + setFlat),
+      });
+    }
+
+    const ovr = Number(cfg.override_pct ?? 0);
+    if (ovr > 0 && c.setter_id) {
+      const setter = staff.find((x) => x.id === c.setter_id);
+      if (setter?.manager_id === s.id) {
         lines.push({
-          description: `${overridePct}% one-time override on ${gbp(overBase)} (${what}) — ${run.monthLabel}`,
-          amount: override,
+          description: `${ovr}% override on ${lead}'s ${gbp(value)} sale set by ${setter.full_name}`,
+          amount: round2((value * ovr) / 100),
         });
       }
     }
-  }
 
-  return {
-    lines,
-    retainer,
-    clientShare,
-    setupCommission,
-    commission,
-    override,
-    total: round2(retainer + clientShare + setupCommission + commission + override),
-  };
+    const filtered = lines.filter((l) => l.amount > 0);
+    if (filtered.length) out.set(s.id, filtered);
+  }
+  return out;
+}
+
+/** Sale payouts that fell due in [fromIso, toIso) (UK dates), per person. For the Pay overview. */
+export function dealPayoutsInRange(
+  closes: CloseRow[],
+  staff: StaffRow[],
+  pays: Map<string, PayRow>,
+  fromIso: string,
+  toIso: string
+): Map<string, PayLine[]> {
+  const out = new Map<string, PayLine[]>();
+  for (const c of closes) {
+    const on = dealPayableOn(c);
+    if (!on || on < fromIso || on >= toIso) continue;
+    computeDealPayouts(c, staff, pays).forEach((lines, id) => {
+      out.set(id, [...(out.get(id) ?? []), ...lines]);
+    });
+  }
+  return out;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");

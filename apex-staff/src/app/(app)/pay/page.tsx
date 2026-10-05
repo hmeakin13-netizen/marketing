@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/staff/auth";
-import { monthToDateRun } from "@/lib/staff/dates";
+import { monthToDateRun, ukIso } from "@/lib/staff/dates";
 import { money } from "@/lib/staff/metrics";
-import { computeRunPay } from "@/lib/staff/pay";
+import { computeRunPay, dealPayoutsInRange } from "@/lib/staff/pay";
 import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
 import { savePay } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
@@ -27,7 +27,7 @@ export default async function PayPage({
 
   const [{ data: staffData }, { data: closeData }, { data: payData }, { data: clientData }] = await Promise.all([
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
-    supabase.from("closes").select("*, payments(*)").limit(2000),
+    supabase.from("closes").select("*, payments(*), calls(lead_name)").limit(2000),
     supabase.from("staff_pay").select("*"),
     supabase.from("retainer_clients").select("*"),
   ]);
@@ -37,11 +37,15 @@ export default async function PayPage({
   const pay = new Map(((payData ?? []) as PayRow[]).map((p) => [p.staff_id, p]));
   const people = staff.filter((s) => s.role !== "admin");
 
+  const saleLines = dealPayoutsInRange(closes, staff, pay, ukIso(run.monthFrom), ukIso(run.monthTo));
   const rows = people.map((p) => {
     const cfg = pay.get(p.id);
-    return { p, cfg, r: computeRunPay(p, cfg, closes, staff, run, clients) };
+    const periodic = computeRunPay(p, cfg, run, clients);
+    const sales = saleLines.get(p.id) ?? [];
+    const salesTotal = sales.reduce((t, l) => t + l.amount, 0);
+    return { p, cfg, lines: [...sales, ...periodic.lines], salesTotal, periodic, total: periodic.total + salesTotal };
   });
-  const sum = (k: "retainer" | "clientShare" | "setupCommission" | "commission" | "override" | "total") => rows.reduce((t, x) => t + x.r[k], 0);
+  const sumOf = (f: (r: (typeof rows)[number]) => number) => rows.reduce((t, r) => t + f(r), 0);
 
   return (
     <>
@@ -70,19 +74,19 @@ export default async function PayPage({
       <Notice ok={searchParams.ok} error={searchParams.error} />
 
       <div className="mb-2 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label={`Total — ${run.label}`} value={money(sum("total"))} tone="warn" />
-        <Stat label="Client retainer shares" value={money(sum("clientShare") + sum("retainer"))} />
-        <Stat label="Commission" value={money(sum("commission") + sum("setupCommission"))} />
-        <Stat label="Overrides" value={money(sum("override"))} />
+        <Stat label={`Total — ${run.label}`} value={money(sumOf((r) => r.total))} tone="warn" />
+        <Stat label="Sale payouts (paid same day)" value={money(sumOf((r) => r.salesTotal))} />
+        <Stat label="Client retainer shares" value={money(sumOf((r) => r.periodic.clientShare))} />
+        <Stat label="Flat monthly fees" value={money(sumOf((r) => r.periodic.retainer))} />
       </div>
       <p className="mb-6 text-xs text-zinc-500">
-        This is the whole month combined. Actual payments are invoiced in two runs for anyone paid twice a month: sales
-        from the 1st to the 14th on the 15th, then sales from the 15th to month end (plus retainer and override) on the 1st.
+        Sale payouts (commission, setter pay, overrides) are paid and invoiced the same day a sale has its full payment in
+        and its contract signed. Client retainer shares and flat fees are invoiced on the 15th and the 1st.
       </p>
 
       <div className="space-y-4">
         {rows.length === 0 ? <p className="text-sm text-zinc-500">No staff yet. Add people on the Team page.</p> : null}
-        {rows.map(({ p, cfg, r }) => (
+        {rows.map(({ p, cfg, lines, total }) => (
           <Card key={p.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -92,24 +96,24 @@ export default async function PayPage({
                   <Badge tone="info">{cfg?.pay_schedule === "semi_monthly" ? "paid 1st & 15th" : "paid on the 1st"}</Badge>
                 </div>
                 <ul className="mt-1 space-y-0.5 text-xs text-zinc-500">
-                  {r.lines.length === 0 ? <li>Nothing owed yet this month.</li> : null}
-                  {r.lines.map((l, i) => (
+                  {lines.length === 0 ? <li>Nothing owed yet this month.</li> : null}
+                  {lines.map((l, i) => (
                     <li key={i}>
                       {l.description} = {money(l.amount)}
                     </li>
                   ))}
                 </ul>
               </div>
-              <p className="text-2xl font-semibold tabular-nums text-emerald-400">{money(r.total)}</p>
+              <p className="text-2xl font-semibold tabular-nums text-emerald-400">{money(total)}</p>
             </div>
             <details className="mt-4 rounded-xl border border-white/10 p-3">
               <summary className="cursor-pointer text-sm font-medium text-zinc-300">Edit pay &amp; invoice details</summary>
               <form action={savePay} className="mt-3 grid gap-3 sm:grid-cols-4">
                 <input type="hidden" name="staff_id" value={p.id} />
-                <Field label="One-time % of the setup fee on clients they SET">
+                <Field label="One-time % of the first payment on sales they SET (same day)">
                   <input name="setup_commission_pct" inputMode="decimal" defaultValue={cfg?.setup_commission_pct ?? 0} className={inputCls} />
                 </Field>
-                <Field label="…or a flat £ per client they set (one-time)">
+                <Field label="…or a flat £ per sale they set (same day)">
                   <input name="setup_commission_flat" inputMode="decimal" defaultValue={cfg?.setup_commission_flat ?? 0} className={inputCls} />
                 </Field>
                 <Field label="Share of each client's monthly retainer (%)">
@@ -118,7 +122,7 @@ export default async function PayPage({
                 <Field label="Flat monthly fee (£), if on a flat fee">
                   <input name="retainer_monthly" inputMode="decimal" defaultValue={cfg?.retainer_monthly ?? 0} className={inputCls} />
                 </Field>
-                <Field label="Commission %">
+                <Field label="Commission % on each sale they CLOSE (paid same day)">
                   <input name="commission_pct" inputMode="decimal" defaultValue={cfg?.commission_pct ?? 0} className={inputCls} />
                 </Field>
                 <Field label="Commission on">
@@ -128,21 +132,14 @@ export default async function PayPage({
                     ))}
                   </select>
                 </Field>
-                <Field label="Commission paid">
+                <Field label="Retainer share paid">
                   <select name="pay_schedule" defaultValue={cfg?.pay_schedule ?? "monthly"} className={inputCls}>
                     <option value="monthly">Once a month (the 1st)</option>
                     <option value="semi_monthly">Twice a month (15th and 1st)</option>
                   </select>
                 </Field>
-                <Field label="Override % (on setters they manage)">
+                <Field label="Override % on sales set by setters they manage (same day)">
                   <input name="override_pct" inputMode="decimal" defaultValue={cfg?.override_pct ?? 0} className={inputCls} />
-                </Field>
-                <Field label="Override calculated on">
-                  <select name="override_basis" defaultValue={cfg?.override_basis ?? "client_fee"} className={inputCls}>
-                    <option value="client_fee">Setup fee of new clients (from the Clients list, automatic)</option>
-                    <option value="deal_value">Deal value of sales logged on Calls</option>
-                    <option value="cash">Cash collected on those sales</option>
-                  </select>
                 </Field>
                 <Field label="Trading name (shown on their invoice)">
                   <input name="payee_name" defaultValue={cfg?.payee_name ?? ""} placeholder={p.full_name} className={inputCls} />

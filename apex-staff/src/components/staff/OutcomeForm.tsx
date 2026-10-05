@@ -63,6 +63,10 @@ export function OutcomeForm({ callId, existingNotes }: { callId: string; existin
               <input name="next_payment_due" type="date" className={inputCls} />
             </Field>
           ) : null}
+          <label className="flex items-center gap-2 text-sm text-zinc-200 sm:col-span-2">
+            <input type="checkbox" name="contract_signed" className="accent-emerald-500" />
+            Contract signed today (commission is released once this is ticked and the full payment is in)
+          </label>
           <Field label="Monthly retainer (£), if they're staying on" className="sm:col-span-2">
             <input name="monthly_retainer" inputMode="decimal" className={inputCls} placeholder="1000 — leave blank if it's a one-off" />
           </Field>
@@ -81,7 +85,11 @@ export function OutcomeForm({ callId, existingNotes }: { callId: string; existin
                 placeholder="https://fathom.video/share/…"
               />
             </Field>
-          ) : null}
+          ) : (
+            <Field label="Fathom recording link (optional)">
+              <input name="recording_url" type="url" className={inputCls} placeholder="https://fathom.video/share/…" />
+            </Field>
+          )}
           <Field label="Notes (optional)">
             <input name="notes" defaultValue={existingNotes ?? ""} className={inputCls} placeholder="Objections, next steps…" />
           </Field>

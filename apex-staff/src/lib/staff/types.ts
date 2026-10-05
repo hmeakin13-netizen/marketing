@@ -59,6 +59,7 @@ export interface CloseRow {
   next_payment_due: string | null;
   notes: string | null;
   closed_at: string;
+  contract_signed_at: string | null; // YYYY-MM-DD
   payments: PaymentRow[];
   calls?: { lead_name: string; source: string | null; recording_url: string | null } | null;
 }
@@ -117,6 +118,7 @@ export interface InvoiceRow {
   emailed_at: string | null;
   email_error: string | null;
   paid_at: string | null;
+  close_id: string | null;
   created_at: string;
 }
 

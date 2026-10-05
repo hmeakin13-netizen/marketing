@@ -141,13 +141,6 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
         {active.map((c) => {
           const cfg = pay.get(c.closer_id ?? "");
           const next = nextRetainerDate(c);
-          const setter = staff.find((x) => x.id === c.setter_id);
-          const mgr = staff.find((x) => x.id === setter?.manager_id);
-          const mgrPct = Number(pay.get(mgr?.id ?? "")?.override_pct ?? 0);
-          const setterCfg = pay.get(c.setter_id ?? "");
-          const setterOnce =
-            (Number(c.setup_fee) * Number(setterCfg?.setup_commission_pct ?? 0)) / 100 + Number(setterCfg?.setup_commission_flat ?? 0);
-          const mgrBasisClient = (pay.get(mgr?.id ?? "")?.override_basis ?? "client_fee") === "client_fee";
           return (
             <Card key={c.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -168,20 +161,6 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                       </>
                     ) : null}
                   </p>
-                  {setter && setterOnce > 0 ? (
-                    <p className="mt-1 text-sm text-zinc-300">
-                      {setter.full_name} earns a one-time <b className="text-emerald-400">{money(setterOnce)}</b> for setting this client,
-                      paid on the 1st or 15th after they signed.
-                    </p>
-                  ) : null}
-                  {mgr && mgrPct > 0 && mgrBasisClient && Number(c.setup_fee) > 0 ? (
-                    <p className="mt-1 text-sm text-zinc-300">
-                      {mgr.full_name} also earns a one-time{" "}
-                      <b className="text-emerald-400">{money((Number(c.setup_fee) * mgrPct) / 100)}</b> ({mgrPct}% of the{" "}
-                      {money(Number(c.setup_fee))} setup fee, because {setter?.full_name} set this client), paid on the 1st after the
-                      month they signed.
-                    </p>
-                  ) : null}
                   {!cfg || Number(cfg.retainer_share_pct) === 0 ? (
                     <p className="mt-1 text-xs text-amber-300">
                       No retainer share set for {nameOf(staff, c.closer_id)} yet. Set it on the Pay page.

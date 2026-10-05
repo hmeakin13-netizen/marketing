@@ -61,6 +61,7 @@ export function verifySignature(header: string | null, rawBody: string, key: str
 
 export interface Invitee {
   uri: string;
+  created_at?: string | null; // when the booking was made
   email?: string | null;
   name?: string | null;
   status?: string;
@@ -109,7 +110,7 @@ export function pickSetter(tracking: Invitee["tracking"], staff: StaffRow[]) {
   return m?.id ?? null;
 }
 
-export async function upsertInvitee(admin: SupabaseClient, inv: Invitee) {
+export async function upsertInvitee(admin: SupabaseClient, inv: Invitee, opts: { existingOnly?: boolean } = {}) {
   const [{ data: staffData }, { data: shiftData }] = await Promise.all([
     admin.from("staff").select("*"),
     admin.from("closer_shifts").select("*"),
@@ -132,24 +133,42 @@ export async function upsertInvitee(admin: SupabaseClient, inv: Invitee) {
   }
 
   const host = inv.scheduled_event.event_memberships?.[0]?.user_email ?? null;
+  let source: string | null = inv.tracking?.utm_campaign || inv.tracking?.utm_source || null;
+  let setterId = pickSetter(inv.tracking, staff);
+  // A booking with no campaign tag at all is one a setter made by hand. With a single
+  // setter, that's them: credit the booking (and the source) to them.
+  const setters = staff.filter((x) => x.active && x.role === "setter");
+  if (!setterId && !source && setters.length === 1) {
+    setterId = setters[0].id;
+    source = setters[0].full_name.split(" ")[0];
+  }
+
   const row = {
     lead_name: inv.name || inv.email || "Unknown lead",
     lead_email: inv.email ?? null,
     lead_phone: inv.text_reminder_number ?? null,
-    source: inv.tracking?.utm_campaign || inv.tracking?.utm_source || null,
+    source,
     call_at: start,
+    // "Calls booked" counts from the day the booking was made, not the day of the call.
+    ...(inv.created_at ? { booked_at: inv.created_at } : {}),
   };
 
   if (existing) {
     // Only touch calls nobody has worked on yet (e.g. a reschedule).
-    if (existing.outcome === "scheduled") await admin.from("calls").update(row).eq("id", existing.id);
+    if (existing.outcome === "scheduled") {
+      await admin
+        .from("calls")
+        .update({ ...row, source: undefined, ...(inv.created_at ? { booked_at: inv.created_at } : {}) })
+        .eq("id", existing.id);
+    }
     return "updated";
   }
+  if (opts.existingOnly) return "skipped";
 
   await admin.from("calls").insert({
     ...row,
     calendly_invitee_uri: inv.uri,
-    setter_id: pickSetter(inv.tracking, staff),
+    setter_id: setterId,
     closer_id: pickCloser(start, shifts, staff, host),
   });
   return "created";
@@ -162,7 +181,7 @@ interface Paged<T> {
 
 /** Pull every upcoming active booking (covers anything made before the webhook existed). */
 export async function syncUpcoming(admin: SupabaseClient, config: CalendlyConfig) {
-  const base = `/scheduled_events?organization=${encodeURIComponent(config.organization)}&status=active&count=100&sort=start_time:asc&min_start_time=${encodeURIComponent(new Date().toISOString())}`;
+  const base = `/scheduled_events?organization=${encodeURIComponent(config.organization)}&status=active&count=100&sort=start_time:asc&min_start_time=${encodeURIComponent(new Date(Date.now() - 2 * 86400000).toISOString())}`;
   let url: string | null = base;
   let pages = 0;
   let count = 0;
@@ -171,7 +190,9 @@ export async function syncUpcoming(admin: SupabaseClient, config: CalendlyConfig
     for (const ev of page.collection) {
       const inv: Paged<Invitee> = await cal(config.token, `${ev.uri}/invitees?count=100&status=active`);
       for (const i of inv.collection) {
-        await upsertInvitee(admin, { ...i, scheduled_event: ev });
+        // Recent past calls are only refreshed (e.g. their true booking date), never newly imported.
+        const isPast = new Date(ev.start_time).getTime() < Date.now();
+        await upsertInvitee(admin, { ...i, scheduled_event: ev }, { existingOnly: isPast });
         count++;
       }
     }

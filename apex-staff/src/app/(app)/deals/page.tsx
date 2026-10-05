@@ -2,8 +2,9 @@ import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore } from "@/lib/staff/data";
 import { rangeBounds, fmtDate, todayIso, parseRange } from "@/lib/staff/dates";
 import { money, nameOf, outstanding, owed, paidTotal, computeStats } from "@/lib/staff/metrics";
+import { dealPayableOn } from "@/lib/staff/pay";
 import { PAYMENT_TYPE_LABEL, type CloseRow, type StaffRow } from "@/lib/staff/types";
-import { addPayment, updateDeal, deletePayment } from "../../actions";
+import { addPayment, markContractSigned, updateDeal, deletePayment } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, RangeTabs, SectionTitle, Stat, inputCls } from "@/components/staff/ui";
 
@@ -86,8 +87,24 @@ export default async function DealsPage({
 }
 
 
+function CommissionStatus({ c }: { c: CloseRow }) {
+  const payableOn = dealPayableOn(c);
+  const left = owed(c);
+  const signed = !!c.contract_signed_at;
+  if (payableOn) {
+    return (
+      <p className="mt-1 text-xs text-emerald-400">
+        ✓ Fully paid and contract signed — commission was released on {fmtDate(`${payableOn}T12:00:00Z`)} (see Invoices).
+      </p>
+    );
+  }
+  const waiting = [left > 0.001 ? `the remaining ${money(left)}` : "", !signed ? "the contract to be marked signed" : ""].filter(Boolean);
+  return <p className="mt-1 text-xs text-amber-300">Commission on hold — waiting for {waiting.join(" and ")}.</p>;
+}
+
 function DealHeader({ c, staff }: { c: CloseRow; staff: StaffRow[] }) {
   return (
+    <>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div>
         <p className="font-semibold text-white">{c.calls?.lead_name ?? "Deal"}</p>
@@ -101,6 +118,8 @@ function DealHeader({ c, staff }: { c: CloseRow; staff: StaffRow[] }) {
         <span className="font-semibold text-emerald-400">{money(paidTotal(c))}</span> / {money(Number(c.deal_value))}
       </p>
     </div>
+    <CommissionStatus c={c} />
+    </>
   );
 }
 
@@ -117,6 +136,15 @@ function DealActions({
 }) {
   return (
     <div className="mt-3 space-y-2">
+      {!c.contract_signed_at && canEdit ? (
+        <form action={markContractSigned} className="flex flex-wrap items-end gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+          <input type="hidden" name="close_id" value={c.id} />
+          <Field label="Contract signed on">
+            <input name="signed_on" type="date" defaultValue={todayIso()} className={inputCls} />
+          </Field>
+          <SubmitButton>Mark contract signed</SubmitButton>
+        </form>
+      ) : null}
       {!hidePay && canEdit ? (
         <details className="rounded-xl border border-white/10 p-3">
           <summary className="cursor-pointer text-sm font-medium text-emerald-400">＋ Record a payment</summary>

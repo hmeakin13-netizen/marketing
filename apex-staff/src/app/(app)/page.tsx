@@ -50,7 +50,8 @@ export default async function DashboardPage({
   // Campaign / source performance for the selected range.
   const sources = new Map<string, { calls: number; showed: number; closed: number }>();
   for (const c of calls) {
-    const t = new Date(c.call_at).getTime();
+    // By the day the call was BOOKED, so a setter's work counts on the day they did it.
+    const t = new Date(c.booked_at).getTime();
     if (t < from.getTime() || t >= to.getTime()) continue;
     const key = c.source?.trim() || "Unknown";
     const row = sources.get(key) ?? { calls: 0, showed: 0, closed: 0 };
@@ -163,7 +164,7 @@ export default async function DashboardPage({
 
         <Card>
           <SectionTitle>Campaign / source</SectionTitle>
-          <p className="-mt-2 mb-3 text-xs text-zinc-500">Which sources are turning into closes.</p>
+          <p className="-mt-2 mb-3 text-xs text-zinc-500">Calls counted on the day they were booked. Which sources turn into closes.</p>
           {sources.size === 0 ? (
             <p className="text-sm text-zinc-500">No calls in this period.</p>
           ) : (
