@@ -405,6 +405,28 @@ export async function giveAccess(formData: FormData) {
   back(path, "ok", `${person!.full_name} can now sign in with ${person!.email}.`);
 }
 
+/** One-time sign-in link the admin can send to someone directly (WhatsApp etc.), no email needed. */
+export async function makeLoginLink(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const path = "/team";
+  const { data: person } = await supabase.from("staff").select("*").eq("id", str(formData, "staff_id")).single();
+  if (!person) back(path, "error", "Couldn't find that person.");
+  if (!person!.active) back(path, "error", "That person is deactivated.");
+  const failed = await createLogin(person!.email);
+  if (failed) back(path, "error", `Couldn't create the login: ${failed}`);
+  await supabase.from("staff").update({ login_enabled: true }).eq("id", person!.id);
+
+  const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: person!.email });
+  const hashed = data?.properties?.hashed_token;
+  if (error || !hashed) back(path, "error", `Couldn't make a link: ${error?.message ?? "no token returned"}`);
+
+  const h = headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+  const link = `${proto}://${host}/auth/confirm?token_hash=${encodeURIComponent(hashed!)}&type=magiclink`;
+  redirect(`${path}?link=${encodeURIComponent(link)}&for=${encodeURIComponent(person!.full_name)}`);
+}
+
 export async function updatePerson(formData: FormData) {
   const { supabase, me } = await requireRole("admin");
   const path = "/team";
