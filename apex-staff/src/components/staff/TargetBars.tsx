@@ -1,5 +1,5 @@
 import { METRIC_LABEL, type TargetMetric, type TargetRow } from "@/lib/staff/types";
-import type { Stats } from "@/lib/staff/metrics";
+import { money, type Stats } from "@/lib/staff/metrics";
 
 export function metricValue(s: Stats, m: TargetMetric): number {
   switch (m) {
