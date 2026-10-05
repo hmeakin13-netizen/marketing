@@ -225,3 +225,10 @@ export function monthToDateRun(now = new Date(), previous = false): PayRun {
     includeMonthly: true,
   };
 }
+
+/** The UK calendar date (YYYY-MM-DD) of an instant. */
+export function ukIso(d: Date): string {
+  const p = ukParts(d);
+  const z = (n: number) => String(n).padStart(2, "0");
+  return `${p.year}-${z(p.month)}-${z(p.day)}`;
+}

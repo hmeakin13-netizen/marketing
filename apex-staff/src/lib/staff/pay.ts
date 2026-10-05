@@ -1,4 +1,4 @@
-import { inRange, ukParts, ukWallClockToUtc, type PayRun } from "./dates";
+import { inRange, ukIso, ukParts, ukWallClockToUtc, type PayRun } from "./dates";
 import type { CloseRow, PayRow, RetainerClient, StaffRole, StaffRow } from "./types";
 
 export const BASIS_LABEL = {
@@ -16,6 +16,7 @@ export interface PayResult {
   lines: PayLine[];
   retainer: number; // flat monthly fee
   clientShare: number; // share of active clients' monthly fees
+  setupCommission: number; // one-time pay on clients they set
   commission: number;
   override: number;
   total: number;
@@ -69,6 +70,28 @@ export function computeRunPay(
     clientShare = round2(clientShare);
   }
 
+  // One-time commission on each new client they set (paid on the first payment, the setup fee)
+  let setupCommission = 0;
+  const setupPct = Number(cfg?.setup_commission_pct ?? 0);
+  const setupFlat = Number(cfg?.setup_commission_flat ?? 0);
+  if (setupPct > 0 || setupFlat > 0) {
+    const fromD = ukIso(run.commissionFrom);
+    const toD = ukIso(run.commissionTo);
+    for (const c of clients) {
+      if (c.setter_id !== person.id) continue;
+      if (c.start_date < fromD || c.start_date >= toD) continue;
+      const amt = round2((Number(c.setup_fee) * setupPct) / 100 + setupFlat);
+      if (amt <= 0) continue;
+      setupCommission += amt;
+      const parts = [
+        setupPct > 0 ? `${setupPct}% of the ${gbp(Number(c.setup_fee))} setup fee` : "",
+        setupFlat > 0 ? `${gbp(setupFlat)} flat` : "",
+      ].filter(Boolean);
+      lines.push({ description: `One-time payment for setting ${c.name}: ${parts.join(" + ")}`, amount: amt });
+    }
+    setupCommission = round2(setupCommission);
+  }
+
   // Commission
   let cashBase = 0;
   for (const c of closes) {
@@ -104,8 +127,8 @@ export function computeRunPay(
       let what = "";
       if (mode === "client_fee") {
         // Automatic from the Clients list: new clients a managed setter set, signed in this month.
-        const fromD = run.monthFrom.toISOString().slice(0, 10);
-        const toD = run.monthTo.toISOString().slice(0, 10);
+        const fromD = ukIso(run.monthFrom);
+        const toD = ukIso(run.monthTo);
         const newClients = clients.filter(
           (c) => c.setter_id && managed.includes(c.setter_id) && c.start_date >= fromD && c.start_date < toD
         );
@@ -133,7 +156,15 @@ export function computeRunPay(
     }
   }
 
-  return { lines, retainer, clientShare, commission, override, total: round2(retainer + clientShare + commission + override) };
+  return {
+    lines,
+    retainer,
+    clientShare,
+    setupCommission,
+    commission,
+    override,
+    total: round2(retainer + clientShare + setupCommission + commission + override),
+  };
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");

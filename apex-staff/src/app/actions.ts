@@ -406,6 +406,8 @@ export async function savePay(formData: FormData) {
   const ovr = num(formData, "override_pct");
   const ret = num(formData, "retainer_monthly");
   const share = num(formData, "retainer_share_pct");
+  const setupPct = num(formData, "setup_commission_pct");
+  const setupFlat = num(formData, "setup_commission_flat");
   const { error } = await supabase.from("staff_pay").upsert(
     {
       staff_id: str(formData, "staff_id"),
@@ -413,6 +415,8 @@ export async function savePay(formData: FormData) {
       basis: str(formData, "basis"),
       retainer_monthly: Number.isNaN(ret) ? 0 : ret,
       retainer_share_pct: Number.isNaN(share) ? 0 : share,
+      setup_commission_pct: Number.isNaN(setupPct) ? 0 : setupPct,
+      setup_commission_flat: Number.isNaN(setupFlat) ? 0 : setupFlat,
       override_pct: Number.isNaN(ovr) ? 0 : ovr,
       override_basis: ["cash", "deal_value"].includes(str(formData, "override_basis")) ? str(formData, "override_basis") : "client_fee",
       pay_schedule: str(formData, "pay_schedule") === "semi_monthly" ? "semi_monthly" : "monthly",
