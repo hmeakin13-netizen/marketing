@@ -21,6 +21,7 @@ export type FlagKind =
   | "follow_up_stale"
   | "missing_recording"
   | "missing_notes"
+  | "unconfirmed_call"
   | "contract_unsigned";
 
 export interface Flag {
@@ -44,6 +45,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   follow_up_stale: "Follow-up gone cold",
   missing_recording: "No Fathom recording",
   missing_notes: "No call notes",
+  unconfirmed_call: "Call not confirmed",
   contract_unsigned: "Contract not signed",
 };
 
@@ -143,6 +145,20 @@ export function computeFlags(
     const at = new Date(c.call_at).getTime();
     const owner = c.closer_id; // the closer logs outcomes; unassigned calls are shown as unassigned
     const base = `Setter: ${nameOf(staff, c.setter_id)} · Closer: ${nameOf(staff, c.closer_id)}${c.source ? ` · ${c.source}` : ""}`;
+
+    if (c.outcome === "scheduled" && at > t && at - t <= 24 * 3600000 && ["unconfirmed", "no_answer", "left_message"].includes(c.confirmation)) {
+      const hrs = Math.max(0, Math.floor((at - t) / 3600000));
+      flags.push({
+        id: `uc-${c.id}`,
+        kind: "unconfirmed_call",
+        severity: hrs <= 3 ? "high" : "medium",
+        title: `${c.lead_name} — call in ${hrs}h, ${c.confirmation === "unconfirmed" ? "not confirmed yet" : c.confirmation === "no_answer" ? "no answer so far" : "only left a message"}`,
+        detail: `${base}. Confirm they're coming on Zoom and set the status on the Calls page.`,
+        ownerId: chaser ?? owner,
+        daysLate: 0,
+        callId: c.id,
+      });
+    }
 
     if (c.outcome === "scheduled" && t - at >= RULES.missingOutcomeAfterHours * 3600000) {
       const late = days(t - at);

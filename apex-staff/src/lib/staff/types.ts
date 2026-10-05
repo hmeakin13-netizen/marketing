@@ -37,6 +37,10 @@ export interface CallRow {
   outcome_logged_at: string | null;
   recording_url: string | null;
   notes: string | null;
+  confirmation: CallConfirmation;
+  confirmation_note: string | null;
+  confirmation_at: string | null;
+  confirmation_by: string | null;
 }
 
 export interface PaymentRow {
@@ -138,6 +142,17 @@ export const ROLE_LABEL: Record<StaffRole, string> = {
   manager: "Manager",
   closer: "Closer",
   setter: "Setter",
+};
+
+export type CallConfirmation = "unconfirmed" | "confirmed" | "no_answer" | "left_message" | "reschedule" | "other";
+
+export const CONFIRMATION_LABEL: Record<CallConfirmation, string> = {
+  unconfirmed: "Not confirmed yet",
+  confirmed: "Confirmed on Zoom",
+  no_answer: "No answer",
+  left_message: "Left a message",
+  reschedule: "Wants to reschedule",
+  other: "Other (see note)",
 };
 
 export const OUTCOME_LABEL: Record<CallOutcome, string> = {

@@ -825,6 +825,26 @@ export async function reapplyShifts() {
   back("/settings", "ok", `Re-applied shifts: ${changed} upcoming call${changed === 1 ? "" : "s"} reassigned.`);
 }
 
+/** Setter's pre-call check: confirmed on Zoom, no answer, left a message, etc. */
+export async function setConfirmation(formData: FormData) {
+  const { supabase, me } = await requireStaff();
+  const status = str(formData, "confirmation");
+  if (!["unconfirmed", "confirmed", "no_answer", "left_message", "reschedule", "other"].includes(status)) {
+    back("/calls", "error", "Pick a confirmation status.");
+  }
+  const note = optStr(formData, "confirmation_note");
+  if (status === "other" && !note) back("/calls", "error", "Add a short note for 'Other'.");
+  const { data, error } = await supabase
+    .from("calls")
+    .update({ confirmation: status, confirmation_note: note, confirmation_at: new Date().toISOString(), confirmation_by: me.id })
+    .eq("id", str(formData, "call_id"))
+    .select("id");
+  if (error) back("/calls", "error", error.message);
+  if (!data || data.length === 0) back("/calls", "error", "You can't update that call.");
+  revalidatePath("/", "layout");
+  back("/calls", "ok", "Confirmation saved.");
+}
+
 /** Add the call notes to a call that's already been logged. */
 export async function addCallNotes(formData: FormData) {
   const { supabase } = await requireStaff();

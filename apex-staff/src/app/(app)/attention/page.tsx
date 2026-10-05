@@ -111,7 +111,7 @@ function Pill({ href, label, active, danger }: { href: string; label: string; ac
 }
 
 function FlagCard({ f, owner, showOwner }: { f: Flag; owner: string; showOwner: boolean }) {
-  const chaseable = f.kind !== "no_due_date" && f.kind !== "missing_outcome" && f.kind !== "missing_recording" && f.kind !== "missing_notes" && f.kind !== "contract_unsigned";
+  const chaseable = f.kind !== "no_due_date" && f.kind !== "missing_outcome" && f.kind !== "missing_recording" && f.kind !== "missing_notes" && f.kind !== "unconfirmed_call" && f.kind !== "contract_unsigned";
   return (
     <Card className={f.severity === "high" ? "border-rose-500/30" : f.severity === "medium" ? "border-amber-500/20" : ""}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -173,10 +173,10 @@ function FlagCard({ f, owner, showOwner }: { f: Flag; owner: string; showOwner: 
       ) : (
         <div className="mt-3">
           <Link
-            href={f.kind === "missing_outcome" ? "/calls" : "/deals"}
+            href={f.kind === "missing_outcome" || f.kind === "unconfirmed_call" ? "/calls" : "/deals"}
             className="text-sm font-medium text-emerald-400 hover:text-emerald-300"
           >
-            {f.kind === "missing_outcome" ? "Log the outcome →" : f.kind === "contract_unsigned" ? "Mark contract signed →" : "Set the due date →"}
+            {f.kind === "unconfirmed_call" ? "Confirm the call →" : f.kind === "missing_outcome" ? "Log the outcome →" : f.kind === "contract_unsigned" ? "Mark contract signed →" : "Set the due date →"}
           </Link>
         </div>
       )}
