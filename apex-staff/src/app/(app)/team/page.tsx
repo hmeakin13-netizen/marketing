@@ -1,12 +1,12 @@
 import { requireRole } from "@/lib/staff/auth";
 import { ROLE_LABEL, type StaffRow } from "@/lib/staff/types";
-import { addPerson, giveAccess, updatePerson } from "../../actions";
+import { addPerson, giveAccess, makeLoginLink, updatePerson } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
 
 export const metadata = { title: "Team | Apex Team" };
 
-export default async function TeamPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
+export default async function TeamPage({ searchParams }: { searchParams: { ok?: string; error?: string; link?: string; for?: string } }) {
   const { supabase, me } = await requireRole("admin");
   const { data } = await supabase.from("staff").select("*").order("active", { ascending: false }).order("full_name");
   const staff = (data ?? []) as StaffRow[];
@@ -17,6 +17,16 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
     <>
       <PageHeader title="Team" subtitle="Add people, change roles, and deactivate leavers. History is always kept." />
       <Notice ok={searchParams.ok} error={searchParams.error} />
+      {searchParams.link?.startsWith("https://") ? (
+        <Card className="mb-6 border-emerald-500/30 bg-emerald-500/5">
+          <p className="font-semibold text-emerald-300">Sign-in link for {searchParams.for ?? "them"}</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            Send this to them directly. It works once, signs them straight in, and expires after an hour. Anyone with the link can
+            log in as them, so don&apos;t post it anywhere shared.
+          </p>
+          <input readOnly value={searchParams.link} className={`${inputCls} mt-2 font-mono text-xs`} />
+        </Card>
+      ) : null}
 
       <Card className="mb-8">
         <SectionTitle>Add a person</SectionTitle>
@@ -91,7 +101,12 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
                 <Badge tone="warn">No login yet</Badge>
                 <button className="text-xs font-medium text-emerald-400 hover:text-emerald-300">Give access</button>
               </form>
-            ) : null}
+            ) : (
+              <form action={makeLoginLink} className="mt-3 flex items-center gap-3">
+                <input type="hidden" name="staff_id" value={s.id} />
+                <button className="text-xs font-medium text-emerald-400 hover:text-emerald-300">Get a sign-in link to send them</button>
+              </form>
+            )}
             {s.id !== me.id ? (
               <form action={updatePerson} className="mt-3">
                 <input type="hidden" name="staff_id" value={s.id} />
