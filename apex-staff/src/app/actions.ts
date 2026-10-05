@@ -668,7 +668,11 @@ export async function addClient(formData: FormData) {
   const billing = parseInt(str(formData, "billing_day"), 10);
   const billingDay = billing >= 1 && billing <= 31 ? billing : Number(startDate!.slice(8, 10));
 
-  const { error } = await supabase.from("retainer_clients").insert({
+  const postcode = str(formData, "postcode");
+  const geo = postcode ? await geocodePostcode(postcode) : null;
+  if (postcode && !geo) back(path, "error", `Couldn't find the postcode "${postcode}". Check it, or leave it blank and add it later.`);
+
+  const { data: created, error } = await supabase.from("retainer_clients").insert({
     name,
     closer_id: closerId,
     setter_id: setterId,
@@ -678,8 +682,19 @@ export async function addClient(formData: FormData) {
     start_date: startDate,
     billing_day: billingDay,
     notes: optStr(formData, "notes"),
-  });
+  }).select("id").single();
   if (error) back(path, "error", error.message);
+  if (geo && created) {
+    const radius = num(formData, "radius_km");
+    await supabase.from("territories").insert({
+      client_id: created.id,
+      name,
+      postcode: geo.postcode,
+      lat: geo.lat,
+      lng: geo.lng,
+      radius_km: Number.isNaN(radius) || radius <= 0 ? 15 : radius,
+    });
+  }
   revalidatePath("/", "layout");
   back(path, "ok", `${name} added.`);
 }
