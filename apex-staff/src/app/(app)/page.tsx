@@ -54,7 +54,7 @@ export default async function DashboardPage({
   const nextCalls = calls
     .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now && (me.role !== "closer" || c.closer_id === me.id))
     .sort((a, b) => a.call_at.localeCompare(b.call_at))
-    .slice(0, 6);
+    .slice(0, me.role === "closer" ? 10 : 6);
 
   // Recent changes to upcoming calls (confirmed, no answer, moved to a new time) so the closer
   // on the call sees them without having to go looking. Shows for 48 hours.
@@ -170,6 +170,13 @@ export default async function DashboardPage({
         </Card>
       ) : null}
 
+      {nextCalls.length === 0 && me.role === "closer" ? (
+        <Card className="mt-6">
+          <SectionTitle>Your next calls</SectionTitle>
+          <p className="text-sm text-zinc-500">No upcoming calls assigned to you yet.</p>
+        </Card>
+      ) : null}
+
       {nextCalls.length > 0 ? (
         <Card className="mt-6">
           <SectionTitle>{me.role === "closer" ? "Your next calls" : "Next calls"}</SectionTitle>
@@ -177,7 +184,11 @@ export default async function DashboardPage({
             {nextCalls.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-zinc-100">
-                  {c.lead_name} <span className="text-xs text-zinc-500">· {fmtDateTime(c.call_at)} · {nameOf(staff, c.closer_id)}</span>
+                  {c.lead_name}{" "}
+                  <span className="text-xs text-zinc-500">
+                    · {fmtDateTime(c.call_at)}
+                    {me.role === "closer" ? ` · set by ${nameOf(staff, c.setter_id)}${c.source ? ` · ${c.source}` : ""}` : ` · ${nameOf(staff, c.closer_id)}`}
+                  </span>
                 </span>
                 <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
                   {CONFIRMATION_LABEL[c.confirmation]}
