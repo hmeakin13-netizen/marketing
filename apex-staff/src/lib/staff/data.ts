@@ -42,7 +42,7 @@ export async function loadFlags(supabase: SupabaseClient) {
     supabase
       .from("calls")
       .select("*")
-      .in("outcome", ["scheduled", "no_show", "follow_up"])
+      .in("outcome", ["scheduled", "no_show", "follow_up", "closed", "lost"])
       .gte("call_at", since)
       .order("call_at", { ascending: false })
       .limit(1000),

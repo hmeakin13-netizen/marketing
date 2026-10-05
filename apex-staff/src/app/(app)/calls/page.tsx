@@ -1,6 +1,7 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { fmtDateTime, toUkLocalInput } from "@/lib/staff/dates";
 import { nameOf } from "@/lib/staff/metrics";
+import { needsRecording } from "@/lib/staff/recording";
 import { OUTCOME_LABEL, type CallRow, type CallOutcome, type StaffRow } from "@/lib/staff/types";
 import { assignCall, bookCall } from "../../actions";
 import { OutcomeForm } from "@/components/staff/OutcomeForm";
@@ -213,6 +214,9 @@ function CallList({
               <td className="px-3 py-3 text-zinc-400">{c.source ?? "–"}</td>
               <td className="px-5 py-3">
                 {showOutcome ? <Badge tone={toneOf(c.outcome)}>{OUTCOME_LABEL[c.outcome]}</Badge> : null}
+                {showOutcome && needsRecording(c.outcome) && !c.recording_url ? (
+                  <span className="ml-2 text-xs font-medium text-rose-400">no recording</span>
+                ) : null}
                 {c.recording_url ? (
                   <a href={c.recording_url} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs text-emerald-400 hover:text-emerald-300">
                     ▶ recording
