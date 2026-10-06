@@ -50,35 +50,14 @@ export default async function DashboardPage({
     )
     .sort((a, b) => a.call_at.localeCompare(b.call_at));
 
-  // Next calls coming up (a closer sees their own), with whether the setter has confirmed them.
+  // Today's calls (UK day), earliest first. Closers see only their own; everyone else sees the whole team.
   const todayR = rangeBounds("today");
-  const inToday = (c: { call_at: string }) => {
-    const t = new Date(c.call_at).getTime();
-    return t >= todayR.from.getTime() && t < todayR.to.getTime();
-  };
-  // Closers only see THEIR calls for today; everyone else sees the next calls across the team.
-  const nextCalls =
-    me.role === "closer"
-      ? calls.filter((c) => c.closer_id === me.id && inToday(c) && c.outcome !== "cancelled").sort((a, b) => a.call_at.localeCompare(b.call_at))
-      : calls
-          .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now)
-          .sort((a, b) => a.call_at.localeCompare(b.call_at))
-          .slice(0, 6);
-
-  // Recent changes to upcoming calls (confirmed, no answer, moved to a new time) so the closer
-  // on the call sees them without having to go looking. Shows for 48 hours.
-  const cutoff = now - 48 * 3600000;
-  const callUpdates = calls
-    .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now && (me.role !== "closer" || c.closer_id === me.id))
-    .map((c) => {
-      const moved = c.rescheduled_at && new Date(c.rescheduled_at).getTime() >= cutoff ? c.rescheduled_at : null;
-      const conf = c.confirmation !== "unconfirmed" && c.confirmation_at && new Date(c.confirmation_at).getTime() >= cutoff ? c.confirmation_at : null;
-      const at = [moved, conf].filter(Boolean).sort().pop() ?? null;
-      return { c, moved: !!moved, conf: !!conf, at };
+  const todaysCalls = calls
+    .filter((c) => {
+      const t = new Date(c.call_at).getTime();
+      return t >= todayR.from.getTime() && t < todayR.to.getTime() && c.outcome !== "cancelled" && (me.role !== "closer" || c.closer_id === me.id);
     })
-    .filter((x) => x.at)
-    .sort((a, b) => String(b.at).localeCompare(String(a.at)))
-    .slice(0, 8);
+    .sort((a, b) => a.call_at.localeCompare(b.call_at));
 
   // Campaign / source performance for the selected range.
   const sources = new Map<string, { calls: number; showed: number; closed: number }>();
@@ -155,48 +134,25 @@ export default async function DashboardPage({
         </Card>
       ) : null}
 
-      {me.role === "admin" && callUpdates.length > 0 ? (
-        <Card className="mt-6 border-sky-500/30 bg-sky-500/5">
-          <SectionTitle>Updates on upcoming calls</SectionTitle>
-          <ul className="space-y-2 text-sm">
-            {callUpdates.map(({ c, moved, conf }) => (
-              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-zinc-100">
-                  {c.lead_name} <span className="text-xs text-zinc-500">· {fmtDateTime(c.call_at)} · {nameOf(staff, c.closer_id)}</span>
-                </span>
-                <span className="flex flex-wrap items-center gap-2">
-                  {moved ? <Badge tone="warn">Moved to a new time</Badge> : null}
-                  {conf ? (
-                    <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
-                      {CONFIRMATION_LABEL[c.confirmation]}
-                      {c.confirmation_note ? ` — ${c.confirmation_note}` : ""}
-                    </Badge>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
-      {nextCalls.length === 0 && me.role === "closer" ? (
-        <Card className="mt-6">
-          <SectionTitle>Your calls today</SectionTitle>
+      <Card className="mt-6">
+        <SectionTitle>
+          {me.role === "closer" ? "Your calls today" : "Today's calls"} ({todaysCalls.length})
+        </SectionTitle>
+        {todaysCalls.length === 0 ? (
           <p className="text-sm text-zinc-500">No calls today.</p>
-        </Card>
-      ) : null}
-
-      {nextCalls.length > 0 ? (
-        <Card className="mt-6">
-          <SectionTitle>{me.role === "closer" ? "Your calls today" : "Next calls"}</SectionTitle>
-          <ul className="divide-y divide-white/5 text-sm">
-            {nextCalls.map((c) => (
+        ) : (
+          <ul className="max-h-[28rem] divide-y divide-white/5 overflow-y-auto text-sm">
+            {todaysCalls.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-zinc-100">
+                  <span className="mr-2 tabular-nums text-zinc-400">
+                    {new Date(c.call_at).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" })}
+                  </span>
                   {c.lead_name}{" "}
                   <span className="text-xs text-zinc-500">
-                    · {fmtDateTime(c.call_at)}
-                    {me.role === "closer" ? ` · set by ${nameOf(staff, c.setter_id)}${c.source ? ` · ${c.source}` : ""}` : ` · ${nameOf(staff, c.closer_id)}`}
+                    {me.role === "closer"
+                      ? `· set by ${nameOf(staff, c.setter_id)}${c.source ? ` · ${c.source}` : ""}`
+                      : `· closer ${nameOf(staff, c.closer_id)}${c.source ? ` · ${c.source}` : ""}`}
                   </span>
                 </span>
                 {c.outcome !== "scheduled" ? (
@@ -209,11 +165,11 @@ export default async function DashboardPage({
               </li>
             ))}
           </ul>
-          <Link href="/calls" className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
-            All calls →
-          </Link>
-        </Card>
-      ) : null}
+        )}
+        <Link href="/calls" className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
+          All calls →
+        </Link>
+      </Card>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
