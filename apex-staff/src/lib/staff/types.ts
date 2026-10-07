@@ -207,6 +207,7 @@ export interface RetainerClient {
   close_id: string | null;
   setup_fee: number; // one-time
   monthly_fee: number; // recurring retainer
+  closer_share_pct: number | null; // overrides the closer's usual retainer share for this client
   start_date: string; // YYYY-MM-DD
   billing_day: number;
   end_date: string | null;
