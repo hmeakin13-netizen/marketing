@@ -32,7 +32,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
   const closers = staff.filter((s) => s.role !== "setter");
   const setters = staff.filter((s) => s.role === "setter" || s.role === "manager");
 
-  const shareOf = (c: RetainerClient) => (Number(c.monthly_fee) * Number(pay.get(c.closer_id ?? "")?.retainer_share_pct ?? 0)) / 100;
+  const sharePctOf = (c: RetainerClient) => (c.closer_share_pct != null ? Number(c.closer_share_pct) : Number(pay.get(c.closer_id ?? "")?.retainer_share_pct ?? 0));
+  const shareOf = (c: RetainerClient) => (Number(c.monthly_fee) * sharePctOf(c)) / 100;
   const mrr = active.reduce((t, c) => t + Number(c.monthly_fee), 0);
   const owedPerMonth = active.reduce((t, c) => t + shareOf(c), 0);
 
@@ -162,7 +163,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                   </p>
                   <p className="mt-1 text-sm text-zinc-300">
                     {nameOf(staff, c.closer_id)} earns{" "}
-                    <b className="text-emerald-400">{money(shareOf(c))}</b> a month ({cfg?.retainer_share_pct ?? 0}% of {money(Number(c.monthly_fee))})
+                    <b className="text-emerald-400">{money(shareOf(c))}</b> a month ({sharePctOf(c)}%{c.closer_share_pct != null ? " — set for this client" : ""} of {money(Number(c.monthly_fee))})
                     {next ? (
                       <>
                         {" "}— next due {fmtIsoDay(next)}, paid on{" "}
@@ -170,7 +171,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                       </>
                     ) : null}
                   </p>
-                  {!cfg || Number(cfg.retainer_share_pct) === 0 ? (
+                  {sharePctOf(c) === 0 ? (
                     <p className="mt-1 text-xs text-amber-300">
                       No retainer share set for {nameOf(staff, c.closer_id)} yet. Set it on the Pay page.
                     </p>
@@ -186,7 +187,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
               </div>
               <details className="mt-3 rounded-xl border border-white/10 p-3">
                 <summary className="cursor-pointer text-sm font-medium text-zinc-300">Edit or end this client</summary>
-                <form action={updateClient} className="mt-3 grid gap-3 sm:grid-cols-6">
+                <form action={updateClient} className="mt-3 grid gap-3 sm:grid-cols-4 lg:grid-cols-7">
                   <input type="hidden" name="client_id" value={c.id} />
                   <Field label="Setup fee (£)">
                     <input name="setup_fee" inputMode="decimal" defaultValue={String(c.setup_fee)} className={inputCls} />
@@ -196,6 +197,9 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                   </Field>
                   <Field label="Pays on day">
                     <input name="billing_day" inputMode="numeric" defaultValue={String(c.billing_day)} className={inputCls} />
+                  </Field>
+                  <Field label="Closer's share % (blank = usual)">
+                    <input name="closer_share_pct" inputMode="decimal" defaultValue={c.closer_share_pct != null ? String(c.closer_share_pct) : ""} className={inputCls} placeholder={String(cfg?.retainer_share_pct ?? 0)} />
                   </Field>
                   <Field label="Closed by">
                     <select name="closer_id" defaultValue={c.closer_id ?? ""} className={inputCls}>

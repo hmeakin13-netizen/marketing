@@ -47,10 +47,13 @@ export function computeRunPay(
 
   // Share of each active client's monthly fee (the closer who signed them)
   let clientShare = 0;
-  const sharePct = Number(cfg?.retainer_share_pct ?? 0);
-  if (sharePct > 0) {
+  const defaultSharePct = Number(cfg?.retainer_share_pct ?? 0);
+  if (defaultSharePct > 0 || clients.some((c) => c.closer_id === person.id && c.closer_share_pct != null)) {
     for (const c of clients) {
       if (c.closer_id !== person.id) continue;
+      // A client can carry its own share (e.g. 25%) that replaces the closer's usual one.
+      const sharePct = c.closer_share_pct != null ? Number(c.closer_share_pct) : defaultSharePct;
+      if (!(sharePct > 0)) continue;
       for (const iso of retainerDueDates(c, run.commissionFrom, run.commissionTo)) {
         const amt = round2((Number(c.monthly_fee) * sharePct) / 100);
         if (amt <= 0) continue;

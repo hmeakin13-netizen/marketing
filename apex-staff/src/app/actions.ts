@@ -741,6 +741,10 @@ export async function updateClient(formData: FormData) {
       monthly_fee: fee,
       setup_fee: Number.isNaN(setupFee) || setupFee < 0 ? 0 : setupFee,
       billing_day: billing >= 1 && billing <= 31 ? billing : 1,
+      closer_share_pct: (() => {
+        const v = num(formData, "closer_share_pct");
+        return Number.isNaN(v) || v < 0 || v > 100 ? null : v; // blank = use the closer's usual %
+      })(),
       closer_id: optStr(formData, "closer_id"),
       setter_id: optStr(formData, "setter_id"),
       notes: optStr(formData, "notes"),
