@@ -158,9 +158,14 @@ export default async function DashboardPage({
                 {c.outcome !== "scheduled" ? (
                   <Badge tone={c.outcome === "closed" ? "good" : c.outcome === "no_show" ? "bad" : "default"}>{OUTCOME_LABEL[c.outcome]}</Badge>
                 ) : (
-                  <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
-                    {CONFIRMATION_LABEL[c.confirmation]}
-                  </Badge>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
+                      Booked: {CONFIRMATION_LABEL[c.confirmation]}
+                    </Badge>
+                    <Badge tone={c.same_day_confirmation === "confirmed" ? "good" : c.same_day_confirmation === "no_answer" ? "bad" : "warn"}>
+                      Today: {CONFIRMATION_LABEL[c.same_day_confirmation]}
+                    </Badge>
+                  </span>
                 )}
               </li>
             ))}

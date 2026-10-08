@@ -196,6 +196,10 @@ export async function upsertInvitee(admin: SupabaseClient, inv: Invitee, opts: {
         update.confirmation_note = null;
         update.confirmation_at = null;
         update.confirmation_by = null;
+        update.same_day_confirmation = "unconfirmed";
+        update.same_day_note = null;
+        update.same_day_at = null;
+        update.same_day_by = null;
         const pick = pickCloser(start, shifts, staff, host);
         if (pick) update.closer_id = pick;
       }

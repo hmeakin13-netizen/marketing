@@ -44,6 +44,10 @@ export interface CallRow {
   reschedule_url: string | null;
   recording_waived: boolean;
   rescheduled_at: string | null;
+  same_day_confirmation: CallConfirmation;
+  same_day_note: string | null;
+  same_day_at: string | null;
+  same_day_by: string | null;
 }
 
 export interface PaymentRow {

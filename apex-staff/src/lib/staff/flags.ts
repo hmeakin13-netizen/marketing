@@ -146,13 +146,13 @@ export function computeFlags(
     const owner = c.closer_id; // the closer logs outcomes; unassigned calls are shown as unassigned
     const base = `Setter: ${nameOf(staff, c.setter_id)} · Closer: ${nameOf(staff, c.closer_id)}${c.source ? ` · ${c.source}` : ""}`;
 
-    if (c.outcome === "scheduled" && at > t && at - t <= 24 * 3600000 && ["unconfirmed", "no_answer", "left_message"].includes(c.confirmation)) {
+    if (c.outcome === "scheduled" && at > t && at - t <= 24 * 3600000 && ["unconfirmed", "no_answer", "left_message"].includes(at - t <= 12 * 3600000 ? c.same_day_confirmation : c.confirmation)) {
       const hrs = Math.max(0, Math.floor((at - t) / 3600000));
       flags.push({
         id: `uc-${c.id}`,
         kind: "unconfirmed_call",
         severity: hrs <= 3 ? "high" : "medium",
-        title: `${c.lead_name} — call in ${hrs}h, ${c.confirmation === "unconfirmed" ? "not confirmed yet" : c.confirmation === "no_answer" ? "no answer so far" : "only left a message"}`,
+        title: `${c.lead_name} — call in ${hrs}h, ${(at - t <= 12 * 3600000 ? c.same_day_confirmation : c.confirmation) === "unconfirmed" ? (at - t <= 12 * 3600000 ? "not re-confirmed today" : "not confirmed yet") : (at - t <= 12 * 3600000 ? c.same_day_confirmation : c.confirmation) === "no_answer" ? "no answer so far" : "only left a message"}`,
         detail: `${base}. Confirm they're coming on Zoom and set the status on the Calls page.`,
         ownerId: chaser ?? owner,
         daysLate: 0,
