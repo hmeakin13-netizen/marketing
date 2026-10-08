@@ -56,6 +56,18 @@ export async function bookCall(formData: FormData) {
       : optStr(formData, "setter_id");
   const closerId = me.role === "closer" ? me.id : optStr(formData, "closer_id");
 
+  // Don't let the same lead be booked twice for the same slot (Calendly bookings count too).
+  const { data: dupes } = await supabase
+    .from("calls")
+    .select("id")
+    .ilike("lead_name", leadName.replace(/[%_]/g, ""))
+    .eq("call_at", callAt!.toISOString())
+    .neq("outcome", "cancelled")
+    .limit(1);
+  if (dupes && dupes.length > 0) {
+    back(path, "error", `${leadName} is already booked for that time. If they didn't turn up, log the outcome on the existing call instead of adding a new one.`);
+  }
+
   const { error } = await supabase.from("calls").insert({
     lead_name: leadName,
     lead_email: optStr(formData, "lead_email"),
