@@ -250,15 +250,23 @@ const CONFIRM_TONE: Record<CallConfirmation, "good" | "warn" | "bad" | "default"
   other: "default",
 };
 
-/** Status badge plus a small form so the setter can update it in two clicks. */
+/** Two-stage confirmation: the earlier check, and the same-day re-confirm. */
 function ConfirmCell({ call }: { call: CallRow }) {
   return (
     <details className="text-left">
-      <summary className="cursor-pointer list-none">
-        <Badge tone={CONFIRM_TONE[call.confirmation]}>{CONFIRMATION_LABEL[call.confirmation]}</Badge>
-        {call.confirmation_note ? <span className="ml-2 text-xs text-zinc-500">{call.confirmation_note}</span> : null}
+      <summary className="cursor-pointer list-none space-y-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Booked</span>
+          <Badge tone={CONFIRM_TONE[call.confirmation]}>{CONFIRMATION_LABEL[call.confirmation]}</Badge>
+          {call.confirmation_note ? <span className="text-xs text-zinc-500">{call.confirmation_note}</span> : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Same day</span>
+          <Badge tone={CONFIRM_TONE[call.same_day_confirmation]}>{CONFIRMATION_LABEL[call.same_day_confirmation]}</Badge>
+          {call.same_day_note ? <span className="text-xs text-zinc-500">{call.same_day_note}</span> : null}
+        </div>
       </summary>
-      {call.confirmation === "reschedule" && call.reschedule_url ? (
+      {(call.confirmation === "reschedule" || call.same_day_confirmation === "reschedule") && call.reschedule_url ? (
         <p className="mt-2 text-xs text-zinc-400">
           Send the lead this link to pick a new time. The call moves here by itself once they do:{" "}
           <a href={call.reschedule_url} target="_blank" rel="noopener noreferrer" className="break-all text-emerald-400 underline">
@@ -266,14 +274,22 @@ function ConfirmCell({ call }: { call: CallRow }) {
           </a>
         </p>
       ) : null}
-      <form action={setConfirmation} className="mt-2 flex min-w-[15rem] flex-col gap-2">
+      <form action={setConfirmation} className="mt-2 flex min-w-[16rem] flex-col gap-2">
         <input type="hidden" name="call_id" value={call.id} />
+        <p className="text-xs font-medium text-zinc-400">Confirmed when booked</p>
         <select name="confirmation" defaultValue={call.confirmation} className={inputCls}>
           {(Object.keys(CONFIRMATION_LABEL) as CallConfirmation[]).map((k) => (
             <option key={k} value={k}>{CONFIRMATION_LABEL[k]}</option>
           ))}
         </select>
         <input name="confirmation_note" defaultValue={call.confirmation_note ?? ""} placeholder="Note (optional)" className={inputCls} />
+        <p className="mt-1 text-xs font-medium text-zinc-400">Re-confirmed on the day</p>
+        <select name="same_day_confirmation" defaultValue={call.same_day_confirmation} className={inputCls}>
+          {(Object.keys(CONFIRMATION_LABEL) as CallConfirmation[]).map((k) => (
+            <option key={k} value={k}>{CONFIRMATION_LABEL[k]}</option>
+          ))}
+        </select>
+        <input name="same_day_note" defaultValue={call.same_day_note ?? ""} placeholder="Note (optional)" className={inputCls} />
         <SubmitButton>Save</SubmitButton>
       </form>
     </details>

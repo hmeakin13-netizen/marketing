@@ -866,21 +866,34 @@ export async function reapplyShifts() {
 /** Setter's pre-call check: confirmed on Zoom, no answer, left a message, etc. */
 export async function setConfirmation(formData: FormData) {
   const { me } = await requireStaff();
+  const valid = ["unconfirmed", "confirmed", "no_answer", "left_message", "reschedule", "other"];
   const status = str(formData, "confirmation");
-  if (!["unconfirmed", "confirmed", "no_answer", "left_message", "reschedule", "other"].includes(status)) {
-    back("/calls", "error", "Pick a confirmation status.");
-  }
+  const sameDay = str(formData, "same_day_confirmation") || "unconfirmed";
+  if (!valid.includes(status) || !valid.includes(sameDay)) back("/calls", "error", "Pick a confirmation status.");
   const note = optStr(formData, "confirmation_note");
+  const sameDayNote = optStr(formData, "same_day_note");
   if (status === "other" && !note) back("/calls", "error", "Add a short note for 'Other'.");
-  // Confirming is a team-wide job (any logged-in staff member may set it), so it goes through the
-  // service client and only ever touches the confirmation fields.
-  const { data, error } = await createAdminClient()
-    .from("calls")
-    .update({ confirmation: status, confirmation_note: note, confirmation_at: new Date().toISOString(), confirmation_by: me.id })
-    .eq("id", str(formData, "call_id"))
-    .select("id");
-  if (error) back("/calls", "error", error.message);
-  if (!data || data.length === 0) back("/calls", "error", "Couldn't find that call.");
+  if (sameDay === "other" && !sameDayNote) back("/calls", "error", "Add a short note for the same-day 'Other'.");
+
+  const admin = createAdminClient();
+  const { data: before } = await admin.from("calls").select("confirmation, confirmation_note, same_day_confirmation, same_day_note").eq("id", str(formData, "call_id")).single();
+  if (!before) back("/calls", "error", "Couldn't find that call.");
+
+  // Only stamp who/when for the part that actually changed.
+  const now = new Date().toISOString();
+  const update: Record<string, unknown> = {};
+  if (before!.confirmation !== status || (before!.confirmation_note ?? null) !== note) {
+    Object.assign(update, { confirmation: status, confirmation_note: note, confirmation_at: now, confirmation_by: me.id });
+  }
+  if (before!.same_day_confirmation !== sameDay || (before!.same_day_note ?? null) !== sameDayNote) {
+    Object.assign(update, { same_day_confirmation: sameDay, same_day_note: sameDayNote, same_day_at: now, same_day_by: me.id });
+  }
+  if (Object.keys(update).length > 0) {
+    // Confirming is a team-wide job (any logged-in staff member may set it), so it goes through the
+    // service client and only ever touches the confirmation fields.
+    const { error } = await admin.from("calls").update(update).eq("id", str(formData, "call_id"));
+    if (error) back("/calls", "error", error.message);
+  }
   revalidatePath("/", "layout");
   back("/calls", "ok", "Confirmation saved.");
 }

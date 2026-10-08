@@ -19,3 +19,12 @@ alter table public.calls add column if not exists rescheduled_at timestamptz;
 -- Per-client override of the closer's retainer share (e.g. 25% on one client instead of their usual 17.5%). Applied live.
 alter table public.retainer_clients add column if not exists closer_share_pct numeric(5,2)
   check (closer_share_pct is null or closer_share_pct between 0 and 100);
+
+-- Second confirmation on the day of the call, kept separate from the earlier one. Applied live.
+alter table public.calls
+  add column if not exists same_day_confirmation text not null default 'unconfirmed',
+  add column if not exists same_day_note text,
+  add column if not exists same_day_at timestamptz,
+  add column if not exists same_day_by uuid references public.staff (id);
+alter table public.calls add constraint calls_same_day_valid
+  check (same_day_confirmation in ('unconfirmed','confirmed','no_answer','left_message','reschedule','other'));
