@@ -36,6 +36,17 @@ npm test
 
 `LISTING_MODEL` overrides the model (default `claude-opus-5-5`). A listing is roughly 3 photos in and about 500 tokens out, so cost per listing is a few pence; check real `usage` numbers before fixing prices.
 
+## On a phone
+
+The web app is the main product for phone sellers (the extension only works in desktop Chrome):
+
+1. **Take photo / From gallery:** up to 5, shrunk on the phone to ~1600px before upload (phone photos are often 5-10MB).
+2. **Your listing:** one card per field in the order Vinted's form asks, each with a big **Copy** button, plus **Copy everything** and **Open Vinted**. Title, description and price are editable. Fields the photos didn't show (usually brand/size) say so instead of guessing.
+3. **Save to phone:** photos taken in the browser may not be in the camera roll, so this hands them to the share sheet.
+4. **Install:** Add to Home Screen gives a full-screen app (manifest + icons in `public/`; no service worker, so it needs a connection).
+
+Not verified on a real phone: the camera button (`capture`), the share sheet, and whether "Open Vinted" opens the Vinted app or the website. Test on both iPhone and Android. Syncing phone photos to the laptop extension needs real accounts + photo storage first and isn't built.
+
 ## Install the extension
 
 1. `npm run dev` (needs `ANTHROPIC_API_KEY` in `.env.local`).
