@@ -5,7 +5,7 @@ import { getUserId } from "@/lib/session";
 import { getUsage, recordListing } from "@/lib/usage-store";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 export const OPTIONS = preflight;
 

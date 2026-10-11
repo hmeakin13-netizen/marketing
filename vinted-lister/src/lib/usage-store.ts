@@ -1,14 +1,16 @@
 import "server-only";
 import { promises as fs } from "fs";
+import os from "os";
 import path from "path";
 import { linkAccount, normaliseUsage, unlinkAccount, type Usage } from "./plans";
 
 /**
- * Prototype store: one JSON file on disk, keyed by anonymous user id.
- * Replace with Supabase (see supabase/migrations) before launch; the interface is
- * deliberately tiny so the swap is mechanical.
+ * Prototype store: one JSON file, keyed by anonymous user id. Locally it lives in ./.data. On Vercel the
+ * project folder is read-only, so it goes to the temp dir, which is EPHEMERAL and per-instance: usage and plan
+ * limits are not durable there and can reset at any time. Replace with Supabase (see supabase/migrations)
+ * before charging anyone; the interface is deliberately tiny so the swap is mechanical.
  */
-const FILE = path.join(process.cwd(), ".data", "usage.json");
+const FILE = path.join(process.env.VERCEL ? os.tmpdir() : path.join(process.cwd(), ".data"), "usage.json");
 
 type Db = Record<string, Usage>;
 

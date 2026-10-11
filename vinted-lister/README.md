@@ -73,6 +73,10 @@ Only `vinted.co.uk` is matched so far. Adding another country means adding its d
 
 By design the extension never presses Vinted's Upload button, and it only acts when the seller clicks. There's no background posting, no multi-account handling and no bot-detection evasion.
 
+## Vercel
+
+Own project: `marketing-vinted-lister` (root directory `vinted-lister`, linked to this repo). Vercel Auth is on, so only your Vercel team can open it while there are no real logins. Add `ANTHROPIC_API_KEY` under Project Settings → Environment Variables (Production + Preview), then redeploy. On Vercel, usage is stored in the temp dir, which is ephemeral: plan limits can reset. That's fine for testing and not for charging.
+
 ## What's a prototype
 
 - **Identity** is an anonymous cookie (`src/lib/session.ts`) and **usage** is a JSON file (`src/lib/usage-store.ts`). Anyone can reset their trial by clearing cookies. Replace both with Supabase auth + `supabase/migrations/0001_usage.sql` before charging.
