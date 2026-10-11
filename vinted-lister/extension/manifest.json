@@ -3,14 +3,32 @@
   "name": "Vinted Lister",
   "version": "0.1.0",
   "description": "Drop in photos on Vinted's sell page and the listing is written and filled in for you.",
-  "permissions": ["storage"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
-  "background": { "service_worker": "background.js" },
-  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "permissions": [
+    "storage"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.vinted.co.uk/*"],
-      "js": ["selectors.js", "fill.js", "panel.js"],
+      "matches": [
+        "https://www.vinted.co.uk/*"
+      ],
+      "js": [
+        "selectors.js",
+        "pricing.js",
+        "comps.js",
+        "fill.js",
+        "panel.js"
+      ],
       "run_at": "document_idle"
     }
   ]

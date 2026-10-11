@@ -8,7 +8,7 @@
   const MAX_PHOTOS = 5;
   const send = (msg) => chrome.runtime.sendMessage(msg);
 
-  const state = { files: [], notes: "", listing: null, report: null, busy: false, error: null, quota: null, plan: "" };
+  const state = { files: [], notes: "", listing: null, report: null, busy: false, error: null, quota: null, plan: "", market: null, marketBusy: false };
   let root = null; // shadow root
 
   function h(tag, props = {}, ...children) {
@@ -74,6 +74,7 @@
     state.error = null;
     state.listing = null;
     state.report = null;
+    state.market = null;
     render();
     try {
       const photos = await Promise.all(state.files.map(toApiPhoto));
@@ -96,6 +97,28 @@
       state.error = "Couldn't read one of those photos.";
     }
     state.busy = false;
+    render();
+  }
+
+  /** One click = one Vinted search. Never runs automatically. */
+  async function checkMarket() {
+    state.marketBusy = true;
+    state.market = null;
+    render();
+    const res = await VLComps.fetchComps(VLPricing.buildQuery(state.listing));
+    if (!res.ok) {
+      state.market = { error: res.reason };
+    } else {
+      const summary = VLPricing.summarise(VLPricing.normaliseItems(res.items));
+      state.market = { rec: VLPricing.recommend(summary, state.listing.condition) };
+    }
+    state.marketBusy = false;
+    render();
+  }
+
+  function useMarketPrice() {
+    state.listing.price_gbp = state.market.rec.price;
+    state.market.applied = true;
     render();
   }
 
@@ -173,6 +196,19 @@
           h("input", { type: "number", step: "0.01", value: l.price_gbp, oninput: (e) => (l.price_gbp = Number(e.target.value) || 0) }),
         ),
         h("div", { class: "muted" }, l.price_rationale),
+        h("button", { class: "link", disabled: state.marketBusy, onclick: checkMarket }, state.marketBusy ? "Checking Vinted…" : "Check market price"),
+        state.market?.error ? h("div", { class: "err" }, state.market.error) : null,
+        state.market?.rec
+          ? h(
+              "div",
+              { class: "muted" },
+              state.market.rec.text,
+              " ",
+              state.market.rec.price != null && !state.market.applied
+                ? h("button", { class: "link", onclick: useMarketPrice }, `Use £${state.market.rec.price}`)
+                : null,
+            )
+          : null,
         h(
           "div",
           { class: "muted" },

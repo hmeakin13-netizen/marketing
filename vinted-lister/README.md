@@ -36,6 +36,16 @@ npm test
 
 Only `vinted.co.uk` is matched so far. Adding another country means adding its domain to `manifest.json` and checking the option text (dropdown labels are matched by text, so they're language-specific).
 
+## Market pricing ("sold data")
+
+**Vinted publishes no sold-price data**, so this is not true sold data. The panel's **Check market price** button runs one search on Vinted from the seller's own logged-in tab (brand + item type, e.g. "Zara Midi dresses"), and `extension/pricing.js` turns the results into a recommendation: outliers trimmed, median and range worked out, and a suggested price.
+
+- **Asking vs sold:** comps are other sellers' asking prices, which overstate what items sell for, so the recommendation is discounted by `ASKING_TO_SOLD` (0.9) and adjusted by condition (`CONDITION_FACTOR`). **Both are starting assumptions, not measured values.** Calibrate them with real sold prices.
+- If enough returned items are flagged sold, those are used instead, with no discount. Whether Vinted's response flags that is unverified.
+- Fewer than 5 comparables means no recommendation; the model's estimate stays.
+- Guard rails: one request per click, never automatic, 10 minute cache, no pagination or crawling, gives up on 401/403/429 without retrying. The endpoint is Vinted's undocumented internal API and its response shape is unverified (needs a logged-in session). Failures show up in the panel instead of breaking anything.
+- Real sold data would come from recording outcomes: when a user marks an item sold, store the ask and sold price. Not built yet; it is the way to calibrate the two constants above.
+
 ## The Vinted selectors are unverified
 
 `extension/selectors.js` holds every Vinted-specific selector. They are best guesses: Vinted needs a logged-in session so they could not be checked against the live site. After "Fill Vinted form" the panel lists every field it filled and every field it couldn't. Fix a failing field by editing `selectors.js` (open DevTools on the Vinted field, copy its `data-testid`). The fill logic itself is covered by jsdom tests in `extension/test/`.
