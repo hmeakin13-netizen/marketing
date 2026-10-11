@@ -38,6 +38,7 @@ export default function Home() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [quota, setQuota] = useState<Quota | null>(null);
   const [plan, setPlan] = useState("Free trial");
+  const [extKey, setExtKey] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/usage")
@@ -141,6 +142,32 @@ export default function Home() {
           <p className="mt-3 text-xs text-slate-500">Checkout isn&apos;t connected yet (Stripe is the next step).</p>
         </section>
       )}
+
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 text-sm">
+        <h2 className="font-medium">Chrome extension</h2>
+        <p className="mt-1 text-slate-600">
+          The extension adds a panel to Vinted&apos;s &quot;Sell an item&quot; page: drop in photos and it fills the whole form for you. Paste this key into its settings.
+        </p>
+        {extKey ? (
+          <div className="mt-3 flex items-center gap-2">
+            <code className="break-all rounded bg-slate-100 px-2 py-1">{extKey}</code>
+            <CopyButton text={extKey} label="Copy key" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="mt-3 rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-100"
+            onClick={() =>
+              fetch("/api/extension-key")
+                .then((r) => r.json())
+                .then((d) => setExtKey(d.key))
+            }
+          >
+            Show my extension key
+          </button>
+        )}
+        <p className="mt-2 text-xs text-slate-500">Treat it like a password.</p>
+      </section>
 
       {listing && (
         <section className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-5">
