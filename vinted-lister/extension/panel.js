@@ -73,6 +73,12 @@
       state.quota = res.body.quota;
       state.plan = res.body.plan;
       state.accounts = res.body.accounts;
+    } else if (res?.body?.error === "vercel_protected") {
+      state.error = "The app is behind Vercel login. Add the access secret in the extension settings.";
+    } else if (res?.body?.error === "no_key") {
+      state.error = "Add your extension key in settings first.";
+    } else if (res?.status === 0) {
+      state.error = "Can't reach the Vinted Lister app. Check the address in settings.";
     }
     render();
   }
@@ -115,6 +121,10 @@
       } else if (res.status === 402) {
         state.quota = res.body.quota;
         state.error = "You've used all your listings on this plan. Upgrade in the web app to keep going.";
+      } else if (res.body?.error === "vercel_protected") {
+        state.error = "The app is behind Vercel login. Add the access secret in the extension settings.";
+      } else if (res.status === 503 && res.body?.error === "not_configured") {
+        state.error = res.body.message;
       } else if (res.status === 401 || res.body?.error === "no_key") {
         state.error = "Add your extension key in settings first.";
       } else if (res.status === 0) {

@@ -57,6 +57,7 @@ export default function Home() {
   const [quota, setQuota] = useState<Quota | null>(null);
   const [plan, setPlan] = useState("Free trial");
   const [extKey, setExtKey] = useState<string | null>(null);
+  const [extSecret, setExtSecret] = useState<string | null>(null);
   const [account, setAccount] = useState("");
   const [accounts, setAccounts] = useState<AccountsInfo | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -114,7 +115,7 @@ export default function Home() {
         setQuota(data.quota);
         setError("You've used all your listings on this plan.");
       } else if (!res.ok) {
-        setError(data.error ?? data.message ?? "Something went wrong.");
+        setError(data.message ?? data.error ?? "Something went wrong.");
       } else {
         setDraft(data.listing);
         setGenId((n) => n + 1);
@@ -339,10 +340,21 @@ export default function Home() {
           The extension adds a panel to Vinted&apos;s &quot;Sell an item&quot; page and fills the whole form for you. It only works in Chrome on a computer. Paste this key into its settings.
         </p>
         {extKey ? (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <code className="break-all rounded-lg bg-page px-2 py-1 text-sm">{extKey}</code>
-            <CopyButton text={extKey} label="Copy key" />
-          </div>
+          <>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <code className="break-all rounded-lg bg-page px-2 py-1 text-sm">{extKey}</code>
+              <CopyButton text={extKey} label="Copy key" />
+            </div>
+            {extSecret && (
+              <div className="mt-3">
+                <p className="text-sm text-mute">This site is behind Vercel login, so the extension also needs this access secret:</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <code className="break-all rounded-lg bg-page px-2 py-1 text-sm">{extSecret}</code>
+                  <CopyButton text={extSecret} label="Copy secret" />
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <button
             type="button"
@@ -350,7 +362,10 @@ export default function Home() {
             onClick={() =>
               fetch("/api/extension-key")
                 .then((r) => r.json())
-                .then((d) => setExtKey(d.key))
+                .then((d) => {
+                  setExtKey(d.key);
+                  setExtSecret(d.accessSecret ?? null);
+                })
             }
           >
             Show my extension key

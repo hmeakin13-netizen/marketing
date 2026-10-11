@@ -3,8 +3,8 @@
 const DEFAULT_API = "http://localhost:3000";
 
 async function settings() {
-  const { apiBase = DEFAULT_API, key = "" } = await chrome.storage.local.get(["apiBase", "key"]);
-  return { apiBase: apiBase.replace(/\/+$/, ""), key };
+  const { apiBase = DEFAULT_API, key = "", accessSecret = "" } = await chrome.storage.local.get(["apiBase", "key", "accessSecret"]);
+  return { apiBase: apiBase.replace(/\/+$/, ""), key, accessSecret };
 }
 
 function b64ToBlob(b64, type) {
@@ -15,11 +15,17 @@ function b64ToBlob(b64, type) {
 }
 
 async function call(path, init) {
-  const { apiBase, key } = await settings();
+  const { apiBase, key, accessSecret } = await settings();
   if (!key) return { status: 401, body: { error: "no_key" } };
+  // A Vercel-protected deployment answers 401 with an HTML login page unless this header carries its bypass secret.
+  const headers = { Authorization: `Bearer ${key}`, ...(accessSecret ? { "x-vercel-protection-bypass": accessSecret } : {}) };
   try {
-    const res = await fetch(apiBase + path, { ...init, headers: { Authorization: `Bearer ${key}` } });
-    return { status: res.status, body: await res.json().catch(() => ({})), apiBase };
+    const res = await fetch(apiBase + path, { ...init, headers });
+    const isJson = (res.headers.get("content-type") || "").includes("json");
+    const body = isJson ? await res.json().catch(() => ({})) : {};
+    // An HTML 401/403 means we hit Vercel's login wall, not our app.
+    if (!isJson && (res.status === 401 || res.status === 403)) return { status: res.status, body: { error: "vercel_protected" }, apiBase };
+    return { status: res.status, body, apiBase };
   } catch {
     return { status: 0, body: { error: "unreachable" }, apiBase };
   }

@@ -12,6 +12,15 @@ export const OPTIONS = preflight;
 export async function POST(req: Request) {
   const userId = getUserId(req);
 
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
+    console.error("generate: ANTHROPIC_API_KEY is not set on the server");
+    return json(
+      req,
+      { error: "not_configured", message: "The app isn't connected to Claude yet: ANTHROPIC_API_KEY is missing on the server." },
+      503,
+    );
+  }
+
   const form = await req.formData();
 
   // Which Vinted account is this for? One is included per subscription; more are £20/month each.

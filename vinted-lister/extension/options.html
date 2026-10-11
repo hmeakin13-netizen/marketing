@@ -17,6 +17,8 @@
 <small>Where your Vinted Lister web app is running.</small>
 <label>Extension key <input id="key" type="password" autocomplete="off" /></label>
 <small>Copy it from the web app ("Chrome extension" box). Treat it like a password.</small>
-<button id="save">Save</button>
+<label>Access secret <small>(only if your app is behind Vercel login)</small> <input id="accessSecret" type="password" autocomplete="off" /></label>
+<small>Shown under the key in the web app when it's needed.</small>
+<button id="save">Save &amp; test connection</button>
 <p id="msg"></p>
 <script src="options.js"></script>

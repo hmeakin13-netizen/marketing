@@ -75,7 +75,7 @@ By design the extension never presses Vinted's Upload button, and it only acts w
 
 ## Vercel
 
-Own project: `marketing-vinted-lister` (root directory `vinted-lister`, linked to this repo). Vercel Auth is on, so only your Vercel team can open it while there are no real logins. Add `ANTHROPIC_API_KEY` under Project Settings → Environment Variables (Production + Preview), then redeploy. On Vercel, usage is stored in the temp dir, which is ephemeral: plan limits can reset. That's fine for testing and not for charging.
+Own project: `marketing-vinted-lister` (root directory `vinted-lister`, linked to this repo). Vercel Auth is on, so only your Vercel team can open it while there are no real logins. Add `ANTHROPIC_API_KEY` under Project Settings → Environment Variables (Production + Preview), then redeploy. **Extension against the Vercel URL:** Vercel Auth also blocks the extension, which can't log in. Protection Bypass for Automation is enabled on the project and its secret is exposed to the app as `VERCEL_AUTOMATION_BYPASS_SECRET`, so the web page (once you're logged in) shows it under the extension key. Paste both into the extension settings; **Save & test connection** reports what's wrong if it still fails. On Vercel, usage is stored in the temp dir, which is ephemeral: plan limits can reset. That's fine for testing and not for charging.
 
 ## What's a prototype
 
