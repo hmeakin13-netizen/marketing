@@ -23,7 +23,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         setDone(true);
         setTimeout(() => setDone(false), 1500);
       }}
-      className="rounded-md border border-neon/50 px-2 py-1 text-xs text-neon hover:bg-neon/10"
+      className="rounded-full border border-brand/40 px-3 py-1 text-xs font-medium text-brand hover:bg-tint"
     >
       {done ? "Copied" : label}
     </button>
@@ -81,16 +81,16 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-semibold tracking-tight text-neon [text-shadow:0_0_18px_rgba(57,255,136,.55)]"><span className="pulse-dot mr-2 inline-block h-2.5 w-2.5 rounded-full bg-neon shadow-glow" />Vinted Lister</h1>
-      <p className="mt-1 text-mute">Add photos of an item. Get a title, description, category, condition and price, ready to paste into Vinted.</p>
+      <h1 className="text-3xl font-bold tracking-tight text-brand">Vinted Lister</h1>
+      <p className="mt-1 text-mute">Snap your photos and get a ready-to-post listing in seconds: title, description, price and more.</p>
 
       <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-        <span className="rounded-full border border-neon/40 bg-neon/10 px-3 py-1 text-neon">{plan}</span>
+        <span className="rounded-full bg-tint px-3 py-1 font-medium text-brand-dark">{plan}</span>
         {quota?.allowed && quota.remaining !== null && <span>{quota.remaining} listings left</span>}
         {quota?.allowed && quota.remaining === null && <span>Unlimited listings</span>}
       </div>
 
-      <section className="mt-6 rounded-xl border border-line bg-panel p-5">
+      <section className="mt-6 rounded-xl border border-line bg-panel shadow-card p-5">
         <label className="block text-sm font-medium">Photos (up to 5)</label>
         <input
           type="file"
@@ -103,7 +103,7 @@ export default function Home() {
           <div className="mt-3 flex flex-wrap gap-2">
             {files.map((f) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={f.name + f.size} src={URL.createObjectURL(f)} alt="" className="h-20 w-20 rounded-md object-cover" />
+              <img key={f.name + f.size} src={URL.createObjectURL(f)} alt="" className="h-20 w-20 rounded-lg object-cover" />
             ))}
           </div>
         )}
@@ -114,25 +114,25 @@ export default function Home() {
           maxLength={500}
           rows={2}
           placeholder="Size M, worn twice, smoke-free home…"
-          className="mt-2 w-full rounded-md border border-line p-2 text-sm"
+          className="mt-2 w-full rounded-lg border border-line p-2 text-sm"
         />
         <button
           type="button"
           disabled={files.length === 0 || loading || blocked}
           onClick={generate}
-          className="mt-4 rounded-md bg-neon px-4 py-2 text-sm font-semibold text-ink shadow-glow transition hover:brightness-110 disabled:opacity-40 disabled:shadow-none"
+          className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-40"
         >
           {loading ? "Writing your listing…" : "Generate listing"}
         </button>
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </section>
 
       {blocked && (
-        <section className="mt-6 rounded-xl border border-neon/40 bg-panel shadow-glow-sm p-5">
+        <section className="mt-6 rounded-xl border border-brand/30 bg-tint p-5">
           <h2 className="font-medium">Keep listing</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {PLAN_CARDS.slice(1).map((p) => (
-              <div key={p.name} className="rounded-lg border border-line bg-ink p-3 text-sm">
+              <div key={p.name} className="rounded-lg border border-line bg-page p-3 text-sm">
                 <div className="font-medium">{p.name}</div>
                 <div className="text-lg">{p.price}</div>
                 <div className="text-mute">{p.detail}</div>
@@ -143,20 +143,20 @@ export default function Home() {
         </section>
       )}
 
-      <section className="mt-6 rounded-xl border border-line bg-panel p-5 text-sm">
+      <section className="mt-6 rounded-xl border border-line bg-panel shadow-card p-5 text-sm">
         <h2 className="font-medium">Chrome extension</h2>
         <p className="mt-1 text-mute">
           The extension adds a panel to Vinted&apos;s &quot;Sell an item&quot; page: drop in photos and it fills the whole form for you. Paste this key into its settings.
         </p>
         {extKey ? (
           <div className="mt-3 flex items-center gap-2">
-            <code className="break-all rounded bg-ink px-2 py-1">{extKey}</code>
+            <code className="break-all rounded bg-page px-2 py-1">{extKey}</code>
             <CopyButton text={extKey} label="Copy key" />
           </div>
         ) : (
           <button
             type="button"
-            className="mt-3 rounded-md border border-neon/50 px-3 py-1.5 text-neon hover:bg-neon/10"
+            className="mt-3 rounded-full border border-brand/40 px-4 py-1.5 font-medium text-brand hover:bg-tint"
             onClick={() =>
               fetch("/api/extension-key")
                 .then((r) => r.json())
@@ -170,7 +170,7 @@ export default function Home() {
       </section>
 
       {listing && (
-        <section className="mt-6 space-y-4 rounded-xl border border-line bg-panel p-5">
+        <section className="mt-6 space-y-4 rounded-xl border border-line bg-panel shadow-card p-5">
           <Field label="Title" text={listing.title} />
           <Field label="Description" text={listing.description} multiline />
           <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
@@ -184,7 +184,7 @@ export default function Home() {
           </dl>
           <p className="text-xs text-mute">{listing.price_rationale}</p>
           {listing.confirm_with_seller.length > 0 && (
-            <div className="rounded-md border border-amber-400/50 bg-amber-950/40 text-amber-100 p-3 text-sm">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm">
               <div className="font-medium">Check before you post</div>
               <ul className="mt-1 list-disc pl-5">
                 {listing.confirm_with_seller.map((c) => (
@@ -216,7 +216,7 @@ function Field({ label, text, multiline }: { label: string; text: string; multil
         <span className="text-sm font-medium">{label}</span>
         <CopyButton text={text} label="Copy" />
       </div>
-      <p className={`mt-1 rounded-md bg-ink p-3 text-sm ${multiline ? "whitespace-pre-wrap" : ""}`}>{text}</p>
+      <p className={`mt-1 rounded-lg bg-page p-3 text-sm ${multiline ? "whitespace-pre-wrap" : ""}`}>{text}</p>
     </div>
   );
 }

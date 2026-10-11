@@ -5,17 +5,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#040907", // page background
-        panel: "#0a1410", // cards
-        line: "#143325", // borders
-        neon: "#39ff88", // primary accent
-        mute: "#8bb5a0", // secondary text (AA on ink and panel)
-        body: "#d9f5e6", // primary text
+        page: "#faf7f2", // warm off-white background
+        panel: "#ffffff", // cards
+        line: "#e8e2d9", // borders
+        brand: "#0a7f72", // fresh green-teal; white text on it is 5:1
+        "brand-dark": "#086a5f",
+        tint: "#e4f4f1", // soft brand wash
+        mute: "#5d6b6a", // secondary text (AA on page and panel)
+        body: "#1f2a2b",
       },
-      boxShadow: {
-        glow: "0 0 14px rgba(57,255,136,.45)",
-        "glow-sm": "0 0 8px rgba(57,255,136,.35)",
-      },
+      boxShadow: { card: "0 1px 2px rgba(31,42,43,.06), 0 4px 14px rgba(31,42,43,.05)" },
+      borderRadius: { xl: "1rem" },
     },
   },
   plugins: [],
