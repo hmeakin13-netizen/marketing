@@ -27,21 +27,29 @@
   const CSS = `
     :host { all: initial; }
     .wrap { position: fixed; right: 16px; bottom: 16px; width: 340px; max-height: 80vh; overflow: auto; z-index: 2147483647;
-      font: 13px/1.4 system-ui, sans-serif; color: #0f172a; background: #fff; border: 1px solid #cbd5e1; border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0,0,0,.18); }
-    header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #0d9488; color: #fff;
-      border-radius: 12px 12px 0 0; font-weight: 600; }
-    header button { background: none; border: 0; color: #fff; cursor: pointer; font-size: 16px; }
+      font: 13px/1.4 system-ui, sans-serif; color: #d9f5e6; background: #0a1410; border: 1px solid #39ff88; border-radius: 12px;
+      box-shadow: 0 0 22px rgba(57,255,136,.35), 0 8px 30px rgba(0,0,0,.5); }
+    header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #040907; color: #39ff88;
+      border-bottom: 1px solid #143325; border-radius: 12px 12px 0 0; font-weight: 600; letter-spacing: .02em; text-shadow: 0 0 10px rgba(57,255,136,.6); }
+    header button { background: none; border: 0; color: #39ff88; cursor: pointer; font-size: 18px; }
     .body { padding: 12px; display: grid; gap: 10px; }
-    .muted { color: #64748b; font-size: 12px; }
-    input[type=text], input[type=number], textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+    label { display: grid; gap: 4px; color: #8bb5a0; font-size: 12px; }
+    .muted { color: #8bb5a0; font-size: 12px; }
+    input[type=text], input[type=number], textarea { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #143325; border-radius: 6px;
+      background: #040907; color: #d9f5e6; font: inherit; }
+    input[type=file] { color: #8bb5a0; font: inherit; }
+    input[type=file]::file-selector-button { margin-right: 8px; border: 1px solid #39ff88; border-radius: 6px; background: transparent; color: #39ff88; padding: 4px 10px; cursor: pointer; }
     textarea { resize: vertical; }
-    button.primary { padding: 8px 12px; border: 0; border-radius: 6px; background: #0d9488; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
-    button.primary:disabled { opacity: .5; cursor: default; }
-    button.link { background: none; border: 0; color: #0d9488; cursor: pointer; padding: 0; font: inherit; text-decoration: underline; }
-    .err { color: #b91c1c; } .ok { color: #047857; } .warn { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 8px; }
+    :focus-visible { outline: 2px solid #39ff88; outline-offset: 2px; }
+    button.primary { padding: 8px 12px; border: 0; border-radius: 6px; background: #39ff88; color: #040907; font: inherit; font-weight: 700; cursor: pointer;
+      box-shadow: 0 0 12px rgba(57,255,136,.45); }
+    button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+    button.primary:disabled { opacity: .4; cursor: default; box-shadow: none; }
+    button.link { background: none; border: 0; color: #39ff88; cursor: pointer; padding: 0; font: inherit; text-decoration: underline; }
+    .err { color: #f87171; } .ok { color: #39ff88; }
+    .warn { background: rgba(120,53,15,.35); border: 1px solid rgba(251,191,36,.5); color: #fef3c7; border-radius: 6px; padding: 8px; }
     ul { margin: 4px 0 0; padding-left: 18px; }
-    .thumbs { display: flex; gap: 6px; flex-wrap: wrap; } .thumbs img { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; }
+    .thumbs { display: flex; gap: 6px; flex-wrap: wrap; } .thumbs img { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1px solid #143325; }
   `;
 
   // ---- photos ---------------------------------------------------------------------------------------------
