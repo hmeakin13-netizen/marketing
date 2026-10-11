@@ -15,6 +15,16 @@ Two parts:
 
 Quota is checked before the Claude call, and a listing is only counted after one was successfully generated.
 
+### Vinted accounts (one per subscription, extras £20/month)
+
+Every subscription includes **1 Vinted account**. Each extra account is **£20/month** on top of the plan (not available on the free trial). Examples: Starter + 1 extra = £30/month; Unlimited + 2 extras = £70/month.
+
+- **Each account gets the plan's full allowance** (Starter with 2 accounts = 60 listings/month). To share one pool across accounts instead, change `checkQuota` in `src/lib/plans.ts`.
+- **A listing names its Vinted account** (`vintedAccount`). The first listing for an account claims a slot; once slots are full, a new account gets `403 account_not_linked` and an offer to add one.
+- **Slot swapping is limited:** a slot can be unlinked once per 30 days, otherwise the limit is trivial to dodge by unlinking and relinking.
+- **How the account is known:** the extension reads the logged-in Vinted user (`extension/account.js`; one same-origin request, unverified endpoint) and falls back to asking for the username. The phone web app can't see Vinted, so the username there is self-declared. It stops casual sharing but a determined user can type any name. Real enforcement only exists where the extension can verify the logged-in account.
+- **Add-ons can't be bought yet.** `extraAccounts` is set by the billing integration, which doesn't exist yet (Stripe: add-on = a quantity on a second price).
+
 ## Run
 
 ```bash

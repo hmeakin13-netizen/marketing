@@ -26,6 +26,7 @@
         "selectors.js",
         "pricing.js",
         "comps.js",
+        "account.js",
         "fill.js",
         "panel.js"
       ],

@@ -32,6 +32,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const form = new FormData();
       msg.photos.forEach((p, i) => form.append("photos", b64ToBlob(p.data, p.mediaType), `photo-${i}.jpg`));
       form.append("notes", msg.notes || "");
+      form.append("vintedAccount", msg.account || "");
       return sendResponse(await call("/api/generate", { method: "POST", body: form }));
     }
     if (msg.type === "openOptions") {

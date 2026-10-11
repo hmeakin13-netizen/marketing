@@ -1,7 +1,7 @@
 import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
-import { normaliseUsage, type Usage } from "./plans";
+import { linkAccount, normaliseUsage, unlinkAccount, type Usage } from "./plans";
 
 /**
  * Prototype store: one JSON file on disk, keyed by anonymous user id.
@@ -25,17 +25,44 @@ async function write(db: Db) {
   await fs.writeFile(FILE, JSON.stringify(db, null, 2));
 }
 
+const fresh = (): Usage => ({ plan: "trial", used: 0, periodStart: new Date().toISOString(), accounts: [], extraAccounts: 0 });
+
 export async function getUsage(userId: string): Promise<Usage> {
   const db = await read();
-  return normaliseUsage(db[userId] ?? { plan: "trial", used: 0, periodStart: new Date().toISOString() });
+  return normaliseUsage({ ...fresh(), ...db[userId] });
 }
 
-/** Only call after a listing was actually generated, so failures don't burn quota. */
-export async function recordListing(userId: string): Promise<Usage> {
+async function mutate<T>(userId: string, fn: (u: Usage) => { usage: Usage; result: T }): Promise<T> {
   const db = await read();
-  const current = normaliseUsage(db[userId] ?? { plan: "trial", used: 0, periodStart: new Date().toISOString() });
-  const next = { ...current, used: current.used + 1 };
-  db[userId] = next;
+  const { usage, result } = fn(normaliseUsage({ ...fresh(), ...db[userId] }));
+  db[userId] = usage;
   await write(db);
-  return next;
+  return result;
+}
+
+/**
+ * Only call after a listing was actually generated, so failures don't burn quota or claim a slot.
+ * Claims the Vinted account's slot (if not already linked) and counts the listing in one write.
+ */
+export async function recordListing(userId: string, vintedAccount: string): Promise<Usage> {
+  return mutate(userId, (u) => {
+    const link = linkAccount(u, vintedAccount);
+    const base = link.ok ? link.usage : u; // generate route already verified the link is allowed
+    const next = { ...base, used: base.used + 1 };
+    return { usage: next, result: next };
+  });
+}
+
+export async function linkVintedAccount(userId: string, vintedAccount: string) {
+  return mutate(userId, (u) => {
+    const r = linkAccount(u, vintedAccount);
+    return { usage: r.ok ? r.usage : u, result: r };
+  });
+}
+
+export async function unlinkVintedAccount(userId: string, vintedAccount: string) {
+  return mutate(userId, (u) => {
+    const r = unlinkAccount(u, vintedAccount);
+    return { usage: r.ok ? r.usage : u, result: r };
+  });
 }

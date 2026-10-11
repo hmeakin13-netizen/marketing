@@ -1,4 +1,4 @@
-import { checkQuota, PLANS } from "@/lib/plans";
+import { ADDON_ACCOUNT_PENCE, checkQuota, linkAccount, normaliseAccountId, PLANS, slotsFor } from "@/lib/plans";
 import { ALLOWED_TYPES, generateListing, ListingError, MAX_PHOTOS, MAX_PHOTO_BYTES, type Photo, type PhotoType } from "@/lib/listing";
 import { json, preflight } from "@/lib/http";
 import { getUserId } from "@/lib/session";
@@ -12,13 +12,35 @@ export const OPTIONS = preflight;
 export async function POST(req: Request) {
   const userId = getUserId(req);
 
-  // Check quota first so a blocked user never costs us an API call.
-  const quota = checkQuota(await getUsage(userId));
+  const form = await req.formData();
+
+  // Which Vinted account is this for? One is included per subscription; more are £20/month each.
+  const rawAccount = form.get("vintedAccount");
+  const account = typeof rawAccount === "string" ? normaliseAccountId(rawAccount) : null;
+  if (!account) return json(req, { error: "account_required", message: "Enter the Vinted username this listing is for." }, 400);
+
+  const before = await getUsage(userId);
+  const link = linkAccount(before, account);
+  if (!link.ok) {
+    return json(
+      req,
+      {
+        error: "account_not_linked",
+        slots: slotsFor(before),
+        linked: before.accounts ?? [],
+        canBuyMore: link.reason === "slots_full" ? link.canBuyMore : false,
+        addonPence: ADDON_ACCOUNT_PENCE,
+      },
+      403,
+    );
+  }
+
+  // Check quota before the API call so a blocked user never costs us a request.
+  const quota = checkQuota(before);
   if (!quota.allowed) {
     return json(req, { error: "limit_reached", quota }, 402);
   }
 
-  const form = await req.formData();
   const files = form.getAll("photos").filter((f): f is File => f instanceof File);
   if (files.length === 0 || files.length > MAX_PHOTOS) {
     return json(req, { error: `Upload 1-${MAX_PHOTOS} photos.` }, 400);
@@ -38,7 +60,7 @@ export async function POST(req: Request) {
   try {
     const notes = form.get("notes");
     const listing = await generateListing(photos, typeof notes === "string" ? notes : undefined);
-    const usage = await recordListing(userId);
+    const usage = await recordListing(userId, account);
     return json(req, { listing, plan: PLANS[usage.plan].name, quota: checkQuota(usage) });
   } catch (err) {
     if (err instanceof ListingError) return json(req, { error: err.message }, err.status);

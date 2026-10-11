@@ -8,7 +8,7 @@
   const MAX_PHOTOS = 5;
   const send = (msg) => chrome.runtime.sendMessage(msg);
 
-  const state = { files: [], notes: "", listing: null, report: null, busy: false, error: null, quota: null, plan: "", market: null, marketBusy: false };
+  const state = { files: [], notes: "", listing: null, report: null, busy: false, error: null, quota: null, plan: "", market: null, marketBusy: false, account: "", accountAuto: false, accounts: null };
   let root = null; // shadow root
 
   function h(tag, props = {}, ...children) {
@@ -72,6 +72,20 @@
     if (res?.status === 200) {
       state.quota = res.body.quota;
       state.plan = res.body.plan;
+      state.accounts = res.body.accounts;
+    }
+    render();
+  }
+
+  /** Which Vinted account is this? Detect it from the logged-in tab; fall back to what the seller typed before. */
+  async function initAccount() {
+    const detected = await VLAccount.detect();
+    if (detected) {
+      state.account = detected;
+      state.accountAuto = true;
+    } else {
+      const { account = "" } = await chrome.storage.local.get("account");
+      state.account = account;
     }
     render();
   }
@@ -85,11 +99,19 @@
     render();
     try {
       const photos = await Promise.all(state.files.map(toApiPhoto));
-      const res = await send({ type: "generate", photos, notes: state.notes });
+      if (!state.accountAuto) chrome.storage.local.set({ account: state.account });
+      const res = await send({ type: "generate", photos, notes: state.notes, account: state.account });
       if (res.status === 200) {
         state.listing = res.body.listing;
         state.quota = res.body.quota;
         state.plan = res.body.plan;
+      } else if (res.status === 403 && res.body?.error === "account_not_linked") {
+        const b = res.body;
+        state.error = b.canBuyMore
+          ? `Your plan covers ${b.slots} Vinted account${b.slots > 1 ? "s" : ""}. Add another for £${b.addonPence / 100}/month in the web app.`
+          : `The free trial covers one Vinted account (${b.linked.join(", ")}). Upgrade in the web app to add more.`;
+      } else if (res.status === 400 && res.body?.error === "account_required") {
+        state.error = "Enter your Vinted username first.";
       } else if (res.status === 402) {
         state.quota = res.body.quota;
         state.error = "You've used all your listings on this plan. Upgrade in the web app to keep going.";
@@ -152,6 +174,19 @@
 
     body.append(
       h("div", { class: "muted" }, state.plan || "", " · ", quotaLine() || ""),
+      state.accountAuto
+        ? h("div", { class: "muted" }, "Vinted account: ", h("b", {}, state.account))
+        : h("input", {
+            type: "text",
+            placeholder: "Your Vinted username",
+            value: state.account,
+            oninput: (e) => {
+              state.account = e.target.value;
+            },
+          }),
+      state.accounts
+        ? h("div", { class: "muted" }, `${state.accounts.linked.length} of ${state.accounts.slots} Vinted account${state.accounts.slots > 1 ? "s" : ""} used`)
+        : null,
       h("input", {
         type: "file",
         accept: "image/jpeg,image/png,image/webp",
@@ -260,6 +295,7 @@
     document.documentElement.append(host);
     render();
     refreshUsage();
+    initAccount();
   }
 
   function unmount() {

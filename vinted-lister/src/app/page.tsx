@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import type { Listing } from "@/lib/listing-types";
 
+interface AccountsInfo {
+  linked: string[];
+  slots: number;
+  addonPence: number;
+  canBuyMore: boolean;
+}
+
 type Quota =
   | { allowed: true; remaining: number | null }
   | { allowed: false; reason: "limit_reached" | "fair_use"; upgradeTo: string | null };
@@ -39,13 +46,20 @@ export default function Home() {
   const [quota, setQuota] = useState<Quota | null>(null);
   const [plan, setPlan] = useState("Free trial");
   const [extKey, setExtKey] = useState<string | null>(null);
+  const [account, setAccount] = useState("");
+  const [accounts, setAccounts] = useState<AccountsInfo | null>(null);
 
   useEffect(() => {
+    try {
+      setAccount(localStorage.getItem("vl_account") ?? "");
+    } catch {}
     fetch("/api/usage")
       .then((r) => r.json())
       .then((d) => {
         setQuota(d.quota);
         setPlan(d.plan);
+        setAccounts(d.accounts);
+        setAccount((cur) => cur || d.accounts?.linked?.[0] || "");
       })
       .catch(() => {});
   }, []);
@@ -57,10 +71,20 @@ export default function Home() {
     const body = new FormData();
     files.forEach((f) => body.append("photos", f));
     body.append("notes", notes);
+    body.append("vintedAccount", account);
+    try {
+      localStorage.setItem("vl_account", account);
+    } catch {}
     try {
       const res = await fetch("/api/generate", { method: "POST", body });
       const data = await res.json();
-      if (res.status === 402) {
+      if (res.status === 403 && data.error === "account_not_linked") {
+        setError(
+          data.canBuyMore
+            ? `Your plan covers ${data.slots} Vinted account${data.slots > 1 ? "s" : ""} (${data.linked.join(", ")}). Add another for £${data.addonPence / 100}/month.`
+            : `The free trial covers one Vinted account (${data.linked.join(", ")}). Upgrade to add more.`,
+        );
+      } else if (res.status === 402) {
         setQuota(data.quota);
         setError("You've used all your listings on this plan.");
       } else if (!res.ok) {
@@ -69,6 +93,10 @@ export default function Home() {
         setListing(data.listing);
         setQuota(data.quota);
         setPlan(data.plan);
+        fetch("/api/usage")
+          .then((r) => r.json())
+          .then((d) => setAccounts(d.accounts))
+          .catch(() => {});
       }
     } catch {
       setError("Network error. Try again.");
@@ -91,7 +119,24 @@ export default function Home() {
       </div>
 
       <section className="mt-6 rounded-xl border border-line bg-panel shadow-card p-5">
-        <label className="block text-sm font-medium">Photos (up to 5)</label>
+        <label className="block text-sm font-medium">Vinted username</label>
+        <input
+          type="text"
+          value={account}
+          onChange={(e) => setAccount(e.target.value)}
+          maxLength={64}
+          placeholder="e.g. jane_sells"
+          autoCapitalize="none"
+          autoCorrect="off"
+          className="mt-2 w-full rounded-lg border border-line p-2 text-sm"
+        />
+        {accounts && (
+          <p className="mt-1 text-xs text-mute">
+            {accounts.linked.length} of {accounts.slots} Vinted account{accounts.slots > 1 ? "s" : ""} used
+            {accounts.canBuyMore && ` · extra accounts £${accounts.addonPence / 100}/month each`}
+          </p>
+        )}
+        <label className="mt-4 block text-sm font-medium">Photos (up to 5)</label>
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
@@ -118,7 +163,7 @@ export default function Home() {
         />
         <button
           type="button"
-          disabled={files.length === 0 || loading || blocked}
+          disabled={files.length === 0 || !account.trim() || loading || blocked}
           onClick={generate}
           className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-40"
         >
@@ -139,7 +184,8 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs text-mute">Checkout isn&apos;t connected yet (Stripe is the next step).</p>
+          <p className="mt-3 text-sm">Each plan includes <b>1 Vinted account</b>. Add another account for <b>£20/month</b> each.</p>
+          <p className="mt-2 text-xs text-mute">Checkout isn&apos;t connected yet (Stripe is the next step).</p>
         </section>
       )}
 
