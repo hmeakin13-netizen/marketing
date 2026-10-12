@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { fmtDateTime, toUkLocalInput } from "@/lib/staff/dates";
 import { nameOf } from "@/lib/staff/metrics";
@@ -10,13 +11,25 @@ import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "
 
 export const metadata = { title: "Calls | Apex Team" };
 
+// Filters for "Recent results". The default hides no-shows and cancellations so the list stays useful.
+const RESULT_FILTERS: { key: string; label: string; match: (o: CallOutcome) => boolean }[] = [
+  { key: "showed", label: "Showed", match: (o) => o === "closed" || o === "follow_up" || o === "lost" },
+  { key: "closed", label: "Closed", match: (o) => o === "closed" },
+  { key: "follow_up", label: "Follow-up", match: (o) => o === "follow_up" },
+  { key: "lost", label: "Lost", match: (o) => o === "lost" },
+  { key: "no_show", label: "No-shows", match: (o) => o === "no_show" },
+  { key: "cancelled", label: "Cancelled", match: (o) => o === "cancelled" },
+  { key: "all", label: "All", match: () => true },
+];
+const RESULT_PAGE = 40;
+
 const toneOf = (o: CallOutcome) =>
   o === "closed" ? "good" : o === "no_show" ? "bad" : o === "follow_up" ? "info" : o === "scheduled" ? "warn" : "default";
 
 export default async function CallsPage({
   searchParams,
 }: {
-  searchParams: { ok?: string; error?: string };
+  searchParams: { ok?: string; error?: string; result?: string; all?: string };
 }) {
   const { supabase, me } = await requireStaff();
   const since = new Date(Date.now() - 45 * 86400000).toISOString();
@@ -40,7 +53,11 @@ export default async function CallsPage({
   const upcoming = calls
     .filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() >= now)
     .sort((a, b) => a.call_at.localeCompare(b.call_at));
-  const done = calls.filter((c) => c.outcome !== "scheduled");
+  const doneAll = calls.filter((c) => c.outcome !== "scheduled");
+  const filter = RESULT_FILTERS.find((f) => f.key === searchParams.result) ?? RESULT_FILTERS[0];
+  const filtered = doneAll.filter((c) => filter.match(c.outcome));
+  const showAll = searchParams.all === "1";
+  const done = showAll ? filtered : filtered.slice(0, RESULT_PAGE);
   const stillOpenElsewhere = calls.filter(
     (c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() < now && !canEdit(c)
   ).length;
@@ -139,8 +156,30 @@ export default async function CallsPage({
       <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} confirm />
 
       <div className="mt-8" />
-      <SectionTitle>Recent results</SectionTitle>
-      <CallList calls={done} staff={staff} empty="No results logged yet." showOutcome admin={me.role === "admin"} />
+      <SectionTitle>Recent results ({filtered.length})</SectionTitle>
+      <div className="mb-3 flex flex-wrap gap-2">
+        {RESULT_FILTERS.map((f) => {
+          const n = doneAll.filter((c) => f.match(c.outcome)).length;
+          const active = f.key === filter.key;
+          return (
+            <Link
+              key={f.key}
+              href={`/calls?result=${f.key}`}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                active ? "border-emerald-400 bg-emerald-500/15 text-emerald-300" : "border-white/10 text-zinc-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              {f.label} <span className="text-zinc-500">{n}</span>
+            </Link>
+          );
+        })}
+      </div>
+      <CallList calls={done} staff={staff} empty={`No ${filter.label.toLowerCase()} calls yet.`} showOutcome admin={me.role === "admin"} />
+      {!showAll && filtered.length > RESULT_PAGE ? (
+        <Link href={`/calls?result=${filter.key}&all=1`} className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
+          Show all {filtered.length} →
+        </Link>
+      ) : null}
     </>
   );
 }
