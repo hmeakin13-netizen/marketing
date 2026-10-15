@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
-import { parseRange, rangeBounds, fmtDate, fmtDateTime } from "@/lib/staff/dates";
+import { parseRange, rangeBounds, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
 import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
@@ -27,6 +27,9 @@ export default async function DashboardPage({
   );
 
   const { flags } = await loadFlags(supabase);
+  // End-of-day report: setters owe one each working day; the owner can see who has filed.
+  const { data: repToday } = await supabase.from("daily_reports").select("staff_id").eq("report_date", todayIso());
+  const filedToday = new Set((repToday ?? []).map((r) => String(r.staff_id)));
   const myFlags = flags.filter((f) => f.ownerId === me.id);
   const highFlags = myFlags.filter((f) => f.severity === "high").length;
   const team = computeStats(calls, closes, from, to);
@@ -109,6 +112,38 @@ export default async function DashboardPage({
               See what&apos;s been dropped
             </Link>
           </div>
+        </Card>
+      ) : null}
+
+      {me.role === "setter" && !filedToday.has(me.id) ? (
+        <Card className="mt-6 border-sky-500/30 bg-sky-500/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-sky-300">Your end of day report is still to do</p>
+              <p className="mt-1 text-sm text-zinc-400">How did the calls go today? It takes two minutes and has to be filed every working day.</p>
+            </div>
+            <Link href="/report" className="rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-sky-300">
+              File my report
+            </Link>
+          </div>
+        </Card>
+      ) : null}
+
+      {me.role === "admin" && staff.some((x) => x.active && x.role === "setter") ? (
+        <Card className="mt-6">
+          <SectionTitle>End of day reports — today</SectionTitle>
+          <p className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
+            {staff
+              .filter((x) => x.active && x.role === "setter")
+              .map((x) => (
+                <span key={x.id}>
+                  {x.full_name} <Badge tone={filedToday.has(x.id) ? "good" : "warn"}>{filedToday.has(x.id) ? "filed" : "not yet"}</Badge>
+                </span>
+              ))}
+            <Link href="/report" className="text-emerald-400 hover:text-emerald-300">
+              Read reports →
+            </Link>
+          </p>
         </Card>
       ) : null}
 
