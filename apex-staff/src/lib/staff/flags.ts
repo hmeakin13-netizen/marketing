@@ -1,6 +1,7 @@
 import { owed, money, nameOf, paidTotal } from "./metrics";
 import { needsRecording } from "./recording";
-import type { CallRow, CloseRow, ChaseRow, StaffRow } from "./types";
+import { todayIso, ukParts } from "./dates";
+import type { CallRow, CloseRow, ChaseRow, DailyReport, StaffRow } from "./types";
 
 // How long before each thing counts as "dropped the ball". Tweak here.
 export const RULES = {
@@ -22,6 +23,7 @@ export type FlagKind =
   | "missing_recording"
   | "missing_notes"
   | "unconfirmed_call"
+  | "missing_report"
   | "contract_unsigned";
 
 export interface Flag {
@@ -46,6 +48,7 @@ export const FLAG_LABEL: Record<FlagKind, string> = {
   missing_recording: "No Fathom recording",
   missing_notes: "No call notes",
   unconfirmed_call: "Call not confirmed",
+  missing_report: "End of day report due",
   contract_unsigned: "Contract not signed",
 };
 
@@ -235,4 +238,38 @@ export function computeFlags(
 
   const rank = { high: 0, medium: 1, low: 2 } as const;
   return flags.sort((a, b) => rank[a.severity] - rank[b.severity] || b.daysLate - a.daysLate);
+}
+
+/** Reports are due by this UK hour on every working day (Mon–Sat). */
+export const REPORT_DUE_HOUR = 18;
+const REPORTS_START = "2026-10-15"; // nothing is chased before the report existed
+
+/**
+ * Every active setter owes an end-of-day report each working day. Today's becomes due at
+ * REPORT_DUE_HOUR (high priority from 21:00); a missed earlier day stays flagged for 3 days.
+ */
+export function missingReportFlags(staff: StaffRow[], reports: DailyReport[], now = new Date()): Flag[] {
+  const flags: Flag[] = [];
+  const uk = ukParts(now);
+  const today = todayIso(now);
+  for (const s of staff.filter((x) => x.active && x.role === "setter")) {
+    for (let back = 0; back <= 3; back++) {
+      const d = new Date(now.getTime() - back * DAY);
+      const iso = todayIso(d);
+      const dow = ukParts(d).isoDow;
+      if (iso < REPORTS_START || dow === 7) continue;
+      if (reports.some((r) => r.staff_id === s.id && r.report_date === iso)) continue;
+      if (iso === today && uk.hour < REPORT_DUE_HOUR) continue;
+      flags.push({
+        id: `er-${s.id}-${iso}`,
+        kind: "missing_report",
+        severity: iso !== today || uk.hour >= 21 ? "high" : "medium",
+        title: `${s.full_name} — end of day report for ${iso === today ? "today" : iso} not filed`,
+        detail: `How did the calls go? Fill in the report on the End of day report page. It's due by ${REPORT_DUE_HOUR}:00 every working day.`,
+        ownerId: s.id,
+        daysLate: back,
+      });
+    }
+  }
+  return flags;
 }

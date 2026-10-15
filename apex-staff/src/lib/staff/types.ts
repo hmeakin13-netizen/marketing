@@ -218,3 +218,15 @@ export interface RetainerClient {
   notes: string | null;
   created_at: string;
 }
+
+export interface DailyReport {
+  id: string;
+  staff_id: string;
+  report_date: string; // YYYY-MM-DD (UK day)
+  dials: number;
+  conversations: number;
+  calls_booked: number;
+  summary: string;
+  issues: string | null;
+  submitted_at: string;
+}

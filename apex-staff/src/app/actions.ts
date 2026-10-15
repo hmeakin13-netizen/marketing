@@ -863,6 +863,32 @@ export async function reapplyShifts() {
   back("/settings", "ok", `Re-applied shifts: ${changed} upcoming call${changed === 1 ? "" : "s"} reassigned.`);
 }
 
+/** End-of-day report (one per setter per working day; filing again edits it). */
+export async function submitReport(formData: FormData) {
+  const { supabase, me } = await requireStaff();
+  if (me.role !== "setter" && me.role !== "admin") back("/report", "error", "Only setters file this report.");
+  const reportDate = str(formData, "report_date");
+  if (reportDate !== todayIso()) back("/report", "error", "You can only file today's report.");
+  const int = (k: string) => {
+    const v = parseInt(str(formData, k), 10);
+    return Number.isNaN(v) || v < 0 ? NaN : v;
+  };
+  const dials = int("dials");
+  const conversations = int("conversations");
+  const booked = int("calls_booked");
+  if ([dials, conversations, booked].some(Number.isNaN)) back("/report", "error", "Fill in dials, conversations and calls booked (0 or more).");
+  if (conversations > dials) back("/report", "error", "Conversations can't be more than dials.");
+  const summary = str(formData, "summary");
+  if (summary.length < 10) back("/report", "error", "Tell us how the calls went (a sentence or two at least).");
+  const { error } = await supabase.from("daily_reports").upsert(
+    { staff_id: me.id, report_date: reportDate, dials, conversations, calls_booked: booked, summary, issues: optStr(formData, "issues"), submitted_at: new Date().toISOString() },
+    { onConflict: "staff_id,report_date" }
+  );
+  if (error) back("/report", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/report", "ok", "Report filed. Thanks!");
+}
+
 /** Setter's pre-call check: confirmed on Zoom, no answer, left a message, etc. */
 export async function setConfirmation(formData: FormData) {
   const { me } = await requireStaff();
