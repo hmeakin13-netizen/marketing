@@ -228,5 +228,7 @@ export interface DailyReport {
   calls_booked: number;
   summary: string;
   issues: string | null;
+  start_time: string | null; // HH:MM:SS
+  end_time: string | null;
   submitted_at: string;
 }

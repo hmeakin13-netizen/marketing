@@ -21,3 +21,8 @@ create policy "Edit own report" on public.daily_reports for update to authentica
   with check (staff_id = public.my_staff_id() or public.is_admin());
 create trigger audit_daily_reports after insert or update or delete on public.daily_reports
   for each row execute function log_audit();
+
+-- Start and finish time of the shift, so dials per hour can be charted. Applied live.
+alter table public.daily_reports add column if not exists start_time time, add column if not exists end_time time;
+alter table public.daily_reports add constraint daily_reports_times_valid
+  check (start_time is null or end_time is null or end_time > start_time);

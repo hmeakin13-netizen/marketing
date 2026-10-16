@@ -878,10 +878,15 @@ export async function submitReport(formData: FormData) {
   const booked = int("calls_booked");
   if ([dials, conversations, booked].some(Number.isNaN)) back("/report", "error", "Fill in dials, conversations and calls booked (0 or more).");
   if (conversations > dials) back("/report", "error", "Conversations can't be more than dials.");
+  const hhmm = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const startTime = str(formData, "start_time");
+  const endTime = str(formData, "end_time");
+  if (!hhmm.test(startTime) || !hhmm.test(endTime)) back("/report", "error", "Add the time you started and the time you finished.");
+  if (endTime <= startTime) back("/report", "error", "Your finish time has to be after your start time.");
   const summary = str(formData, "summary");
   if (summary.length < 10) back("/report", "error", "Tell us how the calls went (a sentence or two at least).");
   const { error } = await supabase.from("daily_reports").upsert(
-    { staff_id: me.id, report_date: reportDate, dials, conversations, calls_booked: booked, summary, issues: optStr(formData, "issues"), submitted_at: new Date().toISOString() },
+    { staff_id: me.id, report_date: reportDate, dials, conversations, calls_booked: booked, start_time: startTime, end_time: endTime, summary, issues: optStr(formData, "issues"), submitted_at: new Date().toISOString() },
     { onConflict: "staff_id,report_date" }
   );
   if (error) back("/report", "error", error.message);
