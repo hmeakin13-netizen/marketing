@@ -1,10 +1,10 @@
 import { requireRole } from "@/lib/staff/auth";
 import { fmtDate, todayIso } from "@/lib/staff/dates";
 import { money, nameOf } from "@/lib/staff/metrics";
-import { fmtIsoDay, nextRetainerDate, payoutDateFor } from "@/lib/staff/pay";
+import { fmtIsoDay, isPaused, nextRetainerDate, payoutDateFor } from "@/lib/staff/pay";
 import type { Territory } from "@/lib/staff/geo";
 import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
-import { addClient, endClient, saveClientLocation, reinstateClient, updateClient } from "../../actions";
+import { addClient, endClient, pauseClient, resumeClient, saveClientLocation, reinstateClient, updateClient } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, Stat, inputCls } from "@/components/staff/ui";
 
@@ -34,12 +34,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
 
   const sharePctOf = (c: RetainerClient) => (c.closer_share_pct != null ? Number(c.closer_share_pct) : Number(pay.get(c.closer_id ?? "")?.retainer_share_pct ?? 0));
   const shareOf = (c: RetainerClient) => (Number(c.monthly_fee) * sharePctOf(c)) / 100;
-  const mrr = active.reduce((t, c) => t + Number(c.monthly_fee), 0);
-  const owedPerMonth = active.reduce((t, c) => t + shareOf(c), 0);
+  const billing = active.filter((c) => !isPaused(c, today));
+  const mrr = billing.reduce((t, c) => t + Number(c.monthly_fee), 0);
+  const owedPerMonth = billing.reduce((t, c) => t + shareOf(c), 0);
 
   // Per-closer summary
   const byCloser = new Map<string, { n: number; fee: number; share: number }>();
-  for (const c of active) {
+  for (const c of billing) {
     const k = c.closer_id ?? "none";
     const row = byCloser.get(k) ?? { n: 0, fee: 0, share: 0 };
     row.n++;
@@ -151,11 +152,17 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
         {active.map((c) => {
           const cfg = pay.get(c.closer_id ?? "");
           const next = nextRetainerDate(c);
+          const paused = isPaused(c, today);
+          const notStarted = Boolean(c.first_billing_date && c.first_billing_date > today);
           return (
             <Card key={c.id}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold text-white">{c.name}</p>
+                  <p className="font-semibold text-white">
+                    {c.name}
+                    {paused ? <span className="ml-2"><Badge tone="warn">Paused — {c.pause_reason ?? "no payments due"}{c.pause_until ? ` until ${fmtDate(c.pause_until)}` : ""}</Badge></span> : null}
+                    {notStarted ? <span className="ml-2"><Badge tone="info">First payment {fmtIsoDay(c.first_billing_date!)}</Badge></span> : null}
+                  </p>
                   <p className="text-xs text-zinc-400">
                     Closed by {nameOf(staff, c.closer_id)} · set by {nameOf(staff, c.setter_id)} · signed {fmtDate(c.start_date)} ·
                     pays on the {c.billing_day}
@@ -164,7 +171,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                   <p className="mt-1 text-sm text-zinc-300">
                     {nameOf(staff, c.closer_id)} earns{" "}
                     <b className="text-emerald-400">{money(shareOf(c))}</b> a month ({sharePctOf(c)}%{c.closer_share_pct != null ? " — set for this client" : ""} of {money(Number(c.monthly_fee))})
-                    {next ? (
+                    {paused ? " — nothing due while paused" : null}
+                    {next && !paused ? (
                       <>
                         {" "}— next due {fmtIsoDay(next)}, paid on{" "}
                         <b className="text-zinc-100">{fmtIsoDay(payoutDateFor(next, cfg?.pay_schedule ?? "monthly"))}</b>
@@ -197,6 +205,9 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                   </Field>
                   <Field label="Pays on day">
                     <input name="billing_day" inputMode="numeric" defaultValue={String(c.billing_day)} className={inputCls} />
+                  </Field>
+                  <Field label="First payment date">
+                    <input name="first_billing_date" type="date" defaultValue={c.first_billing_date ?? ""} className={inputCls} />
                   </Field>
                   <Field label="Closer's share % (blank = usual)">
                     <input name="closer_share_pct" inputMode="decimal" defaultValue={c.closer_share_pct != null ? String(c.closer_share_pct) : ""} className={inputCls} placeholder={String(cfg?.retainer_share_pct ?? 0)} />
@@ -231,6 +242,35 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                   </Field>
                   <SubmitButton>Save location</SubmitButton>
                 </form>
+                {paused ? (
+                  <form action={resumeClient} className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-3">
+                    <input type="hidden" name="client_id" value={c.id} />
+                    <p className="text-sm text-zinc-300">Paused: {c.pause_reason}. Resume once they are paying again (nothing is backdated).</p>
+                    <SubmitButton>Resume payments from today</SubmitButton>
+                  </form>
+                ) : (
+                  <form action={pauseClient} className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-3">
+                    <input type="hidden" name="client_id" value={c.id} />
+                    <Field label="Pause payments because">
+                      <select name="reason" className={inputCls} defaultValue="Guarantee not hit yet">
+                        <option>Guarantee not hit yet</option>
+                        <option>Free trial</option>
+                        <option>Account being set up</option>
+                        <option>Other</option>
+                      </select>
+                    </Field>
+                    <Field label="Note (optional)">
+                      <input name="reason_note" className={inputCls} />
+                    </Field>
+                    <Field label="From">
+                      <input name="pause_from" type="date" defaultValue={today} className={inputCls} />
+                    </Field>
+                    <Field label="Resume on (optional)">
+                      <input name="pause_until" type="date" className={inputCls} />
+                    </Field>
+                    <SubmitButton>Pause payments</SubmitButton>
+                  </form>
+                )}
                 <form action={endClient} className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/10 pt-3">
                   <input type="hidden" name="client_id" value={c.id} />
                   <Field label="Client left on">

@@ -195,14 +195,23 @@ export function retainerDueDates(client: RetainerClient, from: Date, to: Date): 
   for (let idx = first.year * 12 + first.month - 1; idx <= last.year * 12 + last.month - 1; idx++) {
     const y = Math.floor(idx / 12);
     const m = (idx % 12) + 1;
-    if (idx <= startIndex) continue;
+    // Default: the first retainer payment is the month after sign-up. A first_billing_date overrides that.
+    if (!client.first_billing_date && idx <= startIndex) continue;
     const day = Math.min(client.billing_day, daysInMonth(y, m));
     const iso = `${y}-${pad(m)}-${pad(day)}`;
     if (!inRange(ukWallClockToUtc(y, m, day).toISOString(), from, to)) continue;
+    if (client.first_billing_date && iso < client.first_billing_date) continue;
     if (client.end_date && iso > client.end_date) continue;
+    // Paused: payments falling inside the pause window are skipped (not backdated when it ends).
+    if (client.pause_from && iso >= client.pause_from && (!client.pause_until || iso < client.pause_until)) continue;
     out.push(iso);
   }
   return out;
+}
+
+/** Is this client's retainer on hold today? */
+export function isPaused(client: RetainerClient, today: string): boolean {
+  return Boolean(client.pause_from && client.pause_from <= today && (!client.pause_until || client.pause_until > today));
 }
 
 export function fmtIsoDay(iso: string) {
