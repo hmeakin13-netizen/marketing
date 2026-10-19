@@ -752,7 +752,15 @@ export async function updateClient(formData: FormData) {
     .update({
       monthly_fee: fee,
       setup_fee: Number.isNaN(setupFee) || setupFee < 0 ? 0 : setupFee,
-      billing_day: billing >= 1 && billing <= 31 ? billing : 1,
+      billing_day: (() => {
+        const f = optStr(formData, "first_billing_date");
+        if (f && /^\d{4}-\d{2}-\d{2}$/.test(f)) return Number(f.slice(8, 10));
+        return billing >= 1 && billing <= 31 ? billing : 1;
+      })(),
+      first_billing_date: (() => {
+        const v = optStr(formData, "first_billing_date");
+        return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+      })(),
       closer_share_pct: (() => {
         const v = num(formData, "closer_share_pct");
         return Number.isNaN(v) || v < 0 || v > 100 ? null : v; // blank = use the closer's usual %
@@ -797,6 +805,36 @@ export async function saveClientLocation(formData: FormData) {
   if (error) back("/clients", "error", error.message);
   revalidatePath("/", "layout");
   back("/clients", "ok", `${client!.name} is on the map (${geo!.postcode}).`);
+}
+
+/** Put a client's retainer on hold (free trial, guarantee not hit yet, account still being set up). */
+export async function pauseClient(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const id = str(formData, "client_id");
+  const preset = str(formData, "reason");
+  const note = optStr(formData, "reason_note");
+  const reason = [preset, note].filter(Boolean).join(" — ") || "Paused";
+  const from = optStr(formData, "pause_from") ?? todayIso();
+  const until = optStr(formData, "pause_until");
+  if (until && until <= from) back("/clients", "error", "The resume date has to be after the pause date.");
+  const { error } = await supabase.from("retainer_clients").update({ pause_from: from, pause_until: until, pause_reason: reason }).eq("id", id);
+  if (error) back("/clients", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", until ? `Paused until ${until}. It restarts by itself that day.` : "Paused. Nothing is due, and no commission share, until you resume it.");
+}
+
+/** Restart a paused retainer from today (nothing is backdated). */
+export async function resumeClient(formData: FormData) {
+  const { supabase } = await requireRole("admin");
+  const id = str(formData, "client_id");
+  const { data: c } = await supabase.from("retainer_clients").select("pause_from").eq("id", id).single();
+  const today = todayIso();
+  const patch =
+    c?.pause_from && c.pause_from <= today ? { pause_until: today } : { pause_from: null, pause_until: null, pause_reason: null };
+  const { error } = await supabase.from("retainer_clients").update(patch).eq("id", id);
+  if (error) back("/clients", "error", error.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", "Resumed. The retainer counts again from today.");
 }
 
 export async function endClient(formData: FormData) {

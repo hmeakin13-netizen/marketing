@@ -212,6 +212,10 @@ export interface RetainerClient {
   setup_fee: number; // one-time
   monthly_fee: number; // recurring retainer
   closer_share_pct: number | null; // overrides the closer's usual retainer share for this client
+  first_billing_date: string | null; // when the first retainer payment is due (overrides 'month after sign-up')
+  pause_from: string | null; // retainer paused from this date (free trial, guarantee not hit, setup…)
+  pause_until: string | null; // …until this date; null = until resumed by hand
+  pause_reason: string | null;
   start_date: string; // YYYY-MM-DD
   billing_day: number;
   end_date: string | null;
