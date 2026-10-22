@@ -247,6 +247,19 @@ class Report(unittest.TestCase):
         self.assertLess(len(self.text.splitlines()), 40)
 
 
+class Snapshot(unittest.TestCase):
+    def test_snapshot_is_json_and_worst_first(self):
+        from monitor.snapshot import build_snapshot
+        reports, today = demo.build()
+        snap = json.loads(json.dumps(build_snapshot(reports, today, [])))
+        names = [c["name"] for c in snap["clients"]]
+        self.assertEqual(names[0], "Elite Roofing")
+        self.assertEqual(names[-1], "Apex-Leads")
+        fg = next(c for c in snap["clients"] if c["name"] == "FG Landscaping")
+        self.assertEqual((fg["guarantee"]["counted"], fg["guarantee"]["required"], fg["guarantee"]["status"]), (8, 25, "WILL MISS"))
+        self.assertIn("MORNING CHECK", snap["message"])
+
+
 class Store(unittest.TestCase):
     def test_round_trip_keeps_exclusions_across_resync(self):
         with tempfile.TemporaryDirectory() as tmp:

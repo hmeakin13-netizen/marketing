@@ -23,8 +23,15 @@ jobs:
         env:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           channels="stdout"
           if [ -n "$SLACK_WEBHOOK_URL" ]; then channels="stdout slack"; fi
-          python -m monitor run --meta-counts --send $channels | tee message.txt
+          publish=""
+          if [ -n "$SUPABASE_URL" ]; then publish="--publish"; fi
+          status=0
+          python -m monitor run --meta-counts --send $channels $publish > message.txt || status=$?
+          cat message.txt
           { echo '```'; cat message.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status

@@ -14,6 +14,7 @@ from .deliver import CHANNELS
 from .leads import LONDON, LeadStore
 from .meta_client import MetaClient, MetaError
 from .report import render
+from .snapshot import build_snapshot, publish
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "config" / "clients.json"
@@ -49,7 +50,11 @@ def cmd_run(args) -> int:
     text = render(reports, today, warnings)
     for channel in args.send:
         CHANNELS[channel](text, f"Morning check, {today:%a %-d %b}")
-    return 0
+    if args.publish:
+        publish(build_snapshot(reports, today, warnings))
+        print("Published to the website.", file=sys.stderr)
+    # Fail loudly (red job, GitHub emails you) if Meta couldn't be read for an account.
+    return 2 if any(r.error and not r.error.startswith("ad account ID not set") for r in reports) else 0
 
 
 def cmd_demo(args) -> int:
@@ -95,6 +100,7 @@ def main(argv=None) -> int:
     run.add_argument("--meta-counts", action="store_true",
                      help="use Meta's own lead counts (no lead log, no exclusions); works without lead permissions")
     run.add_argument("--today", type=lambda s: datetime.strptime(s, "%Y-%m-%d").date())
+    run.add_argument("--publish", action="store_true", help="save the snapshot for the website (needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)")
     run.add_argument("--no-sync", action="store_true", help="skip pulling individual leads")
     run.set_defaults(func=cmd_run)
 
