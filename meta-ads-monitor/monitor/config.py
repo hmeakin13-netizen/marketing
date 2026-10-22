@@ -18,6 +18,7 @@ class Client:
     ad_account_id: str
     guarantee: str
     go_live: date | None = None
+    go_live_auto: bool = False  # go-live = first day the account spent money
     daily_budget: float = 20.0
     target_cpl: float | None = None
     max_cpl: float | None = None
@@ -57,7 +58,7 @@ class Client:
         gaps = []
         if not self.has_account():
             gaps.append("ad_account_id not set")
-        if self.guarantee in TERMS and self.go_live is None:
+        if self.guarantee in TERMS and self.go_live is None and not self.go_live_auto:
             gaps.append("go_live not set (shown as 'not live')")
         if self.guarantee == "free_trial":
             if self.leads_owed is None:
@@ -95,7 +96,8 @@ def parse_client(raw: dict) -> Client:
         name=name,
         ad_account_id=account,
         guarantee=guarantee,
-        go_live=_date(raw.get("go_live"), "go_live", name),
+        go_live=None if raw.get("go_live") == "auto" else _date(raw.get("go_live"), "go_live", name),
+        go_live_auto=raw.get("go_live") == "auto",
         daily_budget=float(raw.get("daily_budget", 20)),
         target_cpl=raw.get("target_cpl"),
         max_cpl=raw.get("max_cpl"),

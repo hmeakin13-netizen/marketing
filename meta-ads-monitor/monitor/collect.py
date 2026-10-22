@@ -9,6 +9,7 @@ from .meta_client import MetaClient
 from .model import AccountData, Ad, Day
 
 HISTORY_DAYS = 14  # enough for week-on-week CTR
+AUTO_HISTORY_DAYS = 90  # look back this far to find the first day of spend (longest window is 60)
 LEAD_ACTION = "lead"  # check on real data: Meta also reports onsite_conversion.lead_grouped
 
 
@@ -26,6 +27,8 @@ def _range(since: date, until: date) -> dict:
 def history_start(client: Client, today: date) -> date:
     anchors = [d for d in (client.go_live, client.free_trial_from) if d]
     earliest = min(anchors) if anchors else today
+    if client.go_live_auto:
+        earliest = today - timedelta(days=AUTO_HISTORY_DAYS)
     return min(earliest, today - timedelta(days=HISTORY_DAYS))
 
 
@@ -60,7 +63,7 @@ def fetch_account(meta: MetaClient, client: Client, today: date) -> AccountData:
         a["id"]: Ad(id=a["id"], name=a.get("name", a["id"]), effective_status=a.get("effective_status", ""))
         for a in meta.get_all(f"{acct}/ads", {"fields": "id,name,effective_status"})
     }
-    ad_start = client.go_live or (today - timedelta(days=30))
+    ad_start = client.go_live or (today - timedelta(days=AUTO_HISTORY_DAYS if client.go_live_auto else 30))
     for row in meta.get_all(
         f"{acct}/insights",
         {"level": "ad", "time_range": _range(min(ad_start, yesterday), yesterday), "fields": "ad_id,spend,actions"},

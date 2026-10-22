@@ -209,6 +209,19 @@ class MetaCounts(unittest.TestCase):
         self.assertEqual([f for f in r.flags if "no leads" in f.text.lower()], [])
 
 
+class AutoGoLive(unittest.TestCase):
+    def test_go_live_is_first_day_of_spend(self):
+        daily = {day(n): Day(spend=20, leads=1 if n % 2 else 0) for n in range(1, 21)}
+        daily[day(25)] = Day(spend=0)  # a zero-spend day before launch doesn't count
+        r = build_report(client(go_live="auto", guarantee="25_in_30"), AccountData(daily=daily), [], TODAY, meta_counts=True)
+        self.assertEqual(r.client.go_live, day(20))
+        self.assertEqual((r.guarantee.state, r.guarantee.day, r.guarantee.counted), ("ACTIVE", 20, 10))
+
+    def test_no_spend_means_not_live(self):
+        r = build_report(client(go_live="auto"), AccountData(daily={day(1): Day(spend=0)}), [], TODAY, meta_counts=True)
+        self.assertEqual(r.guarantee.state, "NOT_LIVE")
+
+
 class Report(unittest.TestCase):
     def setUp(self):
         reports, today = demo.build()

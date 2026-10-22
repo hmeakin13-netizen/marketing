@@ -1,7 +1,7 @@
 """Turn one client's settings + Meta data + lead log into a structured report."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 
 from . import guarantee as gmod
@@ -113,6 +113,8 @@ def leads_from_meta(client: Client, daily: dict[date, Day]) -> list[Lead]:
 
 
 def is_not_live(client: Client, today: date) -> bool:
+    if client.go_live_auto:
+        return False  # decided from the data
     return client.guarantee in TERMS and (client.go_live is None or client.go_live >= today)
 
 
@@ -124,6 +126,11 @@ def build_report(
     error: str | None = None,
     meta_counts: bool = False,
 ) -> ClientReport:
+    if client.go_live_auto and data is not None:
+        spent_days = [d for d, v in data.daily.items() if v.spend > 0]
+        client = replace(client, go_live=min(spent_days) if spent_days else None)
+        if client.go_live is None:
+            return ClientReport(client=client, error=error, guarantee=gmod.Guarantee(state="NOT_LIVE"))
     report = ClientReport(client=client, error=error)
     if client.client_deadline:
         report.deadline_days = (client.client_deadline - today).days
