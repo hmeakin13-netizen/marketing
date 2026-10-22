@@ -64,13 +64,19 @@ def build_snapshot(reports: list[ClientReport], today: date, warnings: list[str]
 
 
 def publish(snapshot: dict) -> None:
-    """Insert the snapshot into the team portal's Supabase (table ads_snapshots)."""
-    base, key = os.environ["SUPABASE_URL"].rstrip("/"), os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-    body = json.dumps({"snapshot_date": snapshot["date"], "payload": snapshot}).encode()
+    """Save the snapshot to the team portal's Supabase through publish_ads_snapshot().
+
+    Uses the public anon key plus a shared ingest key, so no powerful database key is needed.
+    """
+    base = os.environ["SUPABASE_URL"].rstrip("/")
+    anon = os.environ["SUPABASE_ANON_KEY"]
+    body = json.dumps(
+        {"p_secret": os.environ["ADS_INGEST_KEY"], "p_date": snapshot["date"], "p_payload": snapshot}
+    ).encode()
     request = urllib.request.Request(
-        f"{base}/rest/v1/ads_snapshots",
+        f"{base}/rest/v1/rpc/publish_ads_snapshot",
         data=body,
         method="POST",
-        headers={"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"},
+        headers={"apikey": anon, "Authorization": f"Bearer {anon}", "Content-Type": "application/json"},
     )
     urllib.request.urlopen(request, timeout=30).close()

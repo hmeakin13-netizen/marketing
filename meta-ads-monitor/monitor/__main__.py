@@ -100,7 +100,7 @@ def main(argv=None) -> int:
     run.add_argument("--meta-counts", action="store_true",
                      help="use Meta's own lead counts (no lead log, no exclusions); works without lead permissions")
     run.add_argument("--today", type=lambda s: datetime.strptime(s, "%Y-%m-%d").date())
-    run.add_argument("--publish", action="store_true", help="save the snapshot for the website (needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)")
+    run.add_argument("--publish", action="store_true", help="save the snapshot for the website (needs SUPABASE_URL, SUPABASE_ANON_KEY, ADS_INGEST_KEY)")
     run.add_argument("--no-sync", action="store_true", help="skip pulling individual leads")
     run.set_defaults(func=cmd_run)
 
