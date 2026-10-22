@@ -25,11 +25,11 @@ def _days(start: date, spends: list[float], leads: list[int] | None = None, imps
 
 def build() -> tuple[list[ClientReport], date]:
     cfg = {
-        "Apex-Leads": dict(guarantee="none", own=True),
+        "Apex-Leads": dict(guarantee="none", own=True, target_cpl=5, max_cpl=5),
         "FG Landscaping": dict(guarantee="25_in_30", go_live="2026-10-12"),
         "Dreamy Landscapes": dict(guarantee="30_in_60", go_live="2026-10-19"),
-        "Elite Roofing": dict(guarantee="free_trial", original_guarantee="25_in_30", free_trial_from="2026-10-05",
-                              leads_owed=7, client_deadline="2026-10-23"),
+        "Elite Roofing": dict(guarantee="free_trial", original_guarantee="25_in_30", free_trial_from="2026-10-16",
+                              leads_owed=2, client_deadline="2026-10-23"),
         "Efficient Roofing": dict(guarantee="30_in_60"),
     }
     clients = {n: parse_client({"name": n, "ad_account_id": "act_1", **c}) for n, c in cfg.items()}

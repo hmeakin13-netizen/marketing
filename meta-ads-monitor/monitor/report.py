@@ -103,16 +103,16 @@ def render_block(r: ClientReport) -> list[str]:
         return [f"⚪ {c.name}: not live yet{when}"]
 
     if c.own:
-        head = f"{c.name} (own): {r.yesterday_leads} lead{'s' if r.yesterday_leads != 1 else ''} yesterday"
+        cpl = r.cpl
+        dot = f"{DOT[cpl.sev]} " if cpl and cpl.sev is not None else ""
+        head = f"{dot}{c.name} (own): {r.yesterday_leads} lead{'s' if r.yesterday_leads != 1 else ''} yesterday"
         if r.yesterday_leads:
             head += f", CPL {money(r.yesterday_spend / r.yesterday_leads)}"
         elif r.yesterday_spend:
             head += f", {whole(r.yesterday_spend)} spent"
-        lines = [head + "."]
-        cpl = _cpl_line(r)
-        if cpl and (c.target_cpl_value() is not None):
-            lines.append(cpl)
-        return lines + _flag_lines(r)
+        if c.target_cpl_value() is not None:
+            head += f" (target {whole(c.target_cpl_value())})"
+        return [head + "."] + _flag_lines(r)
 
     dot = "⏰" if _is_open_deadline(r) else DOT[r.severity]
     deadline = deadline_phrase(r) if _is_open_deadline(r) else ""

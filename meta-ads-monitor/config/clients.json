@@ -6,8 +6,9 @@
       "ad_account_id": "act_REPLACE_ME",
       "guarantee": "none",
       "own": true,
-      "target_cpl": null,
-      "notes": "Own account: CPL and lead flow only. Set target_cpl/max_cpl if you want CPL colours."
+      "target_cpl": 5,
+      "notes": "Own account. CPL target under \u00a35.",
+      "max_cpl": 5
     },
     {
       "name": "FG Landscaping",
@@ -23,18 +24,18 @@
       "guarantee": "30_in_60",
       "go_live": "2026-10-19",
       "daily_budget": 20,
-      "notes": "Assumed to be 'Thomas': CONFIRM. go_live inferred from 'day 3' on 22 Oct: CONFIRM."
+      "notes": "Thomas (confirmed). go_live inferred from 'day 3' on 22 Oct: confirm."
     },
     {
       "name": "Elite Roofing",
       "ad_account_id": "act_REPLACE_ME",
       "guarantee": "free_trial",
       "original_guarantee": "25_in_30",
-      "free_trial_from": null,
-      "leads_owed": null,
+      "free_trial_from": "2026-10-22",
+      "leads_owed": 2,
       "client_deadline": "2026-10-23",
       "daily_budget": 20,
-      "notes": "Sam McCann. Deadline Fri 23 Oct is unconfirmed. leads_owed = leads owed as at free_trial_from."
+      "notes": "Sam McCann. No credit owed; he wants 2 more leads by Fri 23 Oct. Leads counted from 22 Oct."
     },
     {
       "name": "Efficient Roofing",

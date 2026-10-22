@@ -212,7 +212,7 @@ class Report(unittest.TestCase):
             "2 of 30 counted (3 total, 1 excluded). Pace line 1.5. Too early to call.",
             "CPL £12.27 all leads, £18.41 counted (target £30, max £40).",
             "⚪ Efficient Roofing: not live yet",
-            "Apex-Leads (own): 9 leads yesterday, CPL £5.80.",
+            "Apex-Leads (own): 9 leads yesterday, CPL £5.80 (target £5).",
             "Look at first: Elite (deadline tomorrow), then FG (WILL MISS).",
         ]:
             self.assertIn(line, self.text)
