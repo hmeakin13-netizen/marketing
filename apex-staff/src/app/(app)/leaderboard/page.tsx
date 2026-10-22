@@ -15,7 +15,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
   const { staff, calls, closes } = await loadCore(supabase, from);
 
   const closers = staff
-    .filter((s) => s.active && s.role === "closer")
+    .filter((s) => s.active && (s.role === "closer" || s.role === "admin"))
     .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "closer" }) }))
     .sort((a, b) => b.s.cash - a.s.cash || b.s.closed - a.s.closed);
   const setters = staff

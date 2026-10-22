@@ -34,7 +34,10 @@ export default async function DashboardPage({
   const highFlags = myFlags.filter((f) => f.severity === "high").length;
   const team = computeStats(calls, closes, from, to);
   const owing = outstanding(closes);
-  const people = staff.filter((s) => s.active && (s.role === "closer" || s.role === "setter"));
+  // The owner closes calls too, so admins are listed (and measured) as closers.
+  const people = staff
+    .filter((s) => s.active && (s.role === "closer" || s.role === "setter" || s.role === "admin"))
+    .map((s) => ({ ...s, role: s.role === "admin" ? ("closer" as const) : s.role }));
 
   const myRole = me.role === "closer" || me.role === "setter" ? me.role : null;
   const myTargets = targets.filter((t) => t.staff_id === me.id);
