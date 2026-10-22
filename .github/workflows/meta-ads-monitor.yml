@@ -23,13 +23,14 @@ jobs:
         env:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: https://dwzjonbidydufmeymhri.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3empvbmJpZHlkdWZtZXltaHJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NDIwNjksImV4cCI6MjA5OTIxODA2OX0.B4R8q-wBJVgJpZy2hUGY70mxLaN1H4Q_0AbmAHe84r4 # public by design
+          ADS_INGEST_KEY: ${{ secrets.ADS_INGEST_KEY }}
         run: |
           channels="stdout"
           if [ -n "$SLACK_WEBHOOK_URL" ]; then channels="stdout slack"; fi
           publish=""
-          if [ -n "$SUPABASE_URL" ]; then publish="--publish"; fi
+          if [ -n "$ADS_INGEST_KEY" ]; then publish="--publish"; fi
           status=0
           python -m monitor run --meta-counts --send $channels $publish > message.txt || status=$?
           cat message.txt

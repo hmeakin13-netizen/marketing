@@ -63,7 +63,8 @@ export async function loadLatestAds(supabase: SupabaseClient) {
     .from("ads_snapshots")
     .select("created_at, payload")
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle<{ created_at: string; payload: AdsSnapshot }>();
-  return data ?? null;
+    .limit(5)
+    .returns<{ created_at: string; payload: AdsSnapshot }[]>();
+  // Newest row that looks like a real snapshot.
+  return (data ?? []).find((r) => Array.isArray(r.payload?.clients)) ?? null;
 }
