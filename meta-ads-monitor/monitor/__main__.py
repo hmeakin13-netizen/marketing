@@ -122,7 +122,7 @@ def main(argv=None) -> int:
         parser.error("leads exclude/include needs a lead id")
     try:
         return args.func(args)
-    except (MetaError, KeyError, ValueError) as err:
+    except (MetaError, KeyError, ValueError, RuntimeError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
 
