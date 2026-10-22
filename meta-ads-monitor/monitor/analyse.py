@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from . import guarantee as gmod
 from .config import TERMS, Client
 from .leads import Lead
-from .model import AccountData, Ad
+from .model import AccountData, Ad, Day
 
 GREEN, AMBER, RED = 0, 1, 2
 TEST_SPEND = 100.0  # an ad is "still testing" until it has spent this much
@@ -103,6 +103,15 @@ def _in_range(leads: list[Lead], start: date, end_exclusive: date) -> list[Lead]
     return [l for l in leads if start <= l.created < end_exclusive]
 
 
+def leads_from_meta(client: Client, daily: dict[date, Day]) -> list[Lead]:
+    """Stand-in lead log built from Meta's daily lead counts. Every lead counts: no exclusions possible."""
+    out = []
+    for d, day in daily.items():
+        stamp = datetime(d.year, d.month, d.day, 12, tzinfo=timezone.utc)
+        out += [Lead(f"meta-{d}-{i}", client.name, stamp) for i in range(day.leads)]
+    return out
+
+
 def is_not_live(client: Client, today: date) -> bool:
     return client.guarantee in TERMS and (client.go_live is None or client.go_live >= today)
 
@@ -113,6 +122,7 @@ def build_report(
     leads: list[Lead],
     today: date,
     error: str | None = None,
+    meta_counts: bool = False,
 ) -> ClientReport:
     report = ClientReport(client=client, error=error)
     if client.client_deadline:
@@ -132,6 +142,8 @@ def build_report(
 
     # The client's own account has no lead log to maintain: Meta's count is the count.
     use_log = not client.own
+    if meta_counts and use_log:
+        leads = leads_from_meta(client, daily)
     report.guarantee = gmod.assess(client, leads, spend_by_day, today) if use_log else gmod.Guarantee(state="NONE")
     g = report.guarantee
     max_cpl, target = client.max_cpl_value(), client.target_cpl_value()
@@ -162,9 +174,9 @@ def build_report(
     report.cpl = cpl
 
     report.flags += _account_zero_lead(client, daily, leads, today, max_cpl, use_log)
-    report.flags += _ad_flags(client, data, leads, max_cpl, use_log, report)
+    report.flags += _ad_flags(client, data, leads, max_cpl, use_log and not meta_counts, report)
     report.flags += _ctr_flag(daily, today)
-    if use_log:
+    if use_log and not meta_counts:
         report.flags += _log_gap_flag(client, data, leads, today)
     return report
 

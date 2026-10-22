@@ -1,0 +1,30 @@
+name: Meta Ads Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC = 07:00 UK summer time, 06:00 in winter. Change to suit.
+
+permissions:
+  contents: read
+
+jobs:
+  morning-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: meta-ads-monitor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          channels="stdout"
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then channels="stdout slack"; fi
+          python -m monitor run --meta-counts --send $channels | tee message.txt
+          { echo '```'; cat message.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

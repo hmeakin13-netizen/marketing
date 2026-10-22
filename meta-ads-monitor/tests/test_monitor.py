@@ -200,6 +200,15 @@ class Flags(unittest.TestCase):
         self.assertAlmostEqual(r.cpl.cpl_all, 25)
 
 
+class MetaCounts(unittest.TestCase):
+    def test_meta_counts_mode_drives_guarantee_without_a_lead_log(self):
+        daily = {day(n): Day(spend=20, leads=1, impressions=2000, link_clicks=24) for n in range(1, 11)}
+        data = AccountData(daily=daily, ads=[Ad("a", "ad", "ACTIVE", spend_total=200, leads_meta=10)])
+        r = build_report(client(go_live="2026-10-12"), data, [], TODAY, meta_counts=True)
+        self.assertEqual(r.guarantee.counted, 10)
+        self.assertEqual([f for f in r.flags if "no leads" in f.text.lower()], [])
+
+
 class Report(unittest.TestCase):
     def setUp(self):
         reports, today = demo.build()

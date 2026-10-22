@@ -38,15 +38,17 @@ def cmd_run(args) -> int:
         except MetaError as err:
             reports.append(build_report(client, None, [], today, error=str(err)))
             continue
-        if not client.own and not args.no_sync:
+        if not client.own and not args.no_sync and not args.meta_counts:
             try:
                 store.upsert(fetch_leads(meta, client, data, history_start(client, today)))
             except MetaError as err:
                 warnings.append(f"Lead sync failed for {client.name} (using last saved log): {err}")
-        reports.append(build_report(client, data, [] if client.own else store.for_client(client.name), today))
+        reports.append(build_report(client, data, [] if client.own else store.for_client(client.name), today,
+                                    meta_counts=args.meta_counts))
     store.save()
     text = render(reports, today, warnings)
-    CHANNELS[args.send](text, f"Morning check, {today:%a %-d %b}")
+    for channel in args.send:
+        CHANNELS[channel](text, f"Morning check, {today:%a %-d %b}")
     return 0
 
 
@@ -89,7 +91,9 @@ def main(argv=None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     run = sub.add_parser("run", help="pull from Meta and send the morning message")
-    run.add_argument("--send", choices=sorted(CHANNELS), default="stdout")
+    run.add_argument("--send", nargs="+", choices=sorted(CHANNELS), default=["stdout"])
+    run.add_argument("--meta-counts", action="store_true",
+                     help="use Meta's own lead counts (no lead log, no exclusions); works without lead permissions")
     run.add_argument("--today", type=lambda s: datetime.strptime(s, "%Y-%m-%d").date())
     run.add_argument("--no-sync", action="store_true", help="skip pulling individual leads")
     run.set_defaults(func=cmd_run)
