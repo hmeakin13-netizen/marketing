@@ -14,17 +14,17 @@
       "name": "FG Landscaping",
       "ad_account_id": "act_1643660040527320",
       "guarantee": "25_in_30",
-      "go_live": "2026-10-12",
+      "go_live": "auto",
       "daily_budget": 20,
-      "notes": "Owner: Florin. go_live inferred from 'roughly day 10' on 22 Oct: CONFIRM."
+      "notes": "Owner: Florin. Go-live = first day of spend (worked out automatically)."
     },
     {
       "name": "Dreamy Landscapes",
       "ad_account_id": "act_2230556564185151",
       "guarantee": "30_in_60",
-      "go_live": "2026-10-19",
+      "go_live": "auto",
       "daily_budget": 20,
-      "notes": "Thomas (confirmed). go_live inferred from 'day 3' on 22 Oct: confirm."
+      "notes": "Thomas (confirmed). Go-live = first day of spend (worked out automatically)."
     },
     {
       "name": "Elite Roofing",
@@ -41,9 +41,9 @@
       "name": "Efficient Roofing",
       "ad_account_id": "act_1726310475597012",
       "guarantee": "30_in_60",
-      "go_live": null,
+      "go_live": "auto",
       "daily_budget": 20,
-      "notes": "Not live yet. Set go_live when it launches."
+      "notes": "Not live yet. Set Go-live = first day of spend (worked out automatically)."
     }
   ]
 }
