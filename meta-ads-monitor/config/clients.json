@@ -1,0 +1,48 @@
+{
+  "_readme": "Settings sheet. Dates are YYYY-MM-DD. Fill in every REPLACE_ME / null; run `python -m monitor check-config` to see what's missing.",
+  "clients": [
+    {
+      "name": "Apex-Leads",
+      "ad_account_id": "act_REPLACE_ME",
+      "guarantee": "none",
+      "own": true,
+      "target_cpl": null,
+      "notes": "Own account: CPL and lead flow only. Set target_cpl/max_cpl if you want CPL colours."
+    },
+    {
+      "name": "FG Landscaping",
+      "ad_account_id": "act_REPLACE_ME",
+      "guarantee": "25_in_30",
+      "go_live": "2026-10-12",
+      "daily_budget": 20,
+      "notes": "Owner: Florin. go_live inferred from 'roughly day 10' on 22 Oct: CONFIRM."
+    },
+    {
+      "name": "Dreamy Landscapes",
+      "ad_account_id": "act_REPLACE_ME",
+      "guarantee": "30_in_60",
+      "go_live": "2026-10-19",
+      "daily_budget": 20,
+      "notes": "Assumed to be 'Thomas': CONFIRM. go_live inferred from 'day 3' on 22 Oct: CONFIRM."
+    },
+    {
+      "name": "Elite Roofing",
+      "ad_account_id": "act_REPLACE_ME",
+      "guarantee": "free_trial",
+      "original_guarantee": "25_in_30",
+      "free_trial_from": null,
+      "leads_owed": null,
+      "client_deadline": "2026-10-23",
+      "daily_budget": 20,
+      "notes": "Sam McCann. Deadline Fri 23 Oct is unconfirmed. leads_owed = leads owed as at free_trial_from."
+    },
+    {
+      "name": "Efficient Roofing",
+      "ad_account_id": "act_REPLACE_ME",
+      "guarantee": "30_in_60",
+      "go_live": null,
+      "daily_budget": 20,
+      "notes": "Not live yet. Set go_live when it launches."
+    }
+  ]
+}
