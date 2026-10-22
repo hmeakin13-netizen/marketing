@@ -3,7 +3,7 @@
   "clients": [
     {
       "name": "Apex-Leads",
-      "ad_account_id": "act_REPLACE_ME",
+      "ad_account_id": "act_27050808927935172",
       "guarantee": "none",
       "own": true,
       "target_cpl": 5,
@@ -12,7 +12,7 @@
     },
     {
       "name": "FG Landscaping",
-      "ad_account_id": "act_REPLACE_ME",
+      "ad_account_id": "act_1643660040527320",
       "guarantee": "25_in_30",
       "go_live": "2026-10-12",
       "daily_budget": 20,
@@ -20,7 +20,7 @@
     },
     {
       "name": "Dreamy Landscapes",
-      "ad_account_id": "act_REPLACE_ME",
+      "ad_account_id": "act_2230556564185151",
       "guarantee": "30_in_60",
       "go_live": "2026-10-19",
       "daily_budget": 20,
@@ -28,7 +28,7 @@
     },
     {
       "name": "Elite Roofing",
-      "ad_account_id": "act_REPLACE_ME",
+      "ad_account_id": "act_2270388247064361",
       "guarantee": "free_trial",
       "original_guarantee": "25_in_30",
       "free_trial_from": "2026-10-22",
@@ -39,7 +39,7 @@
     },
     {
       "name": "Efficient Roofing",
-      "ad_account_id": "act_REPLACE_ME",
+      "ad_account_id": "act_1726310475597012",
       "guarantee": "30_in_60",
       "go_live": null,
       "daily_budget": 20,
