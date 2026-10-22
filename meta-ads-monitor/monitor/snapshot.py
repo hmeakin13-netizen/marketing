@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
@@ -68,10 +69,10 @@ def publish(snapshot: dict) -> None:
 
     Uses the public anon key plus a shared ingest key, so no powerful database key is needed.
     """
-    base = os.environ["SUPABASE_URL"].rstrip("/")
-    anon = os.environ["SUPABASE_ANON_KEY"]
+    base = os.environ["SUPABASE_URL"].strip().rstrip("/")
+    anon = os.environ["SUPABASE_ANON_KEY"].strip()
     body = json.dumps(
-        {"p_secret": os.environ["ADS_INGEST_KEY"], "p_date": snapshot["date"], "p_payload": snapshot}
+        {"p_secret": os.environ["ADS_INGEST_KEY"].strip(), "p_date": snapshot["date"], "p_payload": snapshot}
     ).encode()
     request = urllib.request.Request(
         f"{base}/rest/v1/rpc/publish_ads_snapshot",
@@ -79,4 +80,8 @@ def publish(snapshot: dict) -> None:
         method="POST",
         headers={"apikey": anon, "Authorization": f"Bearer {anon}", "Content-Type": "application/json"},
     )
-    urllib.request.urlopen(request, timeout=30).close()
+    try:
+        urllib.request.urlopen(request, timeout=30).close()
+    except urllib.error.HTTPError as err:
+        hint = " The ADS_INGEST_KEY secret doesn't match: re-add it." if err.code in (401, 403) else ""
+        raise RuntimeError(f"Saving to the website failed (HTTP {err.code}).{hint}") from None
