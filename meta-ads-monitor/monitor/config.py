@@ -28,6 +28,7 @@ class Client:
     free_trial_from: date | None = None
     original_guarantee: str | None = None
     own: bool = False
+    excluded_leads: int = 0  # leads Meta counts that are not usable (e.g. invalid number); they do not count towards the guarantee
     frequency_amber: float = 3.0
     frequency_red: float = 4.0
     notes: str = ""
@@ -106,6 +107,7 @@ def parse_client(raw: dict) -> Client:
         free_trial_from=_date(raw.get("free_trial_from"), "free_trial_from", name),
         original_guarantee=original,
         own=bool(raw.get("own", False)),
+        excluded_leads=int(raw.get("excluded_leads", 0)),
         frequency_amber=float(raw.get("frequency_amber", 3)),
         frequency_red=float(raw.get("frequency_red", 4)),
         notes=raw.get("notes", ""),

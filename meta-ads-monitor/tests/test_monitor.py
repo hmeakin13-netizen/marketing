@@ -209,6 +209,14 @@ class MetaCounts(unittest.TestCase):
         self.assertEqual([f for f in r.flags if "no leads" in f.text.lower()], [])
 
 
+    def test_excluded_leads_do_not_count_but_still_show_in_the_total(self):
+        daily = {day(n): Day(spend=20, leads=1, impressions=2000, link_clicks=24) for n in range(1, 4)}
+        data = AccountData(daily=daily, ads=[Ad("a", "ad", "ACTIVE", spend_total=60, leads_meta=3)])
+        r = build_report(client(go_live="2026-10-12", excluded_leads=1), data, [], TODAY, meta_counts=True)
+        self.assertEqual((r.guarantee.counted, r.guarantee.total, r.guarantee.excluded), (2, 3, 1))
+        self.assertIn("2 of 30 counted (3 total, 1 excluded)", render([r], TODAY))
+
+
 class AutoGoLive(unittest.TestCase):
     def test_go_live_is_first_day_of_spend(self):
         daily = {day(n): Day(spend=20, leads=1 if n % 2 else 0) for n in range(1, 21)}

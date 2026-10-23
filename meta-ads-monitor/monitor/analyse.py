@@ -104,12 +104,17 @@ def _in_range(leads: list[Lead], start: date, end_exclusive: date) -> list[Lead]
 
 
 def leads_from_meta(client: Client, daily: dict[date, Day]) -> list[Lead]:
-    """Stand-in lead log built from Meta's daily lead counts. Every lead counts: no exclusions possible."""
+    """Stand-in lead log built from Meta's daily lead counts.
+
+    Every lead counts except `client.excluded_leads` of them (taken from the earliest days),
+    so Harry can say "one of these was an invalid number" without a lead log.
+    """
     out = []
-    for d, day in daily.items():
+    for d in sorted(daily):
         stamp = datetime(d.year, d.month, d.day, 12, tzinfo=timezone.utc)
-        out += [Lead(f"meta-{d}-{i}", client.name, stamp) for i in range(day.leads)]
-    return out
+        out += [Lead(f"meta-{d}-{i}", client.name, stamp) for i in range(daily[d].leads)]
+    skip = min(client.excluded_leads, len(out))
+    return [replace(l, counts=False, note="excluded in config") if i < skip else l for i, l in enumerate(out)]
 
 
 def is_not_live(client: Client, today: date) -> bool:
