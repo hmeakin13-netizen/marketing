@@ -29,7 +29,7 @@ function verdict(c: AdsClient): Verdict {
     return { dot: problem ? (problem.sev === 2 ? red : amber) : cpl?.sev === 2 ? red : cpl?.sev === 1 ? amber : green, text: problem ? `${base} ${problem.text}` : base };
   }
   if (g && c.state === "ACTIVE") {
-    const count = `${g.counted} of ${g.required} leads, day ${g.day} of ${g.window}`;
+    const count = `${g.counted} of ${g.required} leads${g.today_leads ? ` (+${g.today_leads} today)` : ""}, day ${g.day} of ${g.window}`;
     if (g.too_early) return { dot: grey, text: `${count}. Too early to call.` };
     const tail = problem ? ` ${problem.text}` : "";
     if (g.status === "WILL MISS") return { dot: red, text: `${count}. At this rate it will miss the guarantee (heading for about ${g.projected?.toFixed(0)}).${tail}` };

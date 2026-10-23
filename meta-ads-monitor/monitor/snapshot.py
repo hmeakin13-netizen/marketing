@@ -38,7 +38,7 @@ def client_snapshot(r: ClientReport) -> dict:
             "terms": terms_label(c.guarantee if g.state != "FREE_TRIAL" else c.original_guarantee),
             "go_live": g.go_live.isoformat() if g.go_live else None,
             "day": g.day, "window": g.window, "required": g.required,
-            "counted": g.counted, "total": g.total, "excluded": g.excluded,
+            "counted": g.counted, "total": g.total, "excluded": g.excluded, "today_leads": g.today_leads,
             "pace": _r(g.pace, 1), "recent_rate": _r(g.recent_rate, 2), "projected": _r(g.projected, 1),
             "status": g.status, "too_early": g.too_early,
             "owed_remaining": g.owed_remaining, "spend_since": _r(g.spend_since),

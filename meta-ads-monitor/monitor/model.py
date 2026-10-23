@@ -36,6 +36,7 @@ class AccountData:
     ads: list[Ad] = field(default_factory=list)
     campaigns_not_spending: list[str] = field(default_factory=list)  # ACTIVE but £0 yesterday
     active_campaigns: int = 0
+    today: Day | None = None  # today so far (incomplete day): shown as "+N today", never used for the pace maths
 
     def spend_by_day(self) -> dict[date, float]:
         return {d: v.spend for d, v in self.daily.items()}

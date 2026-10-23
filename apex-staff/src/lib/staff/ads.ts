@@ -29,6 +29,7 @@ export interface AdsClient {
     counted: number;
     total: number;
     excluded: number;
+    today_leads?: number;
     pace: number | null;
     recent_rate: number | null;
     projected: number | null;

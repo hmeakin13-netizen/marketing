@@ -74,6 +74,7 @@ function ClientCard({ c }: { c: AdsClient }) {
             <p className="text-3xl font-semibold tabular-nums text-white">
               {g.counted}
               <span className="text-lg text-zinc-500"> of {g.required}</span>
+              {g.today_leads ? <span className="ml-2 text-lg text-emerald-400">+{g.today_leads} today</span> : null}
             </p>
             <p className="text-sm text-zinc-400">
               Day {g.day}/{g.window} · {g.terms}

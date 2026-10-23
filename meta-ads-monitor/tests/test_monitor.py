@@ -217,6 +217,16 @@ class MetaCounts(unittest.TestCase):
         self.assertIn("2 of 30 counted (3 total, 1 excluded)", render([r], TODAY))
 
 
+    def test_todays_leads_show_on_top_without_changing_the_pace_maths(self):
+        daily = {day(n): Day(spend=20, leads=1, impressions=2000, link_clicks=24) for n in range(1, 4)}
+        data = AccountData(daily=daily, today=Day(spend=8, leads=2), ads=[Ad("a", "ad", "ACTIVE", spend_total=60, leads_meta=3)])
+        base = build_report(client(go_live="2026-10-12"), AccountData(daily=daily, ads=data.ads), [], TODAY, meta_counts=True)
+        r = build_report(client(go_live="2026-10-12"), data, [], TODAY, meta_counts=True)
+        self.assertEqual(r.guarantee.today_leads, 2)
+        self.assertEqual((r.guarantee.counted, r.guarantee.projected), (base.guarantee.counted, base.guarantee.projected))
+        self.assertIn("(+2 today)", render([r], TODAY))
+
+
 class AutoGoLive(unittest.TestCase):
     def test_go_live_is_first_day_of_spend(self):
         daily = {day(n): Day(spend=20, leads=1 if n % 2 else 0) for n in range(1, 21)}

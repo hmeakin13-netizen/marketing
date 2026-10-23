@@ -34,6 +34,7 @@ class Guarantee:
     delivered_since: int = 0
     owed_remaining: int | None = None
     spend_since: float | None = None
+    today_leads: int = 0  # leads so far today (incomplete day), shown on top of `counted`
 
     @property
     def excluded(self) -> int:
