@@ -7,6 +7,7 @@ import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
 import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
 import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
+import { AdsHealth } from "@/components/staff/AdsHealth";
 
 export const metadata = { title: "Dashboard | Apex Team" };
 
@@ -89,6 +90,8 @@ export default async function DashboardPage({
         subtitle={`Showing ${range === "today" ? "today" : range === "week" ? "this week" : "this month"}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
         action={<RangeTabs base="/" range={range} />}
       />
+
+      {isManager(me.role) ? <AdsHealth supabase={supabase} /> : null}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Calls booked" value={String(team.booked)} />
