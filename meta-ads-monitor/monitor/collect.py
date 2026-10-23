@@ -118,3 +118,34 @@ def fetch_leads(meta: MetaClient, client: Client, data: AccountData, since: date
                 )
             )
     return found
+
+
+def fetch_ad_daily(meta: MetaClient, client: Client, data: AccountData, today: date, days: int) -> list[dict]:
+    """One row per ad per day for the last `days` days (ending yesterday): the tracker's raw material."""
+    yesterday = today - timedelta(days=1)
+    since = yesterday - timedelta(days=max(days, 1) - 1)
+    status = {ad.id: ad.effective_status for ad in data.ads}
+    rows = meta.get_all(
+        f"{client.ad_account_id}/insights",
+        {
+            "level": "ad",
+            "time_increment": 1,
+            "time_range": _range(since, yesterday),
+            "fields": "ad_id,ad_name,spend,impressions,inline_link_clicks,actions,frequency",
+        },
+    )
+    return [
+        {
+            "ad_id": r["ad_id"],
+            "day": r["date_start"],
+            "client_name": client.name,
+            "ad_name": r.get("ad_name", ""),
+            "status": status.get(r["ad_id"], ""),
+            "spend": float(r.get("spend", 0)),
+            "impressions": int(r.get("impressions", 0)),
+            "link_clicks": int(r.get("inline_link_clicks", 0)),
+            "leads": _lead_count(r.get("actions")),
+            "frequency": r.get("frequency", ""),
+        }
+        for r in rows
+    ]

@@ -85,3 +85,22 @@ def publish(snapshot: dict) -> None:
     except urllib.error.HTTPError as err:
         hint = " The ADS_INGEST_KEY secret doesn't match: re-add it." if err.code in (401, 403) else ""
         raise RuntimeError(f"Saving to the website failed (HTTP {err.code}).{hint}") from None
+
+
+def publish_ad_daily(rows: list[dict], chunk: int = 400) -> None:
+    """Upsert the tracker rows through publish_ad_daily() (same anon key + ingest key as the snapshot)."""
+    base = os.environ["SUPABASE_URL"].strip().rstrip("/")
+    anon = os.environ["SUPABASE_ANON_KEY"].strip()
+    secret = os.environ["ADS_INGEST_KEY"].strip()
+    for start in range(0, len(rows), chunk):
+        body = json.dumps({"p_secret": secret, "p_rows": rows[start : start + chunk]}).encode()
+        request = urllib.request.Request(
+            f"{base}/rest/v1/rpc/publish_ad_daily",
+            data=body,
+            method="POST",
+            headers={"apikey": anon, "Authorization": f"Bearer {anon}", "Content-Type": "application/json"},
+        )
+        try:
+            urllib.request.urlopen(request, timeout=60).close()
+        except urllib.error.HTTPError as err:
+            raise RuntimeError(f"Saving tracker rows failed (HTTP {err.code}).") from None

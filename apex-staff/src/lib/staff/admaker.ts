@@ -95,3 +95,30 @@ export async function loadBrain(supabase: SupabaseClient) {
   ]);
   return { profiles: profiles.data ?? [], learnings: learnings.data ?? [], tests: tests.data ?? [] };
 }
+
+export interface TrackedAd {
+  ad_id: string;
+  client_name: string;
+  ad_name: string | null;
+  status: string | null;
+  spend: number;
+  impressions: number;
+  link_clicks: number;
+  leads: number;
+  first_day: string;
+  last_day: string;
+  days: number;
+  cpl: number | null;
+  ctr_pct: number | null;
+  suggested_verdict: "keep" | "kill" | "testing";
+}
+
+export async function loadTracked(supabase: SupabaseClient) {
+  const { data } = await supabase
+    .from("ad_tracker")
+    .select("*")
+    .order("client_name")
+    .order("spend", { ascending: false })
+    .returns<TrackedAd[]>();
+  return data ?? [];
+}

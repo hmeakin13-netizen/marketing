@@ -260,6 +260,26 @@ class Snapshot(unittest.TestCase):
         self.assertIn("MORNING CHECK", snap["message"])
 
 
+class Tracker(unittest.TestCase):
+    def test_ad_daily_rows_from_insights(self):
+        from monitor.collect import fetch_ad_daily
+
+        class FakeMeta:
+            def get_all(self, path, params):
+                self.params = params
+                return [{"ad_id": "1", "ad_name": "A", "date_start": "2026-10-21", "spend": "12.5",
+                         "impressions": "900", "inline_link_clicks": "14", "frequency": "1.4",
+                         "actions": [{"action_type": "lead", "value": "2"}]}]
+
+        meta = FakeMeta()
+        data = AccountData(ads=[Ad("1", "A", "ACTIVE")])
+        rows = fetch_ad_daily(meta, client(), data, TODAY, 3)
+        self.assertEqual(rows[0]["leads"], 2)
+        self.assertEqual((rows[0]["spend"], rows[0]["status"], rows[0]["client_name"]), (12.5, "ACTIVE", "C"))
+        self.assertEqual(meta.params["time_range"], {"since": "2026-10-19", "until": "2026-10-21"})
+        self.assertEqual(meta.params["time_increment"], 1)
+
+
 class Store(unittest.TestCase):
     def test_round_trip_keeps_exclusions_across_resync(self):
         with tempfile.TemporaryDirectory() as tmp:
