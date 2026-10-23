@@ -63,8 +63,11 @@ export async function loadLatestAds(supabase: SupabaseClient) {
     .from("ads_snapshots")
     .select("created_at, payload")
     .order("created_at", { ascending: false })
-    .limit(5)
+    .limit(48)
     .returns<{ created_at: string; payload: AdsSnapshot }[]>();
-  // Newest row that looks like a real snapshot.
-  return (data ?? []).find((r) => Array.isArray(r.payload?.clients)) ?? null;
+  // Newest row that looks like a real snapshot. A run where Meta refused every account (expired or
+  // blocked token) is skipped in favour of the last good one, so the page shows real numbers with a
+  // "this is old" warning instead of a wall of errors.
+  const real = (data ?? []).filter((r) => Array.isArray(r.payload?.clients));
+  return real.find((r) => r.payload.clients.some((c) => c.state !== "ERROR")) ?? real[0] ?? null;
 }
