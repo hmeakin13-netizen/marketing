@@ -3,7 +3,9 @@ name: Meta Ads Monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * *" # 06:00 UTC = 07:00 UK summer time, 06:00 in winter. Change to suit.
+    # Every 3 hours at a quiet minute (GitHub often delays or skips jobs scheduled exactly on the hour).
+    # The 06:17 UTC run is the morning check (07:17 UK summer time, 06:17 in winter).
+    - cron: "17 */3 * * *"
 
 permissions:
   contents: read
