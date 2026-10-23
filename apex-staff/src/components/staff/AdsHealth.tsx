@@ -66,7 +66,7 @@ export async function AdsHealth({ supabase }: { supabase: SupabaseClient }) {
           Full ads page →
         </Link>
       </div>
-      {hoursOld > 7 ? (
+      {hoursOld > 3 ? (
         <p className="mt-2 text-sm text-amber-300">The ads numbers are {Math.round(hoursOld)} hours old. The monitor may have stopped updating.</p>
       ) : null}
       <ul className="mt-3 divide-y divide-white/5 text-sm">
