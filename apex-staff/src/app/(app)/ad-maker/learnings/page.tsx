@@ -1,5 +1,5 @@
 import { requireRole } from "@/lib/staff/auth";
-import { loadBrain, type AdTest, type ClientProfile, type Learning } from "@/lib/staff/admaker";
+import { loadBrain, loadTracked, type AdTest, type ClientProfile, type Learning, type TrackedAd } from "@/lib/staff/admaker";
 import { Badge, Card, PageHeader, SectionTitle } from "@/components/staff/ui";
 
 export const metadata = { title: "Ad maker learnings | Apex Team" };
@@ -80,9 +80,29 @@ function ProfileCard({ p, tests }: { p: ClientProfile; tests: AdTest[] }) {
   );
 }
 
+function TrackedRow({ t }: { t: TrackedAd }) {
+  const tone = t.suggested_verdict === "keep" ? "good" : t.suggested_verdict === "kill" ? "bad" : "info";
+  return (
+    <div className="border-t border-white/5 py-3 first:border-t-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-white">{t.ad_name ?? t.ad_id}</span>
+        <Badge tone={tone}>{t.suggested_verdict}</Badge>
+        {t.status && t.status !== "ACTIVE" ? <Badge>{t.status.toLowerCase().replace("_", " ")}</Badge> : null}
+      </div>
+      <p className="mt-1 text-xs text-zinc-400 tabular-nums">
+        {gbp(t.spend)} · {t.leads} lead{t.leads === 1 ? "" : "s"}
+        {t.cpl ? ` · ${gbp(t.cpl)} each` : ""}
+        {t.ctr_pct != null ? ` · ${t.ctr_pct}% click rate` : ""} · {t.days} day{t.days === 1 ? "" : "s"} tracked
+      </p>
+    </div>
+  );
+}
+
 export default async function LearningsPage() {
   const { supabase } = await requireRole("admin", "manager");
   const { profiles, learnings, tests } = await loadBrain(supabase);
+  const tracked = await loadTracked(supabase);
+  const trackedClients = Array.from(new Set(tracked.map((t) => t.client_name)));
   const general = learnings.filter((l) => l.scope === "all");
   const trades = Array.from(new Set(learnings.filter((l) => l.scope === "trade").map((l) => l.trade ?? ""))).filter(Boolean);
 
@@ -117,6 +137,27 @@ export default async function LearningsPage() {
           </div>
         </div>
       ))}
+
+      {tracked.length > 0 ? (
+        <div className="mb-8">
+          <SectionTitle>Tracked automatically (every 3 hours)</SectionTitle>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {trackedClients.map((c) => (
+              <Card key={c}>
+                <h3 className="mb-2 text-lg font-semibold text-white">{c}</h3>
+                {tracked
+                  .filter((t) => t.client_name === c)
+                  .map((t) => (
+                    <TrackedRow key={t.ad_id} t={t} />
+                  ))}
+              </Card>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-zinc-600">
+            The verdict is a suggestion from each client&apos;s rules (zero leads at the early-kill spend, keep or kill at the keep/kill spend against max CPL). Nothing is paused automatically.
+          </p>
+        </div>
+      ) : null}
 
       <SectionTitle>Clients and their tests</SectionTitle>
       <div className="grid gap-4 lg:grid-cols-2">

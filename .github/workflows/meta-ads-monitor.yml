@@ -2,6 +2,10 @@ name: Meta Ads Monitor
 
 on:
   workflow_dispatch:
+    inputs:
+      backfill_days:
+        description: "Days of per-ad history to record (a manual run backfills 60; scheduled runs use 3)"
+        default: "60"
   schedule:
     # Every 3 hours at a quiet minute (GitHub often delays or skips jobs scheduled exactly on the hour).
     # The 06:17 UTC run is the morning check (07:17 UK summer time, 06:17 in winter).
@@ -28,13 +32,14 @@ jobs:
           SUPABASE_URL: https://dwzjonbidydufmeymhri.supabase.co
           SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3empvbmJpZHlkdWZtZXltaHJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NDIwNjksImV4cCI6MjA5OTIxODA2OX0.B4R8q-wBJVgJpZy2hUGY70mxLaN1H4Q_0AbmAHe84r4 # public by design
           ADS_INGEST_KEY: ${{ secrets.ADS_INGEST_KEY }}
+          BACKFILL_DAYS: ${{ github.event.inputs.backfill_days }}
         run: |
           channels="stdout"
           if [ -n "$SLACK_WEBHOOK_URL" ]; then channels="stdout slack"; fi
           publish=""
           if [ -n "$ADS_INGEST_KEY" ]; then publish="--publish"; fi
           status=0
-          python -m monitor run --meta-counts --send $channels $publish > message.txt || status=$?
+          python -m monitor run --meta-counts --send $channels $publish --backfill-days "${BACKFILL_DAYS:-3}" > message.txt || status=$?
           cat message.txt
           { echo '```'; cat message.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $status

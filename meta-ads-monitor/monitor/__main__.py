@@ -8,13 +8,13 @@ from pathlib import Path
 
 from . import demo as demo_mod
 from .analyse import build_report, is_not_live
-from .collect import fetch_account, fetch_leads, history_start
+from .collect import fetch_account, fetch_ad_daily, fetch_leads, history_start
 from .config import load_clients
 from .deliver import CHANNELS
 from .leads import LONDON, LeadStore
 from .meta_client import MetaClient, MetaError
 from .report import render
-from .snapshot import build_snapshot, publish
+from .snapshot import build_snapshot, publish, publish_ad_daily
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = ROOT / "config" / "clients.json"
@@ -26,7 +26,7 @@ def cmd_run(args) -> int:
     today = args.today or datetime.now(LONDON).date()
     store = LeadStore(args.leads)
     meta = MetaClient()
-    reports, warnings = [], []
+    reports, warnings, tracker_rows = [], [], []
     for client in clients:
         if is_not_live(client, today):
             reports.append(build_report(client, None, [], today))
@@ -39,6 +39,11 @@ def cmd_run(args) -> int:
         except MetaError as err:
             reports.append(build_report(client, None, [], today, error=str(err)))
             continue
+        if args.publish:
+            try:
+                tracker_rows += fetch_ad_daily(meta, client, data, today, args.backfill_days)
+            except MetaError as err:
+                warnings.append(f"Tracker could not read ad history for {client.name}: {err}")
         if not client.own and not args.no_sync and not args.meta_counts:
             try:
                 store.upsert(fetch_leads(meta, client, data, history_start(client, today)))
@@ -52,7 +57,8 @@ def cmd_run(args) -> int:
         CHANNELS[channel](text, f"Morning check, {today:%a %-d %b}")
     if args.publish:
         publish(build_snapshot(reports, today, warnings))
-        print("Published to the website.", file=sys.stderr)
+        publish_ad_daily(tracker_rows)
+        print(f"Published to the website ({len(tracker_rows)} ad-day rows tracked).", file=sys.stderr)
     # Fail loudly (red job, GitHub emails you) if Meta couldn't be read for an account.
     return 2 if any(r.error and not r.error.startswith("ad account ID not set") for r in reports) else 0
 
@@ -101,6 +107,7 @@ def main(argv=None) -> int:
                      help="use Meta's own lead counts (no lead log, no exclusions); works without lead permissions")
     run.add_argument("--today", type=lambda s: datetime.strptime(s, "%Y-%m-%d").date())
     run.add_argument("--publish", action="store_true", help="save the snapshot for the website (needs SUPABASE_URL, SUPABASE_ANON_KEY, ADS_INGEST_KEY)")
+    run.add_argument("--backfill-days", type=int, default=3, help="how many past days of per-ad numbers to (re)record; 3 keeps recent attribution fresh")
     run.add_argument("--no-sync", action="store_true", help="skip pulling individual leads")
     run.set_defaults(func=cmd_run)
 
