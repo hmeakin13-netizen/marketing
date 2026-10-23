@@ -170,9 +170,9 @@ export default async function AdsPage() {
   return (
     <>
       <PageHeader title="Ads" subtitle={`Updated ${updated}. Worst first.`} />
-      {ageHours > 30 ? (
+      {ageHours > 7 ? (
         <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          This is more than a day old. The daily job may have stopped: check GitHub &gt; Actions.
+          This is more than 7 hours old, and it should refresh every 3 hours. The job may have stopped: check GitHub &gt; Actions.
         </p>
       ) : null}
       <p className="mb-5 rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm font-medium text-white">{snap.look_at_first}</p>
