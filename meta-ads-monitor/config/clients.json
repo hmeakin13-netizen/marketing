@@ -27,23 +27,12 @@
       "notes": "Thomas (confirmed). Go-live = first day of spend (worked out automatically)."
     },
     {
-      "name": "Elite Roofing",
-      "ad_account_id": "act_2270388247064361",
-      "guarantee": "free_trial",
-      "original_guarantee": "25_in_30",
-      "free_trial_from": "2026-10-22",
-      "leads_owed": 2,
-      "client_deadline": "2026-10-23",
-      "daily_budget": 20,
-      "notes": "Sam McCann. No credit owed; he wants 2 more leads by Fri 23 Oct. Leads counted from 22 Oct."
-    },
-    {
       "name": "Efficient Roofing",
       "ad_account_id": "act_1726310475597012",
       "guarantee": "30_in_60",
       "go_live": "auto",
       "daily_budget": 20,
-      "notes": "Not live yet. Set Go-live = first day of spend (worked out automatically)."
+      "notes": "James O'Leary roofing and building. Not live yet: go-live = first day of spend (worked out automatically)."
     }
   ]
 }

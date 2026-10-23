@@ -15,6 +15,7 @@ export interface AdRules {
   max_budget_step_pct: number;
   budget_step_hours: number;
   suggest_mode: "when_wrong" | "weekly" | "on_request";
+  active: boolean;
 }
 
 export interface AdActivity {
@@ -30,6 +31,7 @@ export async function loadRules(supabase: SupabaseClient) {
   const { data } = await supabase
     .from("ad_maker_rules")
     .select("*")
+    .eq("active", true)
     .order("pilot", { ascending: false })
     .order("client_name")
     .returns<AdRules[]>();
