@@ -24,7 +24,8 @@
       "guarantee": "30_in_60",
       "go_live": "auto",
       "daily_budget": 20,
-      "notes": "Thomas (confirmed). Go-live = first day of spend (worked out automatically)."
+      "excluded_leads": 1,
+      "notes": "Thomas (confirmed). Go-live = first day of spend (worked out automatically). 1 lead had an invalid number so does not count: 2 of 30."
     },
     {
       "name": "Efficient Roofing",
