@@ -40,7 +40,7 @@ function RulesCard({ r }: { r: AdRules }) {
       <Row label="Auto-approve up to" value={`${gbp(r.auto_approve_max_daily)}/day per test`} />
       <Row label="Live tests at once" value={`${r.max_live_tests} max`} />
       <Row label="New ad sets" value="Left alone for the first 48 hours" />
-      <Row label="Early kill" value={`${r.early_kill_multiple}× max CPL spent with no leads and a weak click rate`} />
+      <Row label="Early kill" value={`${gbp(r.early_kill_spend)} spent with no leads and a weak click rate`} />
       <Row label="Keep or kill at" value={`${gbp(r.keep_kill_spend)} spend, against max CPL`} />
       <Row label="Frequency " value={`${r.frequency_limit}+ means line up a replacement. The ad stays live while its CPL is under target`} />
       <Row label="Winner scale-up" value={`+${r.max_budget_step_pct}% at most every ${r.budget_step_hours}h`} />

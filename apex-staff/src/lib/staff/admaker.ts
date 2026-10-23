@@ -10,6 +10,7 @@ export interface AdRules {
   auto_approve_max_daily: number;
   max_live_tests: number;
   early_kill_multiple: number;
+  early_kill_spend: number;
   keep_kill_spend: number;
   frequency_limit: number;
   max_budget_step_pct: number;
@@ -46,4 +47,51 @@ export async function loadActivity(supabase: SupabaseClient, limit = 100) {
     .limit(limit)
     .returns<AdActivity[]>();
   return data ?? [];
+}
+
+export interface ClientProfile {
+  client_name: string;
+  trade: string;
+  area: string | null;
+  status: "live" | "onboarding" | "left";
+  summary: string | null;
+  services: string | null;
+  job_value: string | null;
+  trust_angles: string | null;
+  constraints: string | null;
+  targets: string | null;
+  notes: string | null;
+}
+
+export interface Learning {
+  id: number;
+  scope: "all" | "trade" | "client";
+  trade: string | null;
+  client_name: string | null;
+  category: string;
+  lesson: string;
+  evidence: string | null;
+  confidence: "low" | "medium" | "high";
+  source: string | null;
+}
+
+export interface AdTest {
+  id: number;
+  client_name: string;
+  ad_name: string;
+  idea: string | null;
+  spend: number | null;
+  leads: number | null;
+  verdict: "keep" | "kill" | "testing" | "no_verdict";
+  notes: string | null;
+  as_of: string;
+}
+
+export async function loadBrain(supabase: SupabaseClient) {
+  const [profiles, learnings, tests] = await Promise.all([
+    supabase.from("ad_client_profiles").select("*").order("status").order("client_name").returns<ClientProfile[]>(),
+    supabase.from("ad_learnings").select("*").order("id").returns<Learning[]>(),
+    supabase.from("ad_tests").select("*").order("client_name").order("spend", { ascending: false }).returns<AdTest[]>(),
+  ]);
+  return { profiles: profiles.data ?? [], learnings: learnings.data ?? [], tests: tests.data ?? [] };
 }
