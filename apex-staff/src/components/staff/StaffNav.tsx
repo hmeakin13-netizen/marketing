@@ -9,6 +9,7 @@ export interface NavItem {
   href: string;
   label: string;
   icon: string;
+  indent?: boolean;
 }
 
 export function StaffNav({
@@ -33,13 +34,13 @@ export function StaffNav({
   const links = (
     <nav className="flex flex-col gap-1">
       {items.map((i) => {
-        const active = i.href === "/" ? pathname === "/" : pathname.startsWith(i.href);
+        const active = i.href === "/" || i.indent ? pathname === i.href : pathname.startsWith(i.href);
         return (
           <Link
             key={i.href}
             href={i.href}
             onClick={() => setOpen(false)}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+            className={`flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition ${i.indent ? "pl-9 pr-3" : "px-3"} ${
               active
                 ? "bg-emerald-500/15 text-emerald-300"
                 : "text-zinc-400 hover:bg-white/5 hover:text-white"

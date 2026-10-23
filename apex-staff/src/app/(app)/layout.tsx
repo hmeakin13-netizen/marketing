@@ -17,7 +17,13 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/territories", label: "Territory map", icon: "⌖" },
   ];
   if (me.role === "setter" || isManager(me.role)) items.splice(4, 0, { href: "/report", label: "End of day report", icon: "✍" });
-  if (isManager(me.role)) items.splice(1, 0, { href: "/ads", label: "Ads", icon: "▤" });
+  if (isManager(me.role)) items.splice(
+      1,
+      0,
+      { href: "/ads", label: "Ads", icon: "▤" },
+      { href: "/ad-maker", label: "Ad maker rules", icon: "⚖", indent: true },
+      { href: "/ad-maker/activity", label: "Ad maker activity", icon: "≣", indent: true },
+    );
   if (isManager(me.role)) items.push({ href: "/audit", label: "Audit trail", icon: "✎" });
   if (me.role === "admin") {
     items.push({ href: "/team", label: "Team", icon: "☺" });
