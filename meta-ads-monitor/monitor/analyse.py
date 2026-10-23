@@ -158,6 +158,8 @@ def build_report(
         leads = leads_from_meta(client, daily)
     report.guarantee = gmod.assess(client, leads, spend_by_day, today) if use_log else gmod.Guarantee(state="NONE")
     g = report.guarantee
+    if g and meta_counts and use_log and data.today and g.state in ("ACTIVE", "HIT"):
+        g.today_leads = data.today.leads
     max_cpl, target = client.max_cpl_value(), client.target_cpl_value()
 
     report.flags += _delivery_flags(data)

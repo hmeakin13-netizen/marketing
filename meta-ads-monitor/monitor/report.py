@@ -141,6 +141,8 @@ def render_block(r: ClientReport) -> list[str]:
         head = f"{dot} {c.name}, day {g.day}/{g.window} ({terms_label(c.guarantee)})"
         lines.append(", ".join(p for p in (head, deadline) if p))
         counted = f"{g.counted} of {g.required} counted"
+        if g.today_leads:
+            counted += f" (+{g.today_leads} today)"
         if g.excluded:
             counted += f" ({g.total} total, {g.excluded} excluded)"
         verdict = "Too early to call." if g.too_early else (

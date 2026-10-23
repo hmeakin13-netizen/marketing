@@ -59,6 +59,19 @@ def fetch_account(meta: MetaClient, client: Client, today: date) -> AccountData:
             link_clicks=int(row.get("inline_link_clicks", 0)),
         )
 
+    today_rows = meta.get_all(
+        f"{acct}/insights",
+        {"level": "account", "time_range": _range(today, today), "fields": "spend,impressions,inline_link_clicks,actions"},
+    )
+    if today_rows:
+        row = today_rows[0]
+        data.today = Day(
+            spend=float(row.get("spend", 0)),
+            leads=_lead_count(row.get("actions")),
+            impressions=int(row.get("impressions", 0)),
+            link_clicks=int(row.get("inline_link_clicks", 0)),
+        )
+
     ads = {
         a["id"]: Ad(id=a["id"], name=a.get("name", a["id"]), effective_status=a.get("effective_status", ""))
         for a in meta.get_all(f"{acct}/ads", {"fields": "id,name,effective_status"})
