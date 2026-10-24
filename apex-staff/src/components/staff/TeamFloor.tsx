@@ -37,7 +37,9 @@ export const POS: Record<string, { x: number; y: number }> = {
   reports: { x: 225, y: 800 },
   videos: { x: 355, y: 800 },
   curious: { x: 180, y: 565 },
-  operator: { x: 820, y: 565 },
+  operator: { x: 790, y: 565 },
+  compliance: { x: 910, y: 565 },
+  outcomes: { x: 225, y: 885 },
   saleslead: { x: 500, y: 1510 },
   noshow: { x: 160, y: 1605 },
   chaser: { x: 380, y: 1605 },
@@ -77,10 +79,10 @@ export const TEAM_COLOUR = {
 } as const;
 const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   lead: "research", scout: "research", trends: "research", analyst: "research", voice: "research", reviews: "research", timing: "research", checker: "research", curious: "research",
-  adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads", operator: "ads",
+  adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads", operator: "ads", compliance: "ads",
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
-  carelead: "care", checkin: "care", reports: "care", videos: "care",
+  carelead: "care", checkin: "care", reports: "care", videos: "care", outcomes: "care",
   saleslead: "sales", noshow: "sales", chaser: "sales", syncer: "sales", booster: "sales",
 };
 export function teamColour(key: string) {
@@ -138,6 +140,9 @@ export const EDGES: Edge[] = [
   { from: "booster", to: "saleslead" },
   { from: "noshow", to: "chaser" },
   { from: "booster", to: "brain" },
+  { from: "compliance", to: "adslead" },
+  { from: "copy", to: "compliance" },
+  { from: "outcomes", to: "carelead" },
 ];
 
 export function pt(key: string) {
