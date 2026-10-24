@@ -157,14 +157,64 @@ export interface QueueItem {
   answer: string | null;
 }
 
+export interface PhotoRank {
+  id: number;
+  client_name: string;
+  drive_file_id: string;
+  title: string | null;
+  rank: number | null;
+  score: number | null;
+  shows: string | null;
+  has_person: boolean | null;
+  crop_note: string | null;
+  use_for: string | null;
+  status: "candidate" | "top" | "used" | "rejected";
+}
+export interface Proposal {
+  id: number;
+  created_at: string;
+  client_name: string;
+  learning_id: number | null;
+  angle: string;
+  one_change: string | null;
+  primary_text: string;
+  headline: string | null;
+  daily_budget: number;
+  rules_check: string | null;
+  status: "proposed" | "approved" | "building" | "live" | "rejected" | "retired";
+  decided_note: string | null;
+}
+export interface TestImpact {
+  id: number;
+  client_name: string;
+  ad_name: string;
+  idea: string | null;
+  verdict: string;
+  outcome: string | null;
+  learning_id: number | null;
+  credited_agent: string | null;
+  spend: number | null;
+  leads: number | null;
+  judged_at: string | null;
+}
+
 /** The research team: who is on it, what they have been doing, and the questions waiting to be looked into. */
 export async function loadTeam(supabase: SupabaseClient) {
-  const [agents, events, queue, snap, learnings] = await Promise.all([
+  const [agents, events, queue, snap, learnings, photos, proposals, impact] = await Promise.all([
     supabase.from("ad_agents").select("*").order("sort").returns<TeamAgent[]>(),
     supabase.from("ad_agent_events").select("*").order("created_at", { ascending: false }).limit(60).returns<TeamEvent[]>(),
     supabase.from("ad_research_queue").select("*").order("created_at", { ascending: false }).limit(40).returns<QueueItem[]>(),
     supabase.from("ads_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1),
     supabase.from("ad_learnings").select("id", { count: "exact", head: true }),
+    supabase.from("ad_photo_ranks").select("*").in("status", ["top", "used"]).order("client_name").order("rank").limit(40).returns<PhotoRank[]>(),
+    supabase.from("ad_proposals").select("*").in("status", ["proposed", "approved", "building"]).order("created_at", { ascending: false }).limit(12).returns<Proposal[]>(),
+    supabase
+      .from("ad_tests")
+      .select("id, client_name, ad_name, idea, verdict, outcome, learning_id, credited_agent, spend, leads, judged_at")
+      .not("learning_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .returns<TestImpact[]>(),
   ]);
   const list = agents.data ?? [];
   // The monitor is a script, not a chat agent: its "last run" is when it last published numbers.
@@ -172,5 +222,13 @@ export async function loadTeam(supabase: SupabaseClient) {
   for (const a of list) {
     if (a.key === "numbers" && lastSnap) a.last_run_at = lastSnap;
   }
-  return { agents: list, events: events.data ?? [], queue: queue.data ?? [], learnings: learnings.count ?? 0 };
+  return {
+    agents: list,
+    events: events.data ?? [],
+    queue: queue.data ?? [],
+    learnings: learnings.count ?? 0,
+    photos: photos.data ?? [],
+    proposals: proposals.data ?? [],
+    impact: impact.data ?? [],
+  };
 }

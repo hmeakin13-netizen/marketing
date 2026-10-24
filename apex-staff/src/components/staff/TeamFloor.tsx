@@ -15,16 +15,16 @@ const POS: Record<string, { x: number; y: number }> = {
   checker: { x: 500, y: 515 },
   numbers: { x: 745, y: 200 },
   maker: { x: 895, y: 200 },
+  reviews: { x: 105, y: 480 },
+  trends: { x: 255, y: 480 },
+  copy: { x: 745, y: 340 },
+  photos: { x: 895, y: 340 },
+  budget: { x: 745, y: 480 },
+  judge: { x: 895, y: 480 },
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
 const PLANNED: { name: string; role: string; x: number; y: number }[] = [
-  { name: "Review Miner", role: "Reads competitor reviews", x: 105, y: 480 },
-  { name: "Trend Scout", role: "Spots what is rising", x: 255, y: 480 },
-  { name: "Copywriter", role: "Drafts hooks and primary text", x: 745, y: 340 },
-  { name: "Photo Ranker", role: "Ranks client photos", x: 895, y: 340 },
-  { name: "Budget Watcher", role: "Pace and spend checks", x: 745, y: 480 },
-  { name: "Test Judge", role: "Keep or kill suggestions", x: 895, y: 480 },
   { name: "Client Check-in", role: "Asks for booked and won", x: 95, y: 705 },
   { name: "Report Writer", role: "Weekly client reports", x: 225, y: 705 },
   { name: "Video Requester", role: "Asks owners for clips", x: 355, y: 705 },
@@ -57,6 +57,17 @@ const EDGES: Edge[] = [
   { from: "analyst", to: "checker" },
   { from: "voice", to: "checker" },
   { from: "checker", to: "lead" },
+  { from: "trends", to: "brain" },
+  { from: "reviews", to: "brain" },
+  { from: "trends", to: "checker" },
+  { from: "reviews", to: "checker" },
+  { from: "copy", to: "brain" },
+  { from: "photos", to: "copy" },
+  { from: "copy", to: "maker" },
+  { from: "judge", to: "brain" },
+  { from: "judge", to: "lead" },
+  { from: "budget", to: "lead" },
+  { from: "budget", to: "numbers" },
 ];
 
 function pt(key: string) {
