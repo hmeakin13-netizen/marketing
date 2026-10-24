@@ -16,6 +16,7 @@ function LessonCard({ l }: { l: Learning }) {
       <div className="mb-1 flex flex-wrap items-center gap-2">
         <Badge>{l.category}</Badge>
         <Badge tone={CONF[l.confidence]}>{l.confidence} confidence</Badge>
+        {l.review_status === "checked" ? <Badge tone="good">fact-checked</Badge> : <Badge tone="warn">awaiting fact check</Badge>}
       </div>
       <p className="text-sm text-zinc-100">{l.lesson}</p>
       {l.evidence ? <p className="mt-2 text-xs text-zinc-400">Evidence: {l.evidence}</p> : null}
