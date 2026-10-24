@@ -70,7 +70,7 @@ function AgentCard({ a, names }: { a: TeamAgent; names: Record<string, string> }
 
 export default async function ResearchTeamPage() {
   const { supabase } = await requireRole("admin", "manager");
-  const { agents, events, queue, learnings } = await loadTeam(supabase);
+  const { agents, events, queue, learnings, photos, proposals, impact } = await loadTeam(supabase);
   const names = Object.fromEntries(agents.map((a) => [a.key, a.name]));
   const lead = agents.find((a) => a.role === "manager");
   const rest = agents.filter((a) => a.role !== "manager");
@@ -175,6 +175,86 @@ export default async function ResearchTeamPage() {
             )}
           </Card>
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <Card>
+          <h2 className="mb-1 text-lg font-semibold text-white">Proposals waiting for you</h2>
+          <p className="mb-3 text-xs text-zinc-500">The Copywriter drafts these. Nothing launches until you say yes in the chat ("approve #3").</p>
+          {proposals.length === 0 ? (
+            <p className="text-sm text-zinc-500">None yet. The Copywriter drafts them each morning from the best findings.</p>
+          ) : (
+            <ul className="space-y-4">
+              {proposals.map((p) => (
+                <li key={p.id} className="text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={p.status === "proposed" ? "warn" : "good"}>#{p.id} {p.status}</Badge>
+                    <span className="font-medium text-white">{p.client_name}</span>
+                    <span className="text-xs text-zinc-500">£{p.daily_budget}/day</span>
+                  </div>
+                  <p className="mt-1 text-zinc-200">{p.angle}</p>
+                  {p.headline ? <p className="text-xs text-zinc-400">Headline: {p.headline}</p> : null}
+                  <p className="mt-1 whitespace-pre-line text-xs text-zinc-400">{p.primary_text}</p>
+                  {p.learning_id ? <p className="mt-1 text-xs text-emerald-400">From finding #{p.learning_id}</p> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-1 text-lg font-semibold text-white">Best photos by client</h2>
+          <p className="mb-3 text-xs text-zinc-500">Ranked by the Photo Ranker from each client&apos;s Drive folder.</p>
+          {photos.length === 0 ? (
+            <p className="text-sm text-zinc-500">Nothing ranked yet. The Photo Ranker reads new Drive photos each morning.</p>
+          ) : (
+            <ul className="space-y-3">
+              {photos.map((p) => (
+                <li key={p.id} className="text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={p.status === "used" ? "default" : "good"}>#{p.rank ?? "–"}</Badge>
+                    <span className="font-medium text-white">{p.client_name}</span>
+                    <a
+                      href={`https://drive.google.com/file/d/${p.drive_file_id}/view`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-auto text-xs text-emerald-400 hover:text-emerald-300"
+                    >
+                      Open
+                    </a>
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-400">{p.shows}</p>
+                  {p.use_for ? <p className="text-xs text-zinc-500">Good for: {p.use_for}</p> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2 className="mb-1 text-lg font-semibold text-white">Did the research help?</h2>
+          <p className="mb-3 text-xs text-zinc-500">Every test is linked to the finding that inspired it. The Test Judge scores it and credits the agent.</p>
+          {impact.length === 0 ? (
+            <p className="text-sm text-zinc-500">No tests linked yet.</p>
+          ) : (
+            <ul className="space-y-3">
+              {impact.map((t) => (
+                <li key={t.id} className="text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={t.verdict === "keep" ? "good" : t.verdict === "kill" ? "bad" : "default"}>{t.verdict}</Badge>
+                    <span className="font-medium text-white">{t.client_name}</span>
+                  </div>
+                  <p className="mt-0.5 text-zinc-200">{t.ad_name}</p>
+                  <p className="text-xs text-zinc-500">
+                    From finding #{t.learning_id}
+                    {t.credited_agent ? ` · found by ${names[t.credited_agent] ?? t.credited_agent}` : ""}
+                  </p>
+                  <p className="text-xs text-zinc-400">{t.outcome ?? "Still running. Too early to judge."}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
     </>
   );
