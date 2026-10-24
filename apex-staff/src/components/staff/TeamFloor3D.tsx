@@ -18,7 +18,7 @@ const HAIR = ["#1f1a17", "#3b2a1d", "#6b4a2b", "#b88a4a", "#2b2b33", "#7a3e2c"];
 
 /** 2D floor coordinates (0..1000 by 0..850) to 3D metres. */
 function to3(p: { x: number; y: number }): [number, number] {
-  return [(p.x - 500) / 52, (p.y - 420) / 52];
+  return [(p.x - 500) / 52, (p.y - 620) / 52];
 }
 
 function hash(s: string) {
@@ -312,10 +312,10 @@ function Room() {
   return (
     <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-        <planeGeometry args={[24, 20]} />
+        <planeGeometry args={[24, 28]} />
         <meshStandardMaterial color="#0e0f13" roughness={0.9} />
       </mesh>
-      <gridHelper args={[24, 24, "#1f2937", "#17191f"]} position={[0, 0, 0]} />
+      <gridHelper args={[28, 28, "#1f2937", "#17191f"]} position={[0, 0, 0]} />
       {ZONES.map((zone) => {
         const [cx, cz] = to3({ x: zone.x + zone.w / 2, y: zone.y + zone.h / 2 });
         return (
@@ -359,7 +359,7 @@ export function TeamFloor3D({
   const anyWorking = agents.some((a) => status(a) === "working");
   return (
     <Boundary fallback={fallback}>
-      <div className="relative h-[460px] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 sm:h-[640px]">
+      <div className="relative h-[520px] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 sm:h-[760px]">
         <style>{`
           .tf3-zzz { display:flex; gap:4px; font-weight:700; color:#93c5fd; font-size:18px; }
           .tf3-zzz span { animation: tf3-float 2.4s ease-in-out infinite; opacity:0; }
@@ -367,9 +367,9 @@ export function TeamFloor3D({
           .tf3-zzz span:nth-child(3) { animation-delay: 1.2s; font-size:28px; }
           @keyframes tf3-float { 0% { transform: translateY(8px); opacity:0 } 30% { opacity:.9 } 100% { transform: translateY(-22px); opacity:0 } }
         `}</style>
-        <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 15.5, 11], fov: 44 }} gl={{ antialias: true }}>
+        <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 22, 15], fov: 44 }} gl={{ antialias: true }}>
           <color attach="background" args={["#09090b"]} />
-          <fog attach="fog" args={["#09090b", 28, 48]} />
+          <fog attach="fog" args={["#09090b", 40, 70]} />
           <ambientLight intensity={0.7} />
           <directionalLight position={[8, 16, 10]} intensity={1.1} castShadow shadow-mapSize={[1024, 1024]} />
           <Room />
@@ -383,9 +383,9 @@ export function TeamFloor3D({
           ))}
           <OrbitControls
             enablePan={false}
-            target={[0, 0, 0.6]}
+            target={[0, 0, 0.5]}
             minDistance={7}
-            maxDistance={26}
+            maxDistance={40}
             minPolarAngle={0.3}
             maxPolarAngle={1.3}
             minAzimuthAngle={-0.9}
