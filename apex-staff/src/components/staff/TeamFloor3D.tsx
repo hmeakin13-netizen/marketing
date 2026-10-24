@@ -5,7 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { TeamAgent, TeamEvent } from "@/lib/staff/admaker";
-import { BRAIN, COLOUR, EDGES, PLANNED, POS, ZONES, liveEdges, status } from "@/components/staff/TeamFloor";
+import { BRAIN, PLANNED, POS, ZONES, liveLinks, status, teamColour } from "@/components/staff/TeamFloor";
 
 /**
  * The research team as a 3D office. People sit at desks: typing while their agent is really working,
@@ -31,7 +31,7 @@ function Person({ agent }: { agent: TeamAgent }) {
   const p = POS[agent.key];
   const [x, z] = to3(p);
   const st = status(agent);
-  const colour = COLOUR[agent.role];
+  const colour = teamColour(agent.key);
   const h = hash(agent.key);
   const skin = SKIN[h % SKIN.length];
   const hair = HAIR[(h >> 3) % HAIR.length];
@@ -104,7 +104,7 @@ function Person({ agent }: { agent: TeamAgent }) {
           {manager ? (
             <mesh position={[0, 0.45, 0.18]}>
               <boxGeometry args={[0.1, 0.5, 0.02]} />
-              <meshStandardMaterial color="#064e3b" />
+              <meshStandardMaterial color="#0f172a" />
             </mesh>
           ) : null}
           <group ref={head} position={[0, 1.18, 0]}>
@@ -258,7 +258,7 @@ function Brain({ learnings, active }: { learnings: number; active: boolean }) {
     <group position={[x, 1.9, z]}>
       <mesh ref={core}>
         <icosahedronGeometry args={[0.7, 1]} />
-        <meshStandardMaterial color="#064e3b" emissive="#34d399" emissiveIntensity={active ? 1.1 : 0.55} wireframe />
+        <meshStandardMaterial color="#0f172a" emissive="#34d399" emissiveIntensity={active ? 1.1 : 0.55} wireframe />
       </mesh>
       <mesh>
         <icosahedronGeometry args={[0.45, 1]} />
@@ -283,8 +283,23 @@ function Brain({ learnings, active }: { learnings: number; active: boolean }) {
   );
 }
 
-function Links({ events, byKey }: { events: TeamEvent[]; byKey: Record<string, TeamAgent> }) {
-  const live = useMemo(() => liveEdges(events), [events]);
+function Pulse({ curve, colour }: { curve: THREE.QuadraticBezierCurve3; colour: string }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    const t = (state.clock.elapsedTime * 0.45) % 1;
+    if (ref.current) ref.current.position.copy(curve.getPoint(t));
+  });
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[0.16, 12, 12]} />
+      <meshBasicMaterial color={colour} />
+    </mesh>
+  );
+}
+
+/** Only hand-offs that really happened in the last half hour get a line, with a spark travelling along it. */
+function Links({ events }: { events: TeamEvent[] }) {
+  const live = useMemo(() => liveLinks(events), [events]);
   const point = (k: string): [number, number, number] => {
     if (k === "brain") {
       const [x, z] = to3(BRAIN);
@@ -295,14 +310,18 @@ function Links({ events, byKey }: { events: TeamEvent[]; byKey: Record<string, T
   };
   return (
     <>
-      {EDGES.filter((e) => POS[e.from] && (e.to === "brain" || POS[e.to])).map((e) => {
-        const on = live.has(`${e.from}>${e.to}`);
+      {live.map((e) => {
         const a = point(e.from);
         const b = point(e.to);
-        const mid: [number, number, number] = [(a[0] + b[0]) / 2, Math.max(a[1], b[1]) + 1.2, (a[2] + b[2]) / 2];
+        const mid: [number, number, number] = [(a[0] + b[0]) / 2, Math.max(a[1], b[1]) + 1.4, (a[2] + b[2]) / 2];
         const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(...a), new THREE.Vector3(...mid), new THREE.Vector3(...b));
-        const colour = on ? COLOUR[byKey[e.from]?.role ?? "worker"] : "#3f3f46";
-        return <Line key={`${e.from}-${e.to}`} points={curve.getPoints(24)} color={colour} lineWidth={on ? 2.4 : 0.8} transparent opacity={on ? 0.95 : 0.35} />;
+        const colour = teamColour(e.from);
+        return (
+          <group key={`${e.from}-${e.to}`}>
+            <Line points={curve.getPoints(28)} color={colour} lineWidth={2.2} transparent opacity={0.9} />
+            <Pulse curve={curve} colour={colour} />
+          </group>
+        );
       })}
     </>
   );
@@ -322,10 +341,10 @@ function Room() {
           <group key={zone.label} position={[cx, 0.01, cz]}>
             <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[zone.w / 52, zone.h / 52]} />
-              <meshStandardMaterial color="#10231d" transparent opacity={0.35} />
+              <meshStandardMaterial color={zone.colour} transparent opacity={0.12} />
             </mesh>
             <Html position={[-(zone.w / 104) + 0.3, 0.05, -(zone.h / 104) + 0.1]} style={{ pointerEvents: "none" }}>
-              <div style={{ fontSize: 10, letterSpacing: 2, color: "#6ee7b7", opacity: 0.85, whiteSpace: "nowrap" }}>{zone.label}</div>
+              <div style={{ fontSize: 10, letterSpacing: 2, color: zone.colour, opacity: 0.95, whiteSpace: "nowrap" }}>{zone.label}</div>
             </Html>
           </group>
         );
@@ -355,7 +374,6 @@ export function TeamFloor3D({
   learnings: number;
   fallback: ReactNode;
 }) {
-  const byKey = useMemo(() => Object.fromEntries(agents.map((a) => [a.key, a])), [agents]);
   const anyWorking = agents.some((a) => status(a) === "working");
   return (
     <Boundary fallback={fallback}>
@@ -373,7 +391,7 @@ export function TeamFloor3D({
           <ambientLight intensity={0.7} />
           <directionalLight position={[8, 16, 10]} intensity={1.1} castShadow shadow-mapSize={[1024, 1024]} />
           <Room />
-          <Links events={events} byKey={byKey} />
+          <Links events={events} />
           <Brain learnings={learnings} active={anyWorking} />
           {agents.filter((a) => POS[a.key]).map((a) => (
             <Person key={a.key} agent={a} />
