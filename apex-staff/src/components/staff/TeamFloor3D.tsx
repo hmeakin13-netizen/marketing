@@ -44,6 +44,13 @@ const TEAMS: { id: string; label: string; colour: string; manager: { key?: strin
     manager: { key: "carelead", name: "Care Lead" },
     members: [{ key: "checkin", name: "Client Check-in" }, { key: "reports", name: "Report Writer" }, { key: "videos", name: "Video Requester" }],
   },
+  {
+    id: "sales",
+    label: "SALES RECOVERY",
+    colour: "#ef4444",
+    manager: { key: "saleslead", name: "Sales Lead" },
+    members: [{ key: "noshow", name: "No-show Matcher" }, { key: "chaser", name: "Follow-up Chaser" }, { key: "syncer", name: "Stage Syncer" }, { key: "booster", name: "Call Booster" }],
+  },
 ];
 
 /** Where everyone sits. Angles run counter-clockwise from the back of the room; (x, z) = (r cos a, -r sin a). */
