@@ -25,6 +25,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
       { href: "/ad-maker/learnings", label: "Ad maker learnings", icon: "✦", indent: true },
       { href: "/ad-maker/activity", label: "Ad maker activity", icon: "≣", indent: true },
       { href: "/ad-maker/team", label: "Research team", icon: "◎", indent: true },
+      { href: "/care", label: "Client care", icon: "☺" },
     );
   if (isManager(me.role)) items.push({ href: "/audit", label: "Audit trail", icon: "✎" });
   if (me.role === "admin") {

@@ -32,14 +32,14 @@ export const POS: Record<string, { x: number; y: number }> = {
   invoices: { x: 380, y: 1345 },
   spend: { x: 620, y: 1345 },
   profit: { x: 840, y: 1345 },
+  carelead: { x: 230, y: 690 },
+  checkin: { x: 95, y: 800 },
+  reports: { x: 225, y: 800 },
+  videos: { x: 355, y: 800 },
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
 export const PLANNED: { name: string; role: string; x: number; y: number }[] = [
-  { name: "Care Lead", role: "Manager: client care", x: 230, y: 690 },
-  { name: "Client Check-in", role: "Asks for booked and won", x: 95, y: 800 },
-  { name: "Report Writer", role: "Weekly client reports", x: 225, y: 800 },
-  { name: "Video Requester", role: "Asks owners for clips", x: 355, y: 800 },
   { name: "Marketing Lead", role: "Manager: social media", x: 715, y: 690 },
   { name: "Content Planner", role: "Plans posts and reels", x: 520, y: 800 },
   { name: "Caption Writer", role: "Captions, cuts, remixes", x: 650, y: 800 },
@@ -71,6 +71,7 @@ const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads",
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
+  carelead: "care", checkin: "care", reports: "care", videos: "care",
 };
 export function teamColour(key: string) {
   return TEAM_COLOUR[TEAM_OF[key] ?? "research"];
