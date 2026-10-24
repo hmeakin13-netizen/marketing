@@ -122,3 +122,55 @@ export async function loadTracked(supabase: SupabaseClient) {
     .returns<TrackedAd[]>();
   return data ?? [];
 }
+
+export interface TeamAgent {
+  key: string;
+  name: string;
+  role: "manager" | "worker" | "reviewer";
+  manager_key: string | null;
+  job: string | null;
+  schedule: string | null;
+  connectors: string | null;
+  status: "idle" | "working" | "error" | "waiting";
+  current_task: string | null;
+  last_run_at: string | null;
+  last_summary: string | null;
+  sort: number;
+}
+export interface TeamEvent {
+  id: number;
+  created_at: string;
+  agent_key: string;
+  to_agent_key: string | null;
+  kind: "started" | "finished" | "finding" | "handoff" | "review" | "flag" | "question" | "error";
+  summary: string;
+  ref: string | null;
+}
+export interface QueueItem {
+  id: number;
+  created_at: string;
+  question: string;
+  why: string | null;
+  asked_by: string | null;
+  assigned_to: string | null;
+  status: "open" | "in_progress" | "done" | "dropped";
+  answer: string | null;
+}
+
+/** The research team: who is on it, what they have been doing, and the questions waiting to be looked into. */
+export async function loadTeam(supabase: SupabaseClient) {
+  const [agents, events, queue, snap, learnings] = await Promise.all([
+    supabase.from("ad_agents").select("*").order("sort").returns<TeamAgent[]>(),
+    supabase.from("ad_agent_events").select("*").order("created_at", { ascending: false }).limit(60).returns<TeamEvent[]>(),
+    supabase.from("ad_research_queue").select("*").order("created_at", { ascending: false }).limit(40).returns<QueueItem[]>(),
+    supabase.from("ads_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1),
+    supabase.from("ad_learnings").select("id", { count: "exact", head: true }),
+  ]);
+  const list = agents.data ?? [];
+  // The monitor is a script, not a chat agent: its "last run" is when it last published numbers.
+  const lastSnap = snap.data?.[0]?.created_at as string | undefined;
+  for (const a of list) {
+    if (a.key === "numbers" && lastSnap) a.last_run_at = lastSnap;
+  }
+  return { agents: list, events: events.data ?? [], queue: queue.data ?? [], learnings: learnings.count ?? 0 };
+}
