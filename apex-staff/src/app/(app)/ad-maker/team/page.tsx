@@ -75,7 +75,7 @@ export default async function ResearchTeamPage() {
   const lead = agents.find((a) => a.role === "manager");
   const rest = agents.filter((a) => a.role !== "manager");
   const open = queue.filter((q) => q.status === "open" || q.status === "in_progress");
-  const done = queue.filter((q) => q.status === "done").slice(0, 5);
+  const done = queue.filter((q) => q.status === "done").slice(0, 6);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const today = events.filter((e) => new Date(e.created_at) >= todayStart);
@@ -151,8 +151,8 @@ export default async function ResearchTeamPage() {
                   <li key={q.id} className="text-sm">
                     <p className="text-zinc-200">{q.question}</p>
                     <p className="mt-0.5 text-xs text-zinc-500">
-                      For {q.assigned_to ? names[q.assigned_to] : "anyone"}
-                      {q.asked_by ? ` · asked by ${names[q.asked_by]}` : ""}
+                      For {q.assigned_to ? names[q.assigned_to] : "Harry or anyone"}
+                      {q.asked_by ? ` · asked by ${names[q.asked_by] ?? q.asked_by}` : ""} · {ago(q.created_at)}
                     </p>
                   </li>
                 ))}

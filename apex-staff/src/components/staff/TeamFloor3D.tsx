@@ -26,8 +26,8 @@ type Seat = { id: string; name: string; x: number; z: number; yaw: number; colou
 type Sector = { id: string; label: string; colour: string; start: number; end: number; mid: number };
 
 const TEAMS: { id: string; label: string; colour: string; manager: { key?: string; name: string }; members: { key?: string; name: string }[] }[] = [
-  { id: "research", label: "RESEARCH", colour: "#38bdf8", manager: { key: "lead", name: "Research Lead" }, members: ["scout", "trends", "analyst", "voice", "reviews", "timing", "checker"].map((k) => ({ key: k, name: k })) },
-  { id: "ads", label: "ADS", colour: "#fb923c", manager: { key: "adslead", name: "Ads Lead" }, members: ["maker", "numbers", "copy", "photos", "budget", "judge"].map((k) => ({ key: k, name: k })) },
+  { id: "research", label: "RESEARCH", colour: "#38bdf8", manager: { key: "lead", name: "Research Lead" }, members: ["scout", "trends", "analyst", "voice", "reviews", "timing", "checker", "curious"].map((k) => ({ key: k, name: k })) },
+  { id: "ads", label: "ADS", colour: "#fb923c", manager: { key: "adslead", name: "Ads Lead" }, members: ["maker", "numbers", "copy", "photos", "budget", "judge", "operator"].map((k) => ({ key: k, name: k })) },
   { id: "website", label: "WEBSITE", colour: "#a78bfa", manager: { key: "web", name: "Web Lead" }, members: ["sitehealth", "rank", "seo", "local"].map((k) => ({ key: k, name: k })) },
   { id: "funds", label: "FUNDS", colour: "#34d399", manager: { key: "fin", name: "Finance Lead" }, members: ["cash", "invoices", "spend", "profit"].map((k) => ({ key: k, name: k })) },
   {

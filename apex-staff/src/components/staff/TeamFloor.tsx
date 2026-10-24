@@ -36,6 +36,8 @@ export const POS: Record<string, { x: number; y: number }> = {
   checkin: { x: 95, y: 800 },
   reports: { x: 225, y: 800 },
   videos: { x: 355, y: 800 },
+  curious: { x: 180, y: 565 },
+  operator: { x: 820, y: 565 },
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
@@ -47,8 +49,8 @@ export const PLANNED: { name: string; role: string; x: number; y: number }[] = [
   { name: "Inbox", role: "Watches DMs and comments", x: 910, y: 800 },
 ];
 export const ZONES = [
-  { label: "RESEARCH", x: 20, y: 130, w: 330, h: 450, colour: "#38bdf8" },
-  { label: "ADS", x: 650, y: 130, w: 330, h: 450, colour: "#fb923c" },
+  { label: "RESEARCH", x: 20, y: 130, w: 330, h: 480, colour: "#38bdf8" },
+  { label: "ADS", x: 650, y: 130, w: 330, h: 480, colour: "#fb923c" },
   { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 280, colour: "#f472b6" },
   { label: "MARKETING (Serena)", x: 455, y: 620, w: 525, h: 280, colour: "#facc15" },
   { label: "WEBSITE", x: 20, y: 930, w: 960, h: 230, colour: "#a78bfa" },
@@ -67,8 +69,8 @@ export const TEAM_COLOUR = {
   funds: "#34d399",
 } as const;
 const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
-  lead: "research", scout: "research", trends: "research", analyst: "research", voice: "research", reviews: "research", timing: "research", checker: "research",
-  adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads",
+  lead: "research", scout: "research", trends: "research", analyst: "research", voice: "research", reviews: "research", timing: "research", checker: "research", curious: "research",
+  adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads", operator: "ads",
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
   carelead: "care", checkin: "care", reports: "care", videos: "care",
@@ -118,6 +120,10 @@ export const EDGES: Edge[] = [
   { from: "seo", to: "rank" },
   { from: "web", to: "brain" },
   { from: "adslead", to: "brain" },
+  { from: "curious", to: "lead" },
+  { from: "curious", to: "brain" },
+  { from: "operator", to: "adslead" },
+  { from: "operator", to: "brain" },
 ];
 
 export function pt(key: string) {
