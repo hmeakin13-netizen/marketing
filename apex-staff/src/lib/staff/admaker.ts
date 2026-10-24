@@ -73,6 +73,7 @@ export interface Learning {
   evidence: string | null;
   confidence: "low" | "medium" | "high";
   source: string | null;
+  review_status: "pending" | "checked";
 }
 
 export interface AdTest {
