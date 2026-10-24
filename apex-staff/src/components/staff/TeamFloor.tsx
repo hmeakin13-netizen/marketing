@@ -42,14 +42,33 @@ export const PLANNED: { name: string; role: string; x: number; y: number }[] = [
   { name: "Inbox", role: "Watches DMs and comments", x: 910, y: 800 },
 ];
 export const ZONES = [
-  { label: "RESEARCH", x: 20, y: 130, w: 330, h: 450 },
-  { label: "ADS", x: 650, y: 130, w: 330, h: 450 },
-  { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 280 },
-  { label: "MARKETING (Serena)", x: 455, y: 620, w: 525, h: 280 },
-  { label: "WEBSITE", x: 20, y: 930, w: 960, h: 230 },
+  { label: "RESEARCH", x: 20, y: 130, w: 330, h: 450, colour: "#38bdf8" },
+  { label: "ADS", x: 650, y: 130, w: 330, h: 450, colour: "#fb923c" },
+  { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 280, colour: "#f472b6" },
+  { label: "MARKETING (Serena)", x: 455, y: 620, w: 525, h: 280, colour: "#facc15" },
+  { label: "WEBSITE", x: 20, y: 930, w: 960, h: 230, colour: "#a78bfa" },
 ];
 export const BRAIN = { x: 500, y: 290 };
 export const COLOUR = { manager: "#34d399", worker: "#38bdf8", reviewer: "#fbbf24" } as const;
+
+/** Each team has its own colour: shirts, screens, desk lights and the floor zone all use it. */
+export const TEAM_COLOUR = {
+  research: "#38bdf8",
+  ads: "#fb923c",
+  website: "#a78bfa",
+  care: "#f472b6",
+  marketing: "#facc15",
+} as const;
+const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
+  lead: "research", scout: "research", trends: "research", analyst: "research", voice: "research", reviews: "research", timing: "research", checker: "research",
+  adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads",
+  web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
+};
+export function teamColour(key: string) {
+  return TEAM_COLOUR[TEAM_OF[key] ?? "research"];
+}
+/** A line only appears while something was really handed across in the last half hour. */
+export const LIVE_MS = 30 * 60 * 1000;
 export const RECENT_MS = 3 * 3600 * 1000;
 
 export type Edge = { from: string; to: string };
@@ -96,21 +115,24 @@ export function pt(key: string) {
   return key === "brain" ? BRAIN : POS[key];
 }
 
-/** Edges that carried something recently, from real events. */
-export function liveEdges(events: TeamEvent[]) {
+/** Hand-offs that really happened in the last half hour, newest first, one per pair. */
+export function liveLinks(events: TeamEvent[]) {
   const now = Date.now();
-  const live = new Set<string>();
-  const mark = (a: string, b: string) => {
-    live.add(`${a}>${b}`);
-    live.add(`${b}>${a}`);
+  const seen = new Set<string>();
+  const out: { from: string; to: string }[] = [];
+  const add = (from: string, to: string) => {
+    const k = `${from}>${to}`;
+    if (seen.has(k) || from === to) return;
+    seen.add(k);
+    out.push({ from, to });
   };
   for (const e of events) {
-    if (now - new Date(e.created_at).getTime() > RECENT_MS) continue;
-    if (e.to_agent_key) mark(e.agent_key, e.to_agent_key);
-    if (e.kind === "finding") mark(e.agent_key, "brain");
-    if (e.kind === "review") mark("checker", "brain");
+    if (now - new Date(e.created_at).getTime() > LIVE_MS) continue;
+    if (e.to_agent_key) add(e.agent_key, e.to_agent_key);
+    else if (e.kind === "finding") add(e.agent_key, "brain");
+    if (e.kind === "review") add("checker", "brain");
   }
-  return live;
+  return out.filter((l) => pt(l.from) && pt(l.to));
 }
 
 export function status(a: TeamAgent) {
@@ -124,7 +146,7 @@ function Robot({ a }: { a: TeamAgent }) {
   const p = POS[a.key];
   if (!p) return null;
   const st = status(a);
-  const c = COLOUR[a.role];
+  const c = teamColour(a.key);
   const eye = st === "error" ? "#f43f5e" : st === "working" ? c : "#52525b";
   const big = a.role === "manager";
   const s = big ? 1.25 : 1;
@@ -191,7 +213,7 @@ function Brain({ count }: { count: number }) {
 }
 
 export function TeamFloor({ agents, events, learnings }: { agents: TeamAgent[]; events: TeamEvent[]; learnings: number }) {
-  const live = liveEdges(events);
+  const live = liveLinks(events);
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border border-emerald-400/20 bg-gradient-to-b from-zinc-950 to-zinc-900">
       <style>{`
@@ -223,22 +245,21 @@ export function TeamFloor({ agents, events, learnings }: { agents: TeamAgent[]; 
             </feMerge>
           </filter>
         </defs>
-        <rect width="1000" height="850" fill="url(#tf-grid)" />
-        <rect width="1000" height="850" fill="url(#tf-fade)" />
+        <rect width="1000" height="1180" fill="url(#tf-grid)" />
+        <rect width="1000" height="1180" fill="url(#tf-fade)" />
 
         {ZONES.map((z) => (
           <g key={z.label}>
-            <rect x={z.x} y={z.y} width={z.w} height={z.h} rx="16" fill="#34d399" fillOpacity="0.025" stroke="#34d399" strokeOpacity="0.18" strokeDasharray="6 6" />
-            <text x={z.x + 16} y={z.y + 24} fontSize="11" letterSpacing="2" fill="#6ee7b7" opacity="0.8">
+            <rect x={z.x} y={z.y} width={z.w} height={z.h} rx="16" fill={z.colour} fillOpacity="0.04" stroke={z.colour} strokeOpacity="0.3" strokeDasharray="6 6" />
+            <text x={z.x + 16} y={z.y + 24} fontSize="11" letterSpacing="2" fill={z.colour} opacity="0.9">
               {z.label}
             </text>
           </g>
         ))}
 
-        {EDGES.map((e) => {
+        {live.map((e) => {
           const a = pt(e.from);
           const b = pt(e.to);
-          const on = live.has(`${e.from}>${e.to}`);
           return (
             <line
               key={`${e.from}-${e.to}`}
@@ -246,11 +267,11 @@ export function TeamFloor({ agents, events, learnings }: { agents: TeamAgent[]; 
               y1={a.y}
               x2={b.x}
               y2={b.y}
-              stroke={on ? "#34d399" : "#3f3f46"}
-              strokeOpacity={on ? 0.95 : 0.5}
-              strokeWidth={on ? 2.5 : 1.2}
-              className={on ? "tf-flow" : undefined}
-              filter={on ? "url(#tf-glow)" : undefined}
+              stroke={teamColour(e.from)}
+              strokeOpacity={0.95}
+              strokeWidth={2.5}
+              className="tf-flow"
+              filter="url(#tf-glow)"
             />
           );
         })}
