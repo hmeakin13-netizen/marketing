@@ -27,7 +27,7 @@ type Sector = { id: string; label: string; colour: string; start: number; end: n
 
 const TEAMS: { id: string; label: string; colour: string; manager: { key?: string; name: string }; members: { key?: string; name: string }[] }[] = [
   { id: "research", label: "RESEARCH", colour: "#38bdf8", manager: { key: "lead", name: "Research Lead" }, members: ["scout", "trends", "analyst", "voice", "reviews", "timing", "checker", "curious"].map((k) => ({ key: k, name: k })) },
-  { id: "ads", label: "ADS", colour: "#fb923c", manager: { key: "adslead", name: "Ads Lead" }, members: ["maker", "numbers", "copy", "photos", "budget", "judge", "operator"].map((k) => ({ key: k, name: k })) },
+  { id: "ads", label: "ADS", colour: "#fb923c", manager: { key: "adslead", name: "Ads Lead" }, members: ["maker", "numbers", "copy", "photos", "budget", "judge", "operator", "compliance"].map((k) => ({ key: k, name: k })) },
   { id: "website", label: "WEBSITE", colour: "#a78bfa", manager: { key: "web", name: "Web Lead" }, members: ["sitehealth", "rank", "seo", "local"].map((k) => ({ key: k, name: k })) },
   { id: "funds", label: "FUNDS", colour: "#34d399", manager: { key: "fin", name: "Finance Lead" }, members: ["cash", "invoices", "spend", "profit"].map((k) => ({ key: k, name: k })) },
   {
@@ -42,7 +42,7 @@ const TEAMS: { id: string; label: string; colour: string; manager: { key?: strin
     label: "CLIENT CARE",
     colour: "#f472b6",
     manager: { key: "carelead", name: "Care Lead" },
-    members: [{ key: "checkin", name: "Client Check-in" }, { key: "reports", name: "Report Writer" }, { key: "videos", name: "Video Requester" }],
+    members: [{ key: "checkin", name: "Client Check-in" }, { key: "reports", name: "Report Writer" }, { key: "videos", name: "Video Requester" }, { key: "outcomes", name: "Outcome Chaser" }],
   },
   {
     id: "sales",
