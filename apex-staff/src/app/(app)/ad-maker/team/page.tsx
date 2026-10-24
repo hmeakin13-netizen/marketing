@@ -180,7 +180,7 @@ export default async function ResearchTeamPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <Card>
           <h2 className="mb-1 text-lg font-semibold text-white">Proposals waiting for you</h2>
-          <p className="mb-3 text-xs text-zinc-500">The Copywriter drafts these. Nothing launches until you say yes in the chat ("approve #3").</p>
+          <p className="mb-3 text-xs text-zinc-500">The Copywriter drafts these. Nothing launches until you say yes in the chat (&ldquo;approve #3&rdquo;).</p>
           {proposals.length === 0 ? (
             <p className="text-sm text-zinc-500">None yet. The Copywriter drafts them each morning from the best findings.</p>
           ) : (
