@@ -41,8 +41,8 @@ const TEAMS: { id: string; label: string; colour: string; manager: { key?: strin
     id: "care",
     label: "CLIENT CARE",
     colour: "#f472b6",
-    manager: { name: "Care Lead" },
-    members: [{ name: "Client Check-in" }, { name: "Report Writer" }, { name: "Video Requester" }],
+    manager: { key: "carelead", name: "Care Lead" },
+    members: [{ key: "checkin", name: "Client Check-in" }, { key: "reports", name: "Report Writer" }, { key: "videos", name: "Video Requester" }],
   },
 ];
 
