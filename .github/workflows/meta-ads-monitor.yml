@@ -7,9 +7,13 @@ on:
         description: "Days of per-ad history to record (a manual run backfills 60; scheduled runs use 3)"
         default: "60"
   schedule:
-    # Every hour at a quiet minute (GitHub often delays or skips jobs scheduled exactly on the hour).
-    # The 06:17 UTC run is the morning check (07:17 UK summer time, 06:17 in winter).
-    - cron: "17 * * * *"
+    # GitHub's scheduler drops and delays runs (about one in three or worse), so ask three times an
+    # hour at quiet minutes: even with drops, that lands roughly one run an hour.
+    - cron: "7,27,47 * * * *"
+
+concurrency:
+  group: meta-ads-monitor
+  cancel-in-progress: false
 
 permissions:
   contents: read
