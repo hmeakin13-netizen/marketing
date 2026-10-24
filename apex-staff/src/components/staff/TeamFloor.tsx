@@ -27,6 +27,11 @@ export const POS: Record<string, { x: number; y: number }> = {
   rank: { x: 380, y: 1090 },
   seo: { x: 620, y: 1090 },
   local: { x: 840, y: 1090 },
+  fin: { x: 500, y: 1250 },
+  cash: { x: 160, y: 1345 },
+  invoices: { x: 380, y: 1345 },
+  spend: { x: 620, y: 1345 },
+  profit: { x: 840, y: 1345 },
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
@@ -47,6 +52,7 @@ export const ZONES = [
   { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 280, colour: "#f472b6" },
   { label: "MARKETING (Serena)", x: 455, y: 620, w: 525, h: 280, colour: "#facc15" },
   { label: "WEBSITE", x: 20, y: 930, w: 960, h: 230, colour: "#a78bfa" },
+  { label: "FUNDS", x: 20, y: 1190, w: 960, h: 230, colour: "#34d399" },
 ];
 export const BRAIN = { x: 500, y: 290 };
 export const COLOUR = { manager: "#34d399", worker: "#38bdf8", reviewer: "#fbbf24" } as const;
@@ -58,11 +64,13 @@ export const TEAM_COLOUR = {
   website: "#a78bfa",
   care: "#f472b6",
   marketing: "#facc15",
+  funds: "#34d399",
 } as const;
 const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   lead: "research", scout: "research", trends: "research", analyst: "research", voice: "research", reviews: "research", timing: "research", checker: "research",
   adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads",
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
+  fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
 };
 export function teamColour(key: string) {
   return TEAM_COLOUR[TEAM_OF[key] ?? "research"];
@@ -224,7 +232,7 @@ export function TeamFloor({ agents, events, learnings }: { agents: TeamAgent[]; 
         .tf-pulse { transform-box: fill-box; transform-origin: center; animation: tf-pulse 2.2s ease-in-out infinite; }
         .tf-blink { transform-box: fill-box; transform-origin: center; animation: tf-blink 3.6s infinite; }
       `}</style>
-      <svg viewBox="0 0 1000 1180" className="block h-auto w-full" role="img" aria-label="Research team floor">
+      <svg viewBox="0 0 1000 1450" className="block h-auto w-full" role="img" aria-label="Research team floor">
         <defs>
           <pattern id="tf-grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M40 0H0V40" fill="none" stroke="#34d399" strokeOpacity="0.07" />
@@ -245,8 +253,8 @@ export function TeamFloor({ agents, events, learnings }: { agents: TeamAgent[]; 
             </feMerge>
           </filter>
         </defs>
-        <rect width="1000" height="1180" fill="url(#tf-grid)" />
-        <rect width="1000" height="1180" fill="url(#tf-fade)" />
+        <rect width="1000" height="1450" fill="url(#tf-grid)" />
+        <rect width="1000" height="1450" fill="url(#tf-fade)" />
 
         {ZONES.map((z) => (
           <g key={z.label}>

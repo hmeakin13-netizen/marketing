@@ -7,7 +7,7 @@ import { TeamFloor } from "@/components/staff/TeamFloor";
 
 const TeamFloor3D = dynamic(() => import("@/components/staff/TeamFloor3D").then((m) => m.TeamFloor3D), {
   ssr: false,
-  loading: () => <div className="flex h-[520px] items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-sm text-zinc-500 sm:h-[760px]">Loading the office…</div>,
+  loading: () => <div className="flex h-[520px] items-center justify-center rounded-xl border border-zinc-800 bg-zinc-950 text-sm text-zinc-500 sm:h-[860px]">Loading the office…</div>,
 });
 
 /** Switches between the 3D office and the flat map. The flat map is also the fallback if 3D cannot start. */
