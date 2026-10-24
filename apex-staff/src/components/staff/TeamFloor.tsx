@@ -6,7 +6,7 @@ import type { TeamAgent, TeamEvent } from "@/lib/staff/admaker";
  * really handed along it in the last three hours. Nothing here is decoration that is not backed by a row.
  */
 
-const POS: Record<string, { x: number; y: number }> = {
+export const POS: Record<string, { x: number; y: number }> = {
   lead: { x: 500, y: 78 },
   scout: { x: 105, y: 200 },
   analyst: { x: 255, y: 200 },
@@ -24,7 +24,7 @@ const POS: Record<string, { x: number; y: number }> = {
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
-const PLANNED: { name: string; role: string; x: number; y: number }[] = [
+export const PLANNED: { name: string; role: string; x: number; y: number }[] = [
   { name: "Client Check-in", role: "Asks for booked and won", x: 95, y: 705 },
   { name: "Report Writer", role: "Weekly client reports", x: 225, y: 705 },
   { name: "Video Requester", role: "Asks owners for clips", x: 355, y: 705 },
@@ -33,18 +33,18 @@ const PLANNED: { name: string; role: string; x: number; y: number }[] = [
   { name: "Publisher", role: "Posts across platforms", x: 780, y: 705 },
   { name: "Inbox", role: "Watches DMs and comments", x: 910, y: 705 },
 ];
-const ZONES = [
+export const ZONES = [
   { label: "RESEARCH", x: 20, y: 130, w: 330, h: 450 },
   { label: "ADS", x: 650, y: 130, w: 330, h: 450 },
   { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 185 },
   { label: "MARKETING  ·  open desks for social media (Serena)", x: 455, y: 620, w: 525, h: 185 },
 ];
-const BRAIN = { x: 500, y: 290 };
-const COLOUR = { manager: "#34d399", worker: "#38bdf8", reviewer: "#fbbf24" } as const;
-const RECENT_MS = 3 * 3600 * 1000;
+export const BRAIN = { x: 500, y: 290 };
+export const COLOUR = { manager: "#34d399", worker: "#38bdf8", reviewer: "#fbbf24" } as const;
+export const RECENT_MS = 3 * 3600 * 1000;
 
-type Edge = { from: string; to: string };
-const EDGES: Edge[] = [
+export type Edge = { from: string; to: string };
+export const EDGES: Edge[] = [
   { from: "scout", to: "brain" },
   { from: "analyst", to: "brain" },
   { from: "voice", to: "brain" },
@@ -70,12 +70,12 @@ const EDGES: Edge[] = [
   { from: "budget", to: "numbers" },
 ];
 
-function pt(key: string) {
+export function pt(key: string) {
   return key === "brain" ? BRAIN : POS[key];
 }
 
 /** Edges that carried something recently, from real events. */
-function liveEdges(events: TeamEvent[]) {
+export function liveEdges(events: TeamEvent[]) {
   const now = Date.now();
   const live = new Set<string>();
   const mark = (a: string, b: string) => {
@@ -91,7 +91,7 @@ function liveEdges(events: TeamEvent[]) {
   return live;
 }
 
-function status(a: TeamAgent) {
+export function status(a: TeamAgent) {
   const fresh = a.last_run_at && Date.now() - new Date(a.last_run_at).getTime() < 45 * 60000;
   if (a.status === "working" && fresh) return "working" as const;
   if (a.status === "error") return "error" as const;

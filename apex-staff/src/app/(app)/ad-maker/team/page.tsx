@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/staff/auth";
 import { loadTeam, type TeamAgent, type TeamEvent } from "@/lib/staff/admaker";
 import { AutoRefresh } from "@/components/staff/AutoRefresh";
-import { TeamFloor } from "@/components/staff/TeamFloor";
+import { TeamFloorView } from "@/components/staff/TeamFloorView";
 import { Badge, Card, PageHeader } from "@/components/staff/ui";
 
 export const metadata = { title: "Research team | Apex Team" };
@@ -95,7 +95,7 @@ export default async function ResearchTeamPage() {
         <Card><p className="text-xs uppercase tracking-wider text-zinc-500">Findings in the brain</p><p className="mt-1 text-2xl font-semibold text-white">{learnings}</p></Card>
       </div>
 
-      <TeamFloor agents={agents} events={events} learnings={learnings} />
+      <TeamFloorView agents={agents} events={events} learnings={learnings} />
 
       {lead ? (
         <div className="mx-auto max-w-md">
