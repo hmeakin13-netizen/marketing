@@ -21,23 +21,32 @@ export const POS: Record<string, { x: number; y: number }> = {
   photos: { x: 895, y: 340 },
   budget: { x: 745, y: 480 },
   judge: { x: 895, y: 480 },
+  adslead: { x: 820, y: 78 },
+  web: { x: 500, y: 995 },
+  sitehealth: { x: 160, y: 1090 },
+  rank: { x: 380, y: 1090 },
+  seo: { x: 620, y: 1090 },
+  local: { x: 840, y: 1090 },
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
 export const PLANNED: { name: string; role: string; x: number; y: number }[] = [
-  { name: "Client Check-in", role: "Asks for booked and won", x: 95, y: 705 },
-  { name: "Report Writer", role: "Weekly client reports", x: 225, y: 705 },
-  { name: "Video Requester", role: "Asks owners for clips", x: 355, y: 705 },
-  { name: "Content Planner", role: "Plans posts and reels", x: 520, y: 705 },
-  { name: "Caption Writer", role: "Captions, cuts, remixes", x: 650, y: 705 },
-  { name: "Publisher", role: "Posts across platforms", x: 780, y: 705 },
-  { name: "Inbox", role: "Watches DMs and comments", x: 910, y: 705 },
+  { name: "Care Lead", role: "Manager: client care", x: 230, y: 690 },
+  { name: "Client Check-in", role: "Asks for booked and won", x: 95, y: 800 },
+  { name: "Report Writer", role: "Weekly client reports", x: 225, y: 800 },
+  { name: "Video Requester", role: "Asks owners for clips", x: 355, y: 800 },
+  { name: "Marketing Lead", role: "Manager: social media", x: 715, y: 690 },
+  { name: "Content Planner", role: "Plans posts and reels", x: 520, y: 800 },
+  { name: "Caption Writer", role: "Captions, cuts, remixes", x: 650, y: 800 },
+  { name: "Publisher", role: "Posts across platforms", x: 780, y: 800 },
+  { name: "Inbox", role: "Watches DMs and comments", x: 910, y: 800 },
 ];
 export const ZONES = [
   { label: "RESEARCH", x: 20, y: 130, w: 330, h: 450 },
   { label: "ADS", x: 650, y: 130, w: 330, h: 450 },
-  { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 185 },
-  { label: "MARKETING  ·  open desks for social media (Serena)", x: 455, y: 620, w: 525, h: 185 },
+  { label: "CLIENT CARE", x: 20, y: 620, w: 420, h: 280 },
+  { label: "MARKETING (Serena)", x: 455, y: 620, w: 525, h: 280 },
+  { label: "WEBSITE", x: 20, y: 930, w: 960, h: 230 },
 ];
 export const BRAIN = { x: 500, y: 290 };
 export const COLOUR = { manager: "#34d399", worker: "#38bdf8", reviewer: "#fbbf24" } as const;
@@ -68,6 +77,19 @@ export const EDGES: Edge[] = [
   { from: "judge", to: "lead" },
   { from: "budget", to: "lead" },
   { from: "budget", to: "numbers" },
+  { from: "maker", to: "adslead" },
+  { from: "numbers", to: "adslead" },
+  { from: "copy", to: "adslead" },
+  { from: "photos", to: "adslead" },
+  { from: "budget", to: "adslead" },
+  { from: "judge", to: "adslead" },
+  { from: "sitehealth", to: "web" },
+  { from: "rank", to: "web" },
+  { from: "seo", to: "web" },
+  { from: "local", to: "web" },
+  { from: "seo", to: "rank" },
+  { from: "web", to: "brain" },
+  { from: "adslead", to: "brain" },
 ];
 
 export function pt(key: string) {
@@ -180,7 +202,7 @@ export function TeamFloor({ agents, events, learnings }: { agents: TeamAgent[]; 
         .tf-pulse { transform-box: fill-box; transform-origin: center; animation: tf-pulse 2.2s ease-in-out infinite; }
         .tf-blink { transform-box: fill-box; transform-origin: center; animation: tf-blink 3.6s infinite; }
       `}</style>
-      <svg viewBox="0 0 1000 850" className="block h-auto w-full" role="img" aria-label="Research team floor">
+      <svg viewBox="0 0 1000 1180" className="block h-auto w-full" role="img" aria-label="Research team floor">
         <defs>
           <pattern id="tf-grid" width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M40 0H0V40" fill="none" stroke="#34d399" strokeOpacity="0.07" />
