@@ -26,6 +26,8 @@ type Post = {
   pillar: string | null;
   image_prompt: string | null;
   image_url: string | null;
+  video_prompt: string | null;
+  video_url: string | null;
   ai_label: boolean | null;
   created_at: string;
 };
@@ -47,7 +49,7 @@ function PostCard({ p, actions }: { p: Post; actions: ("approved" | "ready" | "p
         <Badge tone={TONE[p.status]}>{p.status}</Badge>
         <Badge>{p.format}</Badge>
         {p.pillar ? <Badge tone="info">{PILLAR[p.pillar] ?? p.pillar}</Badge> : null}
-        {p.ai_label ? <Badge tone="warn">AI image: add the AI label</Badge> : null}
+        {p.ai_label ? <Badge tone="warn">AI visual: add the AI label</Badge> : null}
         <span className="text-xs text-zinc-500">{p.platform} · {day(p.planned_for)}</span>
         {p.written_by ? <span className="ml-auto text-xs text-zinc-600">by {p.written_by}</span> : null}
       </div>
@@ -65,6 +67,8 @@ function PostCard({ p, actions }: { p: Post; actions: ("approved" | "ready" | "p
         // eslint-disable-next-line @next/next/no-img-element
         <img src={p.image_url} alt={p.topic} className="mt-2 max-h-72 rounded-lg border border-white/10" />
       ) : null}
+      {p.video_url ? <video src={p.video_url} controls playsInline className="mt-2 max-h-80 rounded-lg border border-white/10" /> : null}
+      {p.video_prompt && !p.video_url ? <p className="mt-1 text-xs text-zinc-500">Video brief (waiting to be generated): {p.video_prompt}</p> : null}
       {p.visual_brief ? <p className="mt-2 text-xs text-zinc-400">What to film or show: {p.visual_brief}</p> : null}
       {p.image_prompt && !p.image_url ? <p className="mt-1 text-xs text-zinc-500">Image brief (waiting to be generated): {p.image_prompt}</p> : null}
       {p.evidence ? <p className="mt-1 text-xs text-zinc-600">Based on: {p.evidence}</p> : null}
