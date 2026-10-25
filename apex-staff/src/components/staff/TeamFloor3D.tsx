@@ -49,7 +49,7 @@ const TEAMS: { id: string; label: string; colour: string; manager: { key?: strin
     label: "SALES RECOVERY",
     colour: "#ef4444",
     manager: { key: "saleslead", name: "Sales Lead" },
-    members: [{ key: "noshow", name: "No-show Matcher" }, { key: "chaser", name: "Follow-up Chaser" }, { key: "syncer", name: "Stage Syncer" }, { key: "booster", name: "Call Booster" }],
+    members: [{ key: "noshow", name: "No-show Matcher" }, { key: "chaser", name: "Follow-up Chaser" }, { key: "syncer", name: "Stage Syncer" }, { key: "ticker", name: "Task Ticker" }, { key: "booster", name: "Call Booster" }],
   },
 ];
 
