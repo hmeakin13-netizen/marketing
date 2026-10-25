@@ -64,8 +64,12 @@ function PostCard({ p, actions }: { p: Post; actions: ("approved" | "ready" | "p
         </details>
       ) : null}
       {p.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={p.image_url} alt={p.topic} className="mt-2 max-h-72 rounded-lg border border-white/10" />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {p.image_url.split("\n").map((u) => u.trim()).filter(Boolean).map((u) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={u} src={u} alt={p.topic} className={`rounded-lg border border-white/10 ${p.format === "story" ? "max-h-96" : p.format === "carousel" ? "max-h-48" : "max-h-72"}`} />
+          ))}
+        </div>
       ) : null}
       {p.video_url ? <video src={p.video_url} controls playsInline className="mt-2 max-h-80 rounded-lg border border-white/10" /> : null}
       {p.video_prompt && !p.video_url ? <p className="mt-1 text-xs text-zinc-500">Video brief (waiting to be generated): {p.video_prompt}</p> : null}
@@ -90,19 +94,32 @@ function PostCard({ p, actions }: { p: Post; actions: ("approved" | "ready" | "p
   );
 }
 
-export default async function MarketingPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
+const FORMATS: { key: string; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "reel", label: "Reels" },
+  { key: "carousel", label: "Carousels" },
+  { key: "story", label: "Stories" },
+  { key: "post", label: "Posts" },
+];
+
+export default async function MarketingPage({ searchParams }: { searchParams: { ok?: string; error?: string; f?: string } }) {
   const { supabase } = await requireRole("admin", "manager");
   const { data } = await supabase
     .from("marketing_posts")
     .select("*")
     .order("planned_for", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(120)
+    .limit(400)
     .returns<Post[]>();
-  const posts = data ?? [];
-  const drafted = posts.filter((p) => p.status === "drafted");
+  const allPosts = data ?? [];
+  const f = FORMATS.some((x) => x.key === searchParams.f) ? (searchParams.f as string) : "all";
+  const posts = f === "all" ? allPosts : allPosts.filter((p) => p.format === f);
+  const hasText = (p: Post) => Boolean(p.caption && p.caption.trim());
+  // Anything with a caption is ready for a yes or no, even before the Publisher has promoted it.
+  const drafted = posts.filter((p) => p.status === "drafted" || (p.status === "idea" && hasText(p)));
   const ready = posts.filter((p) => p.status === "approved" || p.status === "ready");
-  const ideas = posts.filter((p) => p.status === "idea");
+  const ideas = posts.filter((p) => p.status === "idea" && !hasText(p));
+  const count = (k: string) => allPosts.filter((p) => (k === "all" || p.format === k) && (p.status === "drafted" || (p.status === "idea" && Boolean(p.caption && p.caption.trim())))).length;
   const done = posts.filter((p) => p.status === "posted").slice(-8).reverse();
 
   return (
@@ -114,16 +131,24 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
       />
       <Notice ok={searchParams.ok} error={searchParams.error} />
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        {FORMATS.map((x) => (
+          <a key={x.key} href={x.key === "all" ? "/marketing" : `/marketing?f=${x.key}`} className={x.key === f ? btnPrimary : btnGhost}>
+            {x.label} ({count(x.key)})
+          </a>
+        ))}
+      </div>
+
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card><p className="text-xs uppercase tracking-wider text-zinc-500">Waiting for you</p><p className="mt-1 text-2xl font-semibold text-white">{drafted.length}</p></Card>
         <Card><p className="text-xs uppercase tracking-wider text-zinc-500">Ready to post</p><p className="mt-1 text-2xl font-semibold text-white">{ready.length}</p></Card>
-        <Card><p className="text-xs uppercase tracking-wider text-zinc-500">Ideas planned</p><p className="mt-1 text-2xl font-semibold text-white">{ideas.length}</p></Card>
+        <Card><p className="text-xs uppercase tracking-wider text-zinc-500">Still being written</p><p className="mt-1 text-2xl font-semibold text-white">{ideas.length}</p></Card>
         <Card><p className="text-xs uppercase tracking-wider text-zinc-500">Posted</p><p className="mt-1 text-2xl font-semibold text-white">{posts.filter((p) => p.status === "posted").length}</p></Card>
       </div>
 
       <SectionTitle>Waiting for your approval</SectionTitle>
       {drafted.length === 0 ? (
-        <Card><p className="text-sm text-zinc-500">Nothing waiting. The team drafts new posts twice a day.</p></Card>
+        <Card><p className="text-sm text-zinc-500">Nothing waiting for this filter. The team writes new posts through the day.</p></Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {drafted.map((p) => <PostCard key={p.id} p={p} actions={["approved", "skipped"]} />)}
@@ -139,9 +164,9 @@ export default async function MarketingPage({ searchParams }: { searchParams: { 
         </div>
       )}
 
-      <SectionTitle>Ideas in the plan</SectionTitle>
+      <SectionTitle>Ideas still being written</SectionTitle>
       {ideas.length === 0 ? (
-        <Card><p className="text-sm text-zinc-500">No ideas planned yet. The Content Planner builds the week on Mondays.</p></Card>
+        <Card><p className="text-sm text-zinc-500">Nothing still being written for this filter.</p></Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {ideas.map((p) => <PostCard key={p.id} p={p} actions={["skipped"]} />)}
