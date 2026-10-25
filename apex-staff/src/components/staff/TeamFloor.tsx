@@ -41,10 +41,11 @@ export const POS: Record<string, { x: number; y: number }> = {
   compliance: { x: 910, y: 565 },
   outcomes: { x: 225, y: 885 },
   saleslead: { x: 500, y: 1510 },
-  noshow: { x: 160, y: 1605 },
-  chaser: { x: 380, y: 1605 },
-  syncer: { x: 620, y: 1605 },
-  booster: { x: 840, y: 1605 },
+  noshow: { x: 120, y: 1605 },
+  chaser: { x: 300, y: 1605 },
+  syncer: { x: 480, y: 1605 },
+  ticker: { x: 660, y: 1605 },
+  booster: { x: 850, y: 1605 },
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
@@ -83,7 +84,7 @@ const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
   carelead: "care", checkin: "care", reports: "care", videos: "care", outcomes: "care",
-  saleslead: "sales", noshow: "sales", chaser: "sales", syncer: "sales", booster: "sales",
+  saleslead: "sales", noshow: "sales", chaser: "sales", syncer: "sales", ticker: "sales", booster: "sales",
 };
 export function teamColour(key: string) {
   return TEAM_COLOUR[TEAM_OF[key] ?? "research"];
@@ -138,6 +139,7 @@ export const EDGES: Edge[] = [
   { from: "chaser", to: "saleslead" },
   { from: "syncer", to: "saleslead" },
   { from: "booster", to: "saleslead" },
+  { from: "ticker", to: "saleslead" },
   { from: "noshow", to: "chaser" },
   { from: "booster", to: "brain" },
   { from: "compliance", to: "adslead" },
