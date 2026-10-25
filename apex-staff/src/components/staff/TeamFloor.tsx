@@ -47,6 +47,8 @@ export const POS: Record<string, { x: number; y: number }> = {
   publisher: { x: 910, y: 785 },
   inbox: { x: 585, y: 865 },
   postwatch: { x: 845, y: 865 },
+  mktscout: { x: 715, y: 865 },
+  visuals: { x: 975, y: 865 },
   saleslead: { x: 500, y: 1510 },
   noshow: { x: 120, y: 1605 },
   chaser: { x: 300, y: 1605 },
@@ -85,7 +87,7 @@ const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
   carelead: "care", checkin: "care", reports: "care", videos: "care", outcomes: "care",
-  saleslead: "sales", mktlead: "marketing", planner: "marketing", captions: "marketing", scripts: "marketing", publisher: "marketing", inbox: "marketing", postwatch: "marketing", noshow: "sales", chaser: "sales", syncer: "sales", ticker: "sales", booster: "sales",
+  saleslead: "sales", mktlead: "marketing", planner: "marketing", captions: "marketing", scripts: "marketing", publisher: "marketing", inbox: "marketing", postwatch: "marketing", mktscout: "marketing", visuals: "marketing", noshow: "sales", chaser: "sales", syncer: "sales", ticker: "sales", booster: "sales",
 };
 export function teamColour(key: string) {
   return TEAM_COLOUR[TEAM_OF[key] ?? "research"];
@@ -146,6 +148,10 @@ export const EDGES: Edge[] = [
   { from: "scripts", to: "publisher" },
   { from: "planner", to: "scripts" },
   { from: "postwatch", to: "planner" },
+  { from: "mktscout", to: "planner" },
+  { from: "mktscout", to: "captions" },
+  { from: "visuals", to: "publisher" },
+  { from: "captions", to: "visuals" },
   { from: "inbox", to: "mktlead" },
   { from: "publisher", to: "mktlead" },
   { from: "planner", to: "brain" },
