@@ -34,9 +34,10 @@ const TEAMS: { id: string; label: string; colour: string; manager: { key?: strin
     id: "marketing",
     label: "MARKETING (SERENA)",
     colour: "#facc15",
-    manager: { name: "Marketing Lead" },
-    members: [{ name: "Content Planner" }, { name: "Caption Writer" }, { name: "Publisher" }, { name: "Inbox" }],
+    manager: { key: "mktlead", name: "Marketing Lead" },
+    members: [{ key: "planner", name: "Content Planner" }, { key: "captions", name: "Caption Writer" }, { key: "scripts", name: "Reel Scriptwriter" }, { key: "publisher", name: "Publisher" }, { key: "inbox", name: "Inbox Watcher" }, { key: "postwatch", name: "Post Analyst" }],
   },
+
   {
     id: "care",
     label: "CLIENT CARE",
