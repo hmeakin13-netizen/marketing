@@ -40,6 +40,13 @@ export const POS: Record<string, { x: number; y: number }> = {
   operator: { x: 790, y: 565 },
   compliance: { x: 910, y: 565 },
   outcomes: { x: 225, y: 885 },
+  mktlead: { x: 715, y: 690 },
+  planner: { x: 520, y: 785 },
+  captions: { x: 650, y: 785 },
+  scripts: { x: 780, y: 785 },
+  publisher: { x: 910, y: 785 },
+  inbox: { x: 585, y: 865 },
+  postwatch: { x: 845, y: 865 },
   saleslead: { x: 500, y: 1510 },
   noshow: { x: 120, y: 1605 },
   chaser: { x: 300, y: 1605 },
@@ -49,13 +56,7 @@ export const POS: Record<string, { x: number; y: number }> = {
 };
 
 /** Desks nobody sits at yet. Shown as open desks so the roadmap is visible; they never show as working. */
-export const PLANNED: { name: string; role: string; x: number; y: number }[] = [
-  { name: "Marketing Lead", role: "Manager: social media", x: 715, y: 690 },
-  { name: "Content Planner", role: "Plans posts and reels", x: 520, y: 800 },
-  { name: "Caption Writer", role: "Captions, cuts, remixes", x: 650, y: 800 },
-  { name: "Publisher", role: "Posts across platforms", x: 780, y: 800 },
-  { name: "Inbox", role: "Watches DMs and comments", x: 910, y: 800 },
-];
+export const PLANNED: { name: string; role: string; x: number; y: number }[] = [];
 export const ZONES = [
   { label: "RESEARCH", x: 20, y: 130, w: 330, h: 480, colour: "#38bdf8" },
   { label: "ADS", x: 650, y: 130, w: 330, h: 480, colour: "#fb923c" },
@@ -84,7 +85,7 @@ const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
   carelead: "care", checkin: "care", reports: "care", videos: "care", outcomes: "care",
-  saleslead: "sales", noshow: "sales", chaser: "sales", syncer: "sales", ticker: "sales", booster: "sales",
+  saleslead: "sales", mktlead: "marketing", planner: "marketing", captions: "marketing", scripts: "marketing", publisher: "marketing", inbox: "marketing", postwatch: "marketing", noshow: "sales", chaser: "sales", syncer: "sales", ticker: "sales", booster: "sales",
 };
 export function teamColour(key: string) {
   return TEAM_COLOUR[TEAM_OF[key] ?? "research"];
@@ -140,6 +141,14 @@ export const EDGES: Edge[] = [
   { from: "syncer", to: "saleslead" },
   { from: "booster", to: "saleslead" },
   { from: "ticker", to: "saleslead" },
+  { from: "planner", to: "captions" },
+  { from: "captions", to: "publisher" },
+  { from: "scripts", to: "publisher" },
+  { from: "planner", to: "scripts" },
+  { from: "postwatch", to: "planner" },
+  { from: "inbox", to: "mktlead" },
+  { from: "publisher", to: "mktlead" },
+  { from: "planner", to: "brain" },
   { from: "noshow", to: "chaser" },
   { from: "booster", to: "brain" },
   { from: "compliance", to: "adslead" },
