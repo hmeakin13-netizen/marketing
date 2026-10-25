@@ -23,8 +23,14 @@ type Post = {
   evidence: string | null;
   note: string | null;
   metrics: string | null;
+  pillar: string | null;
+  image_prompt: string | null;
+  image_url: string | null;
+  ai_label: boolean | null;
   created_at: string;
 };
+
+const PILLAR: Record<string, string> = { reach: "Reach (everyone)", niche: "Niche (trades)", info: "Informational" };
 
 const TONE: Record<string, "default" | "info" | "warn" | "good" | "bad"> = { idea: "default", drafted: "warn", approved: "info", ready: "good", posted: "good", skipped: "default" };
 
@@ -40,6 +46,8 @@ function PostCard({ p, actions }: { p: Post; actions: ("approved" | "ready" | "p
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <Badge tone={TONE[p.status]}>{p.status}</Badge>
         <Badge>{p.format}</Badge>
+        {p.pillar ? <Badge tone="info">{PILLAR[p.pillar] ?? p.pillar}</Badge> : null}
+        {p.ai_label ? <Badge tone="warn">AI image: add the AI label</Badge> : null}
         <span className="text-xs text-zinc-500">{p.platform} · {day(p.planned_for)}</span>
         {p.written_by ? <span className="ml-auto text-xs text-zinc-600">by {p.written_by}</span> : null}
       </div>
@@ -53,7 +61,12 @@ function PostCard({ p, actions }: { p: Post; actions: ("approved" | "ready" | "p
           <pre className="mt-1 whitespace-pre-wrap text-xs text-zinc-300">{p.script}</pre>
         </details>
       ) : null}
+      {p.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={p.image_url} alt={p.topic} className="mt-2 max-h-72 rounded-lg border border-white/10" />
+      ) : null}
       {p.visual_brief ? <p className="mt-2 text-xs text-zinc-400">What to film or show: {p.visual_brief}</p> : null}
+      {p.image_prompt && !p.image_url ? <p className="mt-1 text-xs text-zinc-500">Image brief (waiting to be generated): {p.image_prompt}</p> : null}
       {p.evidence ? <p className="mt-1 text-xs text-zinc-600">Based on: {p.evidence}</p> : null}
       {p.note ? <p className="mt-1 text-xs text-amber-300">{p.note}</p> : null}
       {p.metrics ? <p className="mt-1 text-xs text-zinc-400">Result: {p.metrics}</p> : null}
