@@ -11,7 +11,7 @@ type Draft = { id: number; client_name: string; channel: "whatsapp" | "ghl"; kin
 type Contact = { client_name: string; contact_name: string | null; whatsapp: string | null; ghl_contact_id: string | null };
 type Outcome = { id: number; client_name: string; week_start: string; leads_received: number | null; booked: number | null; won: number | null; won_value: number | null; notes: string | null; source: string; created_at: string };
 
-const KIND: Record<string, string> = { checkin: "Weekly check-in", report: "Weekly report", video: "Clip request", other: "Message" };
+const KIND: Record<string, string> = { checkin: "Weekly check-in", report: "Weekly report", video: "Clip request", referral: "Referral ask", other: "Message" };
 
 function lastMonday() {
   const d = new Date();
