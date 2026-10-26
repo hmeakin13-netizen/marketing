@@ -13,19 +13,19 @@ const intOrNull = (f: FormData, k: string) => {
 };
 const back = (kind: "ok" | "error", message: string): never => redirect(`/care?${kind}=${encodeURIComponent(message)}`);
 
-/** Mark a drafted message as sent (by a person) or skipped. Nothing is ever sent from here. */
+/** Mark a drafted message as sent (by a person), approved (the care team sends it by SMS on its next run) or skipped. Nothing is sent from here. */
 export async function setDraftStatus(formData: FormData) {
   const { supabase } = await requireRole("admin", "manager");
   const id = Number(str(formData, "id"));
   const status = str(formData, "status");
-  if (!Number.isFinite(id) || !["sent", "skipped", "draft"].includes(status)) back("error", "Something went wrong with that draft.");
+  if (!Number.isFinite(id) || !["sent", "approved", "skipped", "draft"].includes(status)) back("error", "Something went wrong with that draft.");
   const { error } = await supabase
     .from("care_drafts")
     .update({ status, sent_at: status === "sent" ? new Date().toISOString() : null })
     .eq("id", id);
   if (error) back("error", error.message);
   revalidatePath("/care");
-  back("ok", status === "sent" ? "Marked as sent." : status === "skipped" ? "Skipped." : "Back to draft.");
+  back("ok", status === "sent" ? "Marked as sent." : status === "approved" ? "Approved. The care team sends it by SMS on its next run (Mon to Sat, 9 to 7)." : status === "skipped" ? "Skipped." : "Back to draft.");
 }
 
 /** Log how many of a week's leads booked or were won. This is the number the agents and Test Judge learn from. */
