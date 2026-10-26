@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // /login. Role checks happen in the pages themselves (see lib/staff/auth.ts).
 export async function middleware(request: NextRequest) {
   // Public image converter used by the Make poster and Instagram: no session needed.
-  if (request.nextUrl.pathname.startsWith("/api/jpeg") || request.nextUrl.pathname.startsWith("/fonts/")) return NextResponse.next();
+  if (request.nextUrl.pathname.startsWith("/api/jpeg") || request.nextUrl.pathname.startsWith("/api/version") || request.nextUrl.pathname.startsWith("/fonts/")) return NextResponse.next();
 
   let response = NextResponse.next({ request: { headers: request.headers } });
 
