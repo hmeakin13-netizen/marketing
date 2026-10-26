@@ -2,17 +2,16 @@
 
 import { Component, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { AdaptiveDpr, Billboard as FaceCamera, Html, Line, OrbitControls, PerformanceMonitor, Text } from "@react-three/drei";
+import { Html, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { TeamAgent, TeamEvent } from "@/lib/staff/admaker";
 import { liveLinks, status, teamColour } from "@/components/staff/TeamFloor";
 
 /**
- * The team as a round office around the brand brain. Each team has its own coloured sector with a signature
- * piece of kit behind it, its manager sits on a raised executive desk on the inner ring, and the workers sit
- * on the outer ring facing the brain. Every desk carries a beacon you can read from across the room: green
- * and pulsing while the agent is really working, red when it needs a look, a dim blue ember while it sleeps.
- * The sector signs count who is awake. Everything is driven by the same rows as the flat map.
+ * The team as a round office around the brand brain. Each team has its own coloured sector, its manager
+ * sits on a raised executive desk on the inner ring, and the workers sit on the outer ring facing the brain.
+ * People type while their agent is really working and sleep on the desk when it is not. A line only appears
+ * for a hand-off that really happened in the last half hour. Everything is driven by the same rows as the flat map.
  */
 
 const SKIN = ["#f1c9a5", "#d9a47e", "#b97d56", "#8d5a3b", "#f5d6bb", "#c68b63"];
@@ -20,15 +19,9 @@ const HAIR = ["#1f1a17", "#3b2a1d", "#6b4a2b", "#b88a4a", "#2b2b33", "#7a3e2c"];
 
 const R_WORK = 11.8; // workers
 const R_MGR = 6.6; // managers
-const R_PROP = 14.2; // the team's signature kit, behind the workers
-const R_FLOOR = 15.6;
+const R_FLOOR = 15.2;
 const GAP = (6 * Math.PI) / 180;
 
-const AWAKE = "#22c55e";
-const ERROR = "#f43f5e";
-const ASLEEP = "#3b82f6";
-
-type St = "working" | "error" | "idle" | "open";
 type Seat = { id: string; name: string; x: number; z: number; yaw: number; colour: string; manager: boolean; agentKey?: string };
 type Sector = { id: string; label: string; colour: string; start: number; end: number; mid: number };
 
@@ -44,26 +37,20 @@ const TEAMS: { id: string; label: string; colour: string; manager: { key?: strin
     manager: { key: "mktlead", name: "Marketing Lead" },
     members: [{ key: "planner", name: "Content Planner" }, { key: "captions", name: "Caption Writer" }, { key: "scripts", name: "Reel Scriptwriter" }, { key: "publisher", name: "Publisher" }, { key: "inbox", name: "Inbox Watcher" }, { key: "postwatch", name: "Post Analyst" }, { key: "mktscout", name: "Social Competitor Analyst" }, { key: "visuals", name: "Visual and Video Creator" }],
   },
+
   {
     id: "care",
     label: "CLIENT CARE",
     colour: "#f472b6",
     manager: { key: "carelead", name: "Care Lead" },
-    members: [{ key: "checkin", name: "Client Check-in" }, { key: "reports", name: "Report Writer" }, { key: "videos", name: "Video Requester" }, { key: "referrals", name: "Referral Asker" }, { key: "outcomes", name: "Outcome Chaser" }],
+    members: [{ key: "checkin", name: "Client Check-in" }, { key: "reports", name: "Report Writer" }, { key: "videos", name: "Video Requester" }, { key: "outcomes", name: "Outcome Chaser" }],
   },
   {
     id: "sales",
     label: "SALES RECOVERY",
     colour: "#ef4444",
     manager: { key: "saleslead", name: "Sales Lead" },
-    members: [{ key: "replies", name: "Reply Handler" }, { key: "noshow", name: "No-show Matcher" }, { key: "chaser", name: "Follow-up Chaser" }, { key: "syncer", name: "Stage Syncer" }, { key: "ticker", name: "Task Ticker" }, { key: "booster", name: "Call Booster" }],
-  },
-  {
-    id: "ops",
-    label: "OPS",
-    colour: "#94a3b8",
-    manager: { key: "ops", name: "Ops Auditor" },
-    members: [{ key: "taskset", name: "Task Setter" }, { key: "backlog", name: "Backlog Answerer" }, { key: "briefing", name: "Morning Briefing" }],
+    members: [{ key: "noshow", name: "No-show Matcher" }, { key: "chaser", name: "Follow-up Chaser" }, { key: "syncer", name: "Stage Syncer" }, { key: "ticker", name: "Task Ticker" }, { key: "booster", name: "Call Booster" }],
   },
 ];
 
@@ -105,87 +92,31 @@ function hash(s: string) {
   return h;
 }
 
-function Label({ name, line, colour, y, big, st }: { name: string; line: string; colour: string; y: number; big?: boolean; st: St }) {
-  const dot = st === "working" ? AWAKE : st === "error" ? ERROR : st === "idle" ? ASLEEP : "#52525b";
-  const nameSize = big ? 0.36 : 0.3;
-  const lineSize = 0.23;
-  const w = Math.max(name.length * nameSize * 0.58, line.length * lineSize * 0.55) + 1.1;
-  const h = big ? 1.15 : 1.0;
+function Label({ name, line, colour, y, big }: { name: string; line: string; colour: string; y: number; big?: boolean }) {
   return (
-    <FaceCamera position={[0, y, 0]}>
-      <mesh position={[0, 0, -0.02]}>
-        <planeGeometry args={[w, h]} />
-        <meshBasicMaterial color="#09090b" transparent opacity={0.8} depthWrite={false} />
-      </mesh>
-      <mesh position={[-w / 2 + 0.32, h * 0.2, 0]}>
-        <circleGeometry args={[0.11, 12]} />
-        <meshBasicMaterial color={dot} />
-      </mesh>
-      <Text position={[0.18, h * 0.2, 0]} fontSize={nameSize} color="#fafafa" anchorX="center" anchorY="middle" maxWidth={w - 0.9}>
-        {name}
-      </Text>
-      <Text position={[0, -h * 0.22, 0]} fontSize={lineSize} color={colour} anchorX="center" anchorY="middle" maxWidth={w - 0.4}>
-        {line}
-      </Text>
-    </FaceCamera>
+    <Html position={[0, y, 0]} center distanceFactor={big ? 15 : 13} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+      <div style={{ textAlign: "center", whiteSpace: "nowrap", background: "rgba(9,9,11,0.72)", border: `1px solid ${colour}55`, borderRadius: 8, padding: "3px 9px" }}>
+        <div style={{ fontSize: big ? 15 : 13, fontWeight: 700, color: "#fafafa" }}>{name}</div>
+        <div style={{ fontSize: 11, color: colour }}>{line}</div>
+      </div>
+    </Html>
   );
 }
 
 function Zzz() {
-  const g = useRef<THREE.Group>(null);
-  const txt = useRef<{ fillOpacity: number } | null>(null);
-  useFrame((s) => {
-    const k = (s.clock.elapsedTime * 0.45) % 1;
-    if (g.current) g.current.position.y = 0.45 + k * 0.6;
-    if (txt.current) txt.current.fillOpacity = k < 0.3 ? k / 0.3 : 1 - (k - 0.3) / 0.7;
-  });
   return (
-    <group ref={g} position={[0.3, 0.5, 0]}>
-      <FaceCamera>
-        <Text ref={txt as never} fontSize={0.34} color="#93c5fd" anchorX="center" anchorY="middle">
-          z z Z
-        </Text>
-      </FaceCamera>
-    </group>
-  );
-}
-
-/** The light pole behind every desk: the one thing you can read from the far side of the room. */
-function Beacon({ st, phase }: { st: St; phase: number }) {
-  const lamp = useRef<THREE.MeshStandardMaterial>(null);
-  const halo = useRef<THREE.Mesh>(null);
-  const colour = st === "working" ? AWAKE : st === "error" ? ERROR : ASLEEP;
-  useFrame((s) => {
-    const t = s.clock.elapsedTime + phase;
-    const pulse = st === "working" ? 0.75 + Math.sin(t * 3) * 0.25 : st === "error" ? 0.6 + (Math.sin(t * 12) > 0 ? 0.5 : 0) : 0.12;
-    if (lamp.current) lamp.current.emissiveIntensity = pulse * 2.2;
-    if (halo.current) {
-      const k = st === "working" ? 1 + Math.sin(t * 3) * 0.18 : 1;
-      halo.current.scale.setScalar(k);
-      (halo.current.material as THREE.MeshBasicMaterial).opacity = st === "working" ? 0.35 + Math.sin(t * 3) * 0.12 : st === "error" ? 0.35 : 0.08;
-    }
-  });
-  if (st === "open") return null;
-  return (
-    <group position={[0, 0, 0.75]}>
-      <mesh position={[0, 1.6, 0]}>
-        <cylinderGeometry args={[0.035, 0.05, 3.2, 8]} />
-        <meshStandardMaterial color="#27272a" />
-      </mesh>
-      <mesh position={[0, 3.3, 0]}>
-        <sphereGeometry args={[0.2, 10, 8]} />
-        <meshStandardMaterial ref={lamp} color={colour} emissive={colour} emissiveIntensity={1} />
-      </mesh>
-      <mesh ref={halo} position={[0, 3.3, 0]}>
-        <sphereGeometry args={[0.45, 10, 8]} />
-        <meshBasicMaterial color={colour} transparent opacity={0.2} depthWrite={false} />
-      </mesh>
-    </group>
+    <Html position={[0.3, 0.5, 0]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
+      <div className="tf3-zzz" aria-hidden>
+        <span>z</span>
+        <span>z</span>
+        <span>Z</span>
+      </div>
+    </Html>
   );
 }
 
 function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
-  const st: St = agent ? status(agent) : "open";
+  const st = agent ? status(agent) : ("open" as const);
   const colour = seat.colour;
   const h = hash(seat.id);
   const skin = SKIN[h % SKIN.length];
@@ -229,25 +160,17 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
     }
   });
 
-  const screenColour = st === "error" ? ERROR : colour;
+  const screenColour = st === "error" ? "#f43f5e" : colour;
   const line = st === "open" ? "Open desk" : st === "working" ? (agent?.current_task ? agent.current_task.slice(0, 30) : "Working") : st === "error" ? "Needs a look" : "Asleep";
   const ghost = st === "open";
   const sc = mgr ? 1.12 : 1;
   const lift = mgr ? 0.1 : 0;
-  const floor = st === "working" ? AWAKE : st === "error" ? ERROR : ASLEEP;
 
   return (
     <group position={[seat.x, 0, seat.z]} rotation={[0, seat.yaw, 0]} scale={sc}>
-      {/* status pool under the desk, readable from any distance */}
-      {!ghost ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.025, -0.3]}>
-          <circleGeometry args={[1.45, 32]} />
-          <meshBasicMaterial color={floor} transparent opacity={st === "idle" ? 0.06 : 0.22} depthWrite={false} />
-        </mesh>
-      ) : null}
       {mgr ? (
         <>
-          <mesh position={[0, 0.05, -0.2]}>
+          <mesh position={[0, 0.05, -0.2]} receiveShadow>
             <boxGeometry args={[3.7, 0.1, 3.1]} />
             <meshStandardMaterial color="#14141a" />
           </mesh>
@@ -260,7 +183,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
 
       {/* desk, seen from the person's seat: the monitor faces them */}
       <group position={[0, lift, 0]}>
-        <mesh position={[0, 0.72, 0]}>
+        <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
           <boxGeometry args={[w, 0.08, 0.95]} />
           <meshStandardMaterial color={mgr ? "#4a3b2a" : "#3a3a44"} roughness={0.5} transparent={ghost} opacity={ghost ? 0.7 : 1} />
         </mesh>
@@ -272,11 +195,11 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         ))}
         <mesh position={[0, 0.725, 0.46]}>
           <boxGeometry args={[w, 0.02, 0.03]} />
-          <meshStandardMaterial color={floor} emissive={floor} emissiveIntensity={st === "working" ? 1.2 : st === "error" ? 1 : 0.15} />
+          <meshStandardMaterial color={colour} emissive={colour} emissiveIntensity={st === "working" ? 1 : 0.18} />
         </mesh>
         {!ghost ? (
           <>
-            <mesh position={[0, 1.06, 0.2]}>
+            <mesh position={[0, 1.06, 0.2]} castShadow>
               <boxGeometry args={[0.92, 0.56, 0.05]} />
               <meshStandardMaterial color="#17171c" />
             </mesh>
@@ -298,22 +221,13 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
               <boxGeometry args={[0.6, 0.03, 0.2]} />
               <meshStandardMaterial color="#111" />
             </mesh>
-            {/* a mug and a notepad: small things that make a desk look used */}
-            <mesh position={[w / 2 - 0.3, 0.82, 0.1]}>
-              <cylinderGeometry args={[0.07, 0.06, 0.12, 10]} />
-              <meshStandardMaterial color={(h >> 5) % 2 ? "#e5e7eb" : colour} />
-            </mesh>
-            <mesh position={[-(w / 2 - 0.35), 0.765, -0.05]} rotation={[0, 0.3, 0]}>
-              <boxGeometry args={[0.28, 0.02, 0.36]} />
-              <meshStandardMaterial color="#f5f5f4" />
-            </mesh>
           </>
         ) : null}
       </group>
 
       {/* chair and person */}
       <group position={[0, lift, 0]}>
-        <mesh position={[0, 0.45, -0.75]}>
+        <mesh position={[0, 0.45, -0.75]} castShadow>
           <boxGeometry args={[0.7, 0.1, 0.6]} />
           <meshStandardMaterial color={mgr ? "#1f2937" : "#2a2a32"} transparent={ghost} opacity={ghost ? 0.6 : 1} />
         </mesh>
@@ -328,7 +242,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         {!ghost ? (
           <group position={[0, 0.5, -0.72]}>
             <group ref={torso} position={[0, 0.2, 0]}>
-              <mesh position={[0, 0.35, 0]}>
+              <mesh position={[0, 0.35, 0]} castShadow>
                 <boxGeometry args={[0.62, 0.78, 0.34]} />
                 <meshStandardMaterial color={mgr ? "#e5e7eb" : colour} roughness={0.7} />
               </mesh>
@@ -345,12 +259,12 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
                 </>
               ) : null}
               <group ref={head} position={[0, 1.18, 0]}>
-                <mesh>
-                  <sphereGeometry args={[0.27, 12, 10]} />
+                <mesh castShadow>
+                  <sphereGeometry args={[0.27, 20, 16]} />
                   <meshStandardMaterial color={skin} roughness={0.8} />
                 </mesh>
                 <mesh position={[0, 0.07, -0.03]}>
-                  <sphereGeometry args={[0.285, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.52]} />
+                  <sphereGeometry args={[0.285, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.52]} />
                   <meshStandardMaterial color={hair} roughness={0.9} />
                 </mesh>
                 {st === "idle" ? (
@@ -360,20 +274,20 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
                   </>
                 ) : (
                   <>
-                    <mesh position={[-0.09, 0.03, 0.255]}><sphereGeometry args={[0.028, 8, 8]} /><meshBasicMaterial color={st === "error" ? ERROR : "#111"} /></mesh>
-                    <mesh position={[0.09, 0.03, 0.255]}><sphereGeometry args={[0.028, 8, 8]} /><meshBasicMaterial color={st === "error" ? ERROR : "#111"} /></mesh>
+                    <mesh position={[-0.09, 0.03, 0.255]}><sphereGeometry args={[0.028, 8, 8]} /><meshBasicMaterial color={st === "error" ? "#f43f5e" : "#111"} /></mesh>
+                    <mesh position={[0.09, 0.03, 0.255]}><sphereGeometry args={[0.028, 8, 8]} /><meshBasicMaterial color={st === "error" ? "#f43f5e" : "#111"} /></mesh>
                   </>
                 )}
                 {st === "idle" ? <Zzz /> : null}
               </group>
               {[-1, 1].map((sd) => (
                 <group key={sd} ref={sd < 0 ? armL : armR} position={[sd * 0.4, 0.62, 0]}>
-                  <mesh position={[0, -0.22, 0]}>
+                  <mesh position={[0, -0.22, 0]} castShadow>
                     <boxGeometry args={[0.16, 0.44, 0.16]} />
                     <meshStandardMaterial color={mgr ? "#111827" : colour} roughness={0.7} />
                   </mesh>
                   <group ref={sd < 0 ? foreL : foreR} position={[0, -0.44, 0]}>
-                    <mesh position={[0, -0.2, 0]}>
+                    <mesh position={[0, -0.2, 0]} castShadow>
                       <boxGeometry args={[0.13, 0.4, 0.13]} />
                       <meshStandardMaterial color={skin} roughness={0.8} />
                     </mesh>
@@ -385,8 +299,6 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         ) : null}
       </group>
 
-      <Beacon st={st} phase={phase} />
-
       {mgr && !ghost ? (
         <mesh ref={gem} position={[0, 3.1, -0.7]}>
           <octahedronGeometry args={[0.2, 0]} />
@@ -394,382 +306,8 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         </mesh>
       ) : null}
       <group rotation={[0, -seat.yaw, 0]}>
-        <Label name={seat.name} line={line} colour={ghost ? "#a1a1aa" : st === "error" ? "#fb7185" : colour} y={mgr ? 3.9 : 2.7} big={mgr} st={st} />
+        <Label name={seat.name} line={line} colour={ghost ? "#a1a1aa" : st === "error" ? "#fb7185" : colour} y={mgr ? 3.9 : 2.7} big={mgr} />
       </group>
-    </group>
-  );
-}
-
-/* ------------------------------------------------------------------------------------------------
- * Signature kit. Each team gets one piece behind its desks, in its colour, that moves while someone
- * on the team is awake: research has a radar, ads a billboard, website a server rack, funds a vault,
- * marketing a video wall, client care a reception with plants, sales a phone bank and Ops a tower.
- * ------------------------------------------------------------------------------------------------ */
-
-function Radar({ colour, awake }: { colour: string; awake: boolean }) {
-  const dish = useRef<THREE.Group>(null);
-  const globe = useRef<THREE.Mesh>(null);
-  const sweep = useRef<THREE.Mesh>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (dish.current) dish.current.rotation.y = awake ? t * 0.9 : Math.sin(t * 0.3) * 0.3;
-    if (globe.current) globe.current.rotation.y = t * 0.5;
-    if (sweep.current) sweep.current.rotation.z = -t * (awake ? 2.2 : 0.4);
-  });
-  return (
-    <group>
-      <mesh position={[0, 0.6, 0]}>
-        <cylinderGeometry args={[0.12, 0.2, 1.2, 10]} />
-        <meshStandardMaterial color="#3f3f46" />
-      </mesh>
-      <group ref={dish} position={[0, 1.4, 0]}>
-        <mesh rotation={[0.9, 0, 0]}>
-          <sphereGeometry args={[1.1, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.35]} />
-          <meshStandardMaterial color="#d4d4d8" side={THREE.DoubleSide} metalness={0.5} roughness={0.4} />
-        </mesh>
-        <mesh position={[0, 0.5, 0.6]}>
-          <sphereGeometry args={[0.1, 8, 8]} />
-          <meshStandardMaterial color={colour} emissive={colour} emissiveIntensity={awake ? 2 : 0.3} />
-        </mesh>
-      </group>
-      <mesh ref={globe} position={[2.2, 1.5, 0]}>
-        <icosahedronGeometry args={[0.8, 1]} />
-        <meshStandardMaterial color={colour} emissive={colour} emissiveIntensity={awake ? 0.8 : 0.2} wireframe />
-      </mesh>
-      <mesh ref={sweep} rotation={[-Math.PI / 2, 0, 0]} position={[2.2, 0.03, 0]}>
-        <ringGeometry args={[0.1, 1.3, 24, 1, 0, 0.7]} />
-        <meshBasicMaterial color={colour} transparent opacity={awake ? 0.5 : 0.15} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-}
-
-function Billboard({ colour, awake }: { colour: string; awake: boolean }) {
-  const screen = useRef<THREE.MeshStandardMaterial>(null);
-  const bars = useRef<THREE.Group>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (screen.current) screen.current.emissiveIntensity = awake ? 0.5 + (Math.sin(t * 1.5) + 1) * 0.3 : 0.1;
-    if (bars.current) bars.current.children.forEach((c, i) => (c.scale.y = 0.4 + (Math.sin(t * (1.2 + i * 0.3) + i) + 1) * (awake ? 0.5 : 0.1)));
-  });
-  return (
-    <group>
-      {[-1.3, 1.3].map((x) => (
-        <mesh key={x} position={[x, 1.2, 0]}>
-          <cylinderGeometry args={[0.07, 0.07, 2.4, 8]} />
-          <meshStandardMaterial color="#3f3f46" />
-        </mesh>
-      ))}
-      <mesh position={[0, 2.7, 0]}>
-        <boxGeometry args={[3.4, 1.9, 0.12]} />
-        <meshStandardMaterial color="#111114" />
-      </mesh>
-      <mesh position={[0, 2.7, 0.07]}>
-        <planeGeometry args={[3.2, 1.7]} />
-        <meshStandardMaterial ref={screen} color="#1a0f05" emissive={colour} emissiveIntensity={0.3} />
-      </mesh>
-      <group ref={bars} position={[-1.1, 2.0, 0.09]}>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <mesh key={i} position={[i * 0.42, 0.4, 0]}>
-            <boxGeometry args={[0.28, 0.8, 0.02]} />
-            <meshBasicMaterial color="#fff7ed" transparent opacity={0.85} />
-          </mesh>
-        ))}
-      </group>
-    </group>
-  );
-}
-
-function ServerRack({ colour, awake }: { colour: string; awake: boolean }) {
-  const leds = useRef<THREE.Group>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (leds.current)
-      leds.current.children.forEach((c, i) => {
-        const m = (c as THREE.Mesh).material as THREE.MeshBasicMaterial;
-        m.opacity = awake ? (Math.sin(t * (3 + (i % 5)) + i * 1.7) > 0.2 ? 1 : 0.15) : 0.25;
-      });
-  });
-  const rows = [0, 1, 2, 3, 4, 5, 6];
-  return (
-    <group>
-      {[-0.9, 0.9].map((x) => (
-        <group key={x} position={[x, 0, 0]}>
-          <mesh position={[0, 1.3, 0]}>
-            <boxGeometry args={[1.3, 2.6, 0.9]} />
-            <meshStandardMaterial color="#1c1c22" metalness={0.6} roughness={0.4} />
-          </mesh>
-          {rows.map((r) => (
-            <mesh key={r} position={[0, 0.35 + r * 0.33, 0.46]}>
-              <boxGeometry args={[1.15, 0.22, 0.02]} />
-              <meshStandardMaterial color="#2a2a33" />
-            </mesh>
-          ))}
-        </group>
-      ))}
-      <group ref={leds}>
-        {[-0.9, 0.9].flatMap((x) => rows.map((r) => (
-          <mesh key={`${x}-${r}`} position={[x - 0.42, 0.35 + r * 0.33, 0.48]}>
-            <boxGeometry args={[0.1, 0.06, 0.02]} />
-            <meshBasicMaterial color={colour} transparent opacity={1} />
-          </mesh>
-        )))}
-      </group>
-    </group>
-  );
-}
-
-function Vault({ awake }: { colour: string; awake: boolean }) {
-  const wheel = useRef<THREE.Mesh>(null);
-  const coin = useRef<THREE.Mesh>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (wheel.current) wheel.current.rotation.z = awake ? t * 1.5 : 0;
-    if (coin.current) {
-      coin.current.rotation.y = t * 2;
-      coin.current.position.y = 2.9 + Math.sin(t * 2) * 0.15;
-    }
-  });
-  return (
-    <group>
-      <mesh position={[0, 1.2, 0]}>
-        <boxGeometry args={[2.6, 2.4, 1.4]} />
-        <meshStandardMaterial color="#1f2937" metalness={0.7} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 1.2, 0.72]}>
-        <cylinderGeometry args={[0.95, 0.95, 0.1, 32]} />
-        <meshStandardMaterial color="#374151" metalness={0.8} roughness={0.3} />
-      </mesh>
-      <mesh position={[0, 1.2, 0.75]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.95, 0.95, 0.1, 32]} />
-        <meshStandardMaterial color="#4b5563" metalness={0.8} roughness={0.3} />
-      </mesh>
-      <mesh ref={wheel} position={[0, 1.2, 0.84]}>
-        <torusGeometry args={[0.45, 0.06, 10, 24]} />
-        <meshStandardMaterial color="#d1d5db" metalness={0.9} roughness={0.2} />
-      </mesh>
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[0, 1.2, 0.84]} rotation={[0, 0, (i * Math.PI) / 3]}>
-          <boxGeometry args={[0.9, 0.06, 0.06]} />
-          <meshStandardMaterial color="#d1d5db" metalness={0.9} roughness={0.2} />
-        </mesh>
-      ))}
-      <mesh ref={coin} position={[0, 2.9, 0.4]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.35, 0.35, 0.06, 24]} />
-        <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={awake ? 0.6 : 0.15} metalness={0.9} roughness={0.25} />
-      </mesh>
-    </group>
-  );
-}
-
-function VideoWall({ colour, awake }: { colour: string; awake: boolean }) {
-  const tiles = useRef<THREE.Group>(null);
-  const crane = useRef<THREE.Group>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (tiles.current)
-      tiles.current.children.forEach((c, i) => {
-        const m = (c as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        m.emissiveIntensity = awake ? 0.25 + (Math.sin(t * (0.8 + (i % 4) * 0.35) + i * 2.1) + 1) * 0.45 : 0.08;
-      });
-    if (crane.current) crane.current.rotation.y = awake ? Math.sin(t * 0.5) * 0.5 : 0;
-  });
-  return (
-    <group>
-      <mesh position={[0, 1.9, 0]}>
-        <boxGeometry args={[4.0, 2.4, 0.15]} />
-        <meshStandardMaterial color="#111114" />
-      </mesh>
-      <group ref={tiles} position={[-1.3, 1.9, 0.09]}>
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <mesh key={i} position={[(i % 3) * 1.3, i < 3 ? 0.55 : -0.55, 0]}>
-            <planeGeometry args={[1.2, 1.0]} />
-            <meshStandardMaterial color="#0b0b0f" emissive={colour} emissiveIntensity={0.3} />
-          </mesh>
-        ))}
-      </group>
-      <group ref={crane} position={[2.6, 0, 0.6]}>
-        <mesh position={[0, 0.9, 0]}>
-          <cylinderGeometry args={[0.08, 0.1, 1.8, 8]} />
-          <meshStandardMaterial color="#3f3f46" />
-        </mesh>
-        <mesh position={[0, 1.8, 0.5]} rotation={[0.3, 0, 0]}>
-          <boxGeometry args={[0.1, 0.1, 1.6]} />
-          <meshStandardMaterial color="#52525b" />
-        </mesh>
-        <mesh position={[0, 1.55, 1.25]}>
-          <boxGeometry args={[0.35, 0.28, 0.45]} />
-          <meshStandardMaterial color="#18181b" />
-        </mesh>
-        <mesh position={[0, 1.55, 1.5]}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={awake ? 2 : 0.2} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function Plant({ x, z, big }: { x: number; z: number; big?: boolean }) {
-  const s = big ? 1.4 : 1;
-  return (
-    <group position={[x, 0, z]} scale={s}>
-      <mesh position={[0, 0.3, 0]}>
-        <cylinderGeometry args={[0.28, 0.22, 0.6, 10]} />
-        <meshStandardMaterial color="#7c4a2d" roughness={0.9} />
-      </mesh>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <mesh key={i} position={[Math.cos(i * 1.26) * 0.18, 0.95 + (i % 2) * 0.2, Math.sin(i * 1.26) * 0.18]} rotation={[0.4, i * 1.26, 0.3]}>
-          <coneGeometry args={[0.2, 0.9, 6]} />
-          <meshStandardMaterial color={i % 2 ? "#15803d" : "#16a34a"} roughness={0.8} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function Reception({ colour, awake }: { colour: string; awake: boolean }) {
-  const steam = useRef<THREE.Group>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (steam.current)
-      steam.current.children.forEach((c, i) => {
-        c.position.y = 1.0 + ((t * 0.4 + i * 0.33) % 1) * 0.8;
-        ((c as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = awake ? 0.5 - ((t * 0.4 + i * 0.33) % 1) * 0.5 : 0;
-      });
-  });
-  return (
-    <group>
-      <mesh position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[1.5, 1.5, 1.0, 32, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color="#2a1f3d" side={THREE.DoubleSide} />
-      </mesh>
-      <mesh position={[0, 1.02, 0]}>
-        <cylinderGeometry args={[1.6, 1.6, 0.06, 32, 1, false, 0, Math.PI]} />
-        <meshStandardMaterial color="#f5d0fe" />
-      </mesh>
-      <mesh position={[0, 0.5, 0.05]}>
-        <boxGeometry args={[2.2, 0.08, 0.02]} />
-        <meshStandardMaterial color={colour} emissive={colour} emissiveIntensity={awake ? 1.2 : 0.2} />
-      </mesh>
-      <Plant x={-2.1} z={0.2} big />
-      <Plant x={2.1} z={0.2} big />
-      <mesh position={[0.6, 1.14, 0.4]}>
-        <cylinderGeometry args={[0.12, 0.1, 0.18, 12]} />
-        <meshStandardMaterial color="#fafafa" />
-      </mesh>
-      <group ref={steam} position={[0.6, 0, 0.4]}>
-        {[0, 1, 2].map((i) => (
-          <mesh key={i} position={[0, 1.2, 0]}>
-            <sphereGeometry args={[0.05, 6, 6]} />
-            <meshBasicMaterial color="#fff" transparent opacity={0.4} />
-          </mesh>
-        ))}
-      </group>
-      <Html position={[0, 2.1, 0]} center distanceFactor={14} style={{ pointerEvents: "none" }}>
-        <div style={{ color: colour, fontWeight: 700, letterSpacing: 2, fontSize: 12, textShadow: "0 1px 4px #000" }}>WELCOME</div>
-      </Html>
-    </group>
-  );
-}
-
-function PhoneBank({ colour, awake }: { colour: string; awake: boolean }) {
-  const phone = useRef<THREE.Group>(null);
-  const bell = useRef<THREE.MeshStandardMaterial>(null);
-  useFrame((s) => {
-    const t = s.clock.elapsedTime;
-    if (phone.current) phone.current.rotation.z = awake ? Math.sin(t * 40) * 0.05 : 0;
-    if (bell.current) bell.current.emissiveIntensity = awake ? (Math.sin(t * 8) > 0 ? 2 : 0.4) : 0.2;
-  });
-  return (
-    <group>
-      <mesh position={[0, 1.7, 0]}>
-        <boxGeometry args={[3.2, 1.8, 0.1]} />
-        <meshStandardMaterial color="#111114" />
-      </mesh>
-      {[0, 1, 2, 3].map((i) => (
-        <group key={i}>
-          <mesh position={[-1.3, 2.3 - i * 0.4, 0.06]}>
-            <boxGeometry args={[0.45, 0.14, 0.01]} />
-            <meshBasicMaterial color="#e5e7eb" />
-          </mesh>
-          <mesh position={[0.2 - (0.6 * i) / 2, 2.3 - i * 0.4, 0.06]}>
-            <boxGeometry args={[2.2 - i * 0.6, 0.14, 0.01]} />
-            <meshBasicMaterial color={colour} transparent opacity={0.8 - i * 0.15} />
-          </mesh>
-        </group>
-      ))}
-      <Html position={[0, 2.85, 0.1]} center distanceFactor={14} style={{ pointerEvents: "none" }}>
-        <div style={{ color: colour, fontWeight: 700, letterSpacing: 2, fontSize: 12, textShadow: "0 1px 4px #000" }}>LEADERBOARD</div>
-      </Html>
-      <group ref={phone} position={[2.2, 0.9, 0.3]}>
-        <mesh position={[0, 0.9, 0]}>
-          <boxGeometry args={[0.7, 0.3, 0.5]} />
-          <meshStandardMaterial color="#111" />
-        </mesh>
-        <mesh position={[0, 1.15, 0]} rotation={[0, 0, 0.1]}>
-          <capsuleGeometry args={[0.09, 0.6, 4, 8]} />
-          <meshStandardMaterial color="#1c1c22" />
-        </mesh>
-        <mesh position={[0, 0.45, 0]}>
-          <cylinderGeometry args={[0.09, 0.14, 0.9, 8]} />
-          <meshStandardMaterial color="#3f3f46" />
-        </mesh>
-        <mesh position={[0, 1.45, 0]}>
-          <sphereGeometry args={[0.1, 8, 8]} />
-          <meshStandardMaterial ref={bell} color={colour} emissive={colour} emissiveIntensity={1} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function Tower({ colour, awake }: { colour: string; awake: boolean }) {
-  const lamp = useRef<THREE.Group>(null);
-  useFrame((s) => {
-    if (lamp.current) lamp.current.rotation.y = s.clock.elapsedTime * (awake ? 3 : 0.5);
-  });
-  return (
-    <group>
-      <mesh position={[0, 1.4, 0]}>
-        <cylinderGeometry args={[0.35, 0.6, 2.8, 8]} />
-        <meshStandardMaterial color="#27272a" metalness={0.5} roughness={0.5} />
-      </mesh>
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} position={[0, 1.0 + i * 0.6, 0.45]} rotation={[0, (i - 1) * 0.6, 0]}>
-          <boxGeometry args={[0.7, 0.45, 0.05]} />
-          <meshStandardMaterial color="#0b0b0f" emissive={colour} emissiveIntensity={awake ? 0.9 : 0.15} />
-        </mesh>
-      ))}
-      <group ref={lamp} position={[0, 3.0, 0]}>
-        <mesh>
-          <sphereGeometry args={[0.18, 10, 10]} />
-          <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={awake ? 2.5 : 0.4} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function Kit({ sector, awake }: { sector: Sector; awake: boolean }) {
-  const x = R_PROP * Math.cos(sector.mid);
-  const z = -R_PROP * Math.sin(sector.mid);
-  const yaw = Math.atan2(-x, -z);
-  const props = { colour: sector.colour, awake };
-  let body: ReactNode = null;
-  switch (sector.id) {
-    case "research": body = <Radar {...props} />; break;
-    case "ads": body = <Billboard {...props} />; break;
-    case "website": body = <ServerRack {...props} />; break;
-    case "funds": body = <Vault {...props} />; break;
-    case "marketing": body = <VideoWall {...props} />; break;
-    case "care": body = <Reception {...props} />; break;
-    case "sales": body = <PhoneBank {...props} />; break;
-    default: body = <Tower {...props} />;
-  }
-  return (
-    <group position={[x, 0, z]} rotation={[0, yaw, 0]}>
-      {body}
     </group>
   );
 }
@@ -790,7 +328,7 @@ function Brain({ learnings, active }: { learnings: number; active: boolean }) {
   });
   return (
     <group>
-      <mesh position={[0, 0.15, 0]}>
+      <mesh position={[0, 0.15, 0]} receiveShadow>
         <cylinderGeometry args={[2.6, 2.8, 0.3, 48]} />
         <meshStandardMaterial color="#111827" roughness={0.6} />
       </mesh>
@@ -870,57 +408,38 @@ function Links({ events, spots }: { events: TeamEvent[]; spots: Record<string, {
   );
 }
 
-type Tally = { awake: number; asleep: number; error: number };
-
-function Room({ sectors, tally }: { sectors: Sector[]; tally: Record<string, Tally> }) {
+function Room({ sectors }: { sectors: Sector[] }) {
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <circleGeometry args={[R_FLOOR + 4, 96]} />
         <meshStandardMaterial color="#07080b" roughness={1} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[R_FLOOR, 96]} />
         <meshStandardMaterial color="#101218" roughness={0.55} metalness={0.2} />
       </mesh>
-      {[4.2, 9.2, 13.2].map((r) => (
+      {[4.2, 9.2].map((r) => (
         <mesh key={r} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
           <ringGeometry args={[r, r + 0.04, 96]} />
           <meshBasicMaterial color="#27272a" />
         </mesh>
       ))}
-      {sectors.map((s) => {
-        const t = tally[s.id] ?? { awake: 0, asleep: 0, error: 0 };
-        const n = t.awake + t.asleep + t.error;
-        const share = n ? t.awake / n : 0;
-        const gapA = (s.end + GAP / 2);
-        return (
-          <group key={s.id}>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-              <ringGeometry args={[3.2, R_FLOOR - 0.4, 48, 1, s.start, s.end - s.start]} />
-              <meshStandardMaterial color={s.colour} transparent opacity={0.07 + share * 0.16} />
-            </mesh>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-              <ringGeometry args={[R_FLOOR - 0.5, R_FLOOR - 0.35, 48, 1, s.start, s.end - s.start]} />
-              <meshBasicMaterial color={s.colour} />
-            </mesh>
-            {/* sector sign with the headcount, readable from anywhere */}
-            <Html position={[(R_FLOOR + 2.2) * Math.cos(s.mid), 4.2, -(R_FLOOR + 2.2) * Math.sin(s.mid)]} center distanceFactor={18} style={{ pointerEvents: "none" }}>
-              <div style={{ textAlign: "center", whiteSpace: "nowrap", background: "rgba(9,9,11,0.8)", border: `1px solid ${s.colour}88`, borderRadius: 10, padding: "6px 12px", boxShadow: t.awake ? `0 0 18px ${s.colour}55` : "none" }}>
-                <div style={{ fontSize: 15, letterSpacing: 3, fontWeight: 800, color: s.colour }}>{s.label}</div>
-                <div style={{ fontSize: 12, marginTop: 2, color: "#e4e4e7" }}>
-                  <span style={{ color: AWAKE, fontWeight: 700 }}>{t.awake} awake</span>
-                  <span style={{ color: "#71717a" }}> · </span>
-                  <span style={{ color: "#93c5fd" }}>{t.asleep} asleep</span>
-                  {t.error ? <span style={{ color: "#fb7185", fontWeight: 700 }}> · {t.error} needs a look</span> : null}
-                </div>
-              </div>
-            </Html>
-            <Kit sector={s} awake={t.awake > 0} />
-            <Plant x={(R_FLOOR - 1.2) * Math.cos(gapA)} z={-(R_FLOOR - 1.2) * Math.sin(gapA)} />
-          </group>
-        );
-      })}
+      {sectors.map((s) => (
+        <group key={s.id}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+            <ringGeometry args={[3.2, R_FLOOR - 0.4, 48, 1, s.start, s.end - s.start]} />
+            <meshStandardMaterial color={s.colour} transparent opacity={0.1} />
+          </mesh>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+            <ringGeometry args={[R_FLOOR - 0.5, R_FLOOR - 0.35, 48, 1, s.start, s.end - s.start]} />
+            <meshBasicMaterial color={s.colour} />
+          </mesh>
+          <Html position={[(R_FLOOR + 1.8) * Math.cos(s.mid), 0.6, -(R_FLOOR + 1.8) * Math.sin(s.mid)]} center distanceFactor={16} style={{ pointerEvents: "none" }}>
+            <div style={{ fontSize: 14, letterSpacing: 3, fontWeight: 700, color: s.colour, whiteSpace: "nowrap", textShadow: "0 1px 4px #000" }}>{s.label}</div>
+          </Html>
+        </group>
+      ))}
       <mesh position={[0, 0.3, 0]}>
         <cylinderGeometry args={[R_FLOOR, R_FLOOR, 0.6, 96, 1, true]} />
         <meshStandardMaterial color="#1a1c24" side={THREE.DoubleSide} transparent opacity={0.8} />
@@ -928,11 +447,6 @@ function Room({ sectors, tally }: { sectors: Sector[]; tally: Record<string, Tal
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.62, 0]}>
         <ringGeometry args={[R_FLOOR - 0.06, R_FLOOR + 0.06, 96]} />
         <meshBasicMaterial color="#3f3f46" />
-      </mesh>
-      {/* a low glass wall so the room reads as a room from above */}
-      <mesh position={[0, 1.6, 0]}>
-        <cylinderGeometry args={[R_FLOOR + 0.02, R_FLOOR + 0.02, 2.0, 96, 1, true]} />
-        <meshStandardMaterial color="#6ee7b7" side={THREE.DoubleSide} transparent opacity={0.05} depthWrite={false} />
       </mesh>
     </>
   );
@@ -962,40 +476,25 @@ export function TeamFloor3D({
   const { seats, sectors } = useMemo(() => layout(agents), [agents]);
   const byKey = useMemo(() => Object.fromEntries(agents.map((a) => [a.key, a])), [agents]);
   const spots = useMemo(() => Object.fromEntries(seats.filter((s) => s.agentKey).map((s) => [s.agentKey as string, { x: s.x, z: s.z }])), [seats]);
-  const tally = useMemo(() => {
-    const out: Record<string, Tally> = {};
-    for (const t of TEAMS) {
-      const keys = [t.manager.key, ...t.members.map((m) => m.key)].filter(Boolean) as string[];
-      const c: Tally = { awake: 0, asleep: 0, error: 0 };
-      for (const k of keys) {
-        const a = byKey[k];
-        if (!a) continue;
-        const st = status(a);
-        if (st === "working") c.awake++;
-        else if (st === "error") c.error++;
-        else c.asleep++;
-      }
-      out[t.id] = c;
-    }
-    return out;
-  }, [byKey]);
-  const totals = Object.values(tally).reduce((a, t) => ({ awake: a.awake + t.awake, asleep: a.asleep + t.asleep, error: a.error + t.error }), { awake: 0, asleep: 0, error: 0 });
-  const anyWorking = totals.awake > 0;
+  const anyWorking = agents.some((a) => status(a) === "working");
   const [spin, setSpin] = useState(true);
-  // Phones start at 1x and only go sharper if the frame rate holds; desktops start at 1.5x and drop if it falls.
-  const [dpr, setDpr] = useState(() => (typeof window !== "undefined" && window.innerWidth < 720 ? 1 : 1.5));
   const resume = useRef<ReturnType<typeof setTimeout> | null>(null);
   return (
     <Boundary fallback={fallback}>
       <div className="relative h-[540px] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 sm:h-[820px]">
-        <Canvas dpr={dpr} camera={{ position: [0, 28, 32], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }} performance={{ min: 0.5 }}>
-          <PerformanceMonitor flipflops={3} onDecline={() => setDpr(1)} onIncline={() => setDpr((d) => Math.min(1.5, d + 0.25))} onFallback={() => setDpr(1)} />
-          <AdaptiveDpr />
+        <style>{`
+          .tf3-zzz { display:flex; gap:4px; font-weight:700; color:#93c5fd; font-size:18px; }
+          .tf3-zzz span { animation: tf3-float 2.4s ease-in-out infinite; opacity:0; }
+          .tf3-zzz span:nth-child(2) { animation-delay: .6s; font-size:22px; }
+          .tf3-zzz span:nth-child(3) { animation-delay: 1.2s; font-size:28px; }
+          @keyframes tf3-float { 0% { transform: translateY(8px); opacity:0 } 30% { opacity:.9 } 100% { transform: translateY(-22px); opacity:0 } }
+        `}</style>
+        <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 27, 30], fov: 42 }} gl={{ antialias: true }}>
           <color attach="background" args={["#08080b"]} />
-          <fog attach="fog" args={["#08080b", 50, 95]} />
-          <hemisphereLight args={["#cbd5e1", "#0b0b10", 0.8]} />
-          <directionalLight position={[10, 22, 12]} intensity={1.0} />
-          <Room sectors={sectors} tally={tally} />
+          <fog attach="fog" args={["#08080b", 48, 90]} />
+          <hemisphereLight args={["#cbd5e1", "#0b0b10", 0.75]} />
+          <directionalLight position={[10, 22, 12]} intensity={1.0} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-20} shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20} />
+          <Room sectors={sectors} />
           <Links events={events} spots={spots} />
           <Brain learnings={learnings} active={anyWorking} />
           {seats.map((s) => (
@@ -1003,10 +502,9 @@ export function TeamFloor3D({
           ))}
           <OrbitControls
             enablePan={false}
-            regress
             target={[0, 0.5, 0]}
             minDistance={9}
-            maxDistance={56}
+            maxDistance={52}
             minPolarAngle={0.35}
             maxPolarAngle={1.4}
             autoRotate={spin}
@@ -1021,12 +519,7 @@ export function TeamFloor3D({
             }}
           />
         </Canvas>
-        <div className="pointer-events-none absolute left-3 top-3 flex gap-2 text-[11px]">
-          <span className="rounded-md border border-emerald-500/40 bg-zinc-950/80 px-2 py-1 font-semibold text-emerald-300">{totals.awake} awake</span>
-          <span className="rounded-md border border-sky-500/30 bg-zinc-950/80 px-2 py-1 text-sky-300">{totals.asleep} asleep</span>
-          {totals.error ? <span className="rounded-md border border-rose-500/40 bg-zinc-950/80 px-2 py-1 font-semibold text-rose-300">{totals.error} needs a look</span> : null}
-        </div>
-        <div className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-zinc-500">Green beacon = working now · blue ember = asleep · red = needs a look · drag to look around, scroll to zoom</div>
+        <div className="pointer-events-none absolute bottom-2 left-3 text-[11px] text-zinc-500">Drag to look around · scroll to zoom · managers sit on the raised desks</div>
       </div>
     </Boundary>
   );
