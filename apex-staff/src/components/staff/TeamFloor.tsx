@@ -80,13 +80,15 @@ export const TEAM_COLOUR = {
   marketing: "#facc15",
   funds: "#34d399",
   sales: "#ef4444",
+  ops: "#94a3b8",
 } as const;
 const TEAM_OF: Record<string, keyof typeof TEAM_COLOUR> = {
   lead: "research", scout: "research", trends: "research", analyst: "research", voice: "research", reviews: "research", timing: "research", checker: "research", curious: "research",
   adslead: "ads", maker: "ads", numbers: "ads", copy: "ads", photos: "ads", budget: "ads", judge: "ads", operator: "ads", compliance: "ads",
   web: "website", sitehealth: "website", rank: "website", seo: "website", local: "website",
   fin: "funds", cash: "funds", invoices: "funds", spend: "funds", profit: "funds",
-  carelead: "care", checkin: "care", reports: "care", videos: "care", outcomes: "care",
+  carelead: "care", checkin: "care", reports: "care", videos: "care", outcomes: "care", referrals: "care",
+  ops: "ops", taskset: "ops", backlog: "ops", briefing: "ops", replies: "sales",
   saleslead: "sales", mktlead: "marketing", planner: "marketing", captions: "marketing", scripts: "marketing", publisher: "marketing", inbox: "marketing", postwatch: "marketing", mktscout: "marketing", visuals: "marketing", noshow: "sales", chaser: "sales", syncer: "sales", ticker: "sales", booster: "sales",
 };
 export function teamColour(key: string) {
