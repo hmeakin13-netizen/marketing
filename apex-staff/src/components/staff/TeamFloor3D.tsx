@@ -2,7 +2,7 @@
 
 import { Component, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Html, Line, OrbitControls } from "@react-three/drei";
+import { AdaptiveDpr, Billboard as FaceCamera, Html, Line, OrbitControls, PerformanceMonitor, Text } from "@react-three/drei";
 import * as THREE from "three";
 import type { TeamAgent, TeamEvent } from "@/lib/staff/admaker";
 import { liveLinks, status, teamColour } from "@/components/staff/TeamFloor";
@@ -107,28 +107,46 @@ function hash(s: string) {
 
 function Label({ name, line, colour, y, big, st }: { name: string; line: string; colour: string; y: number; big?: boolean; st: St }) {
   const dot = st === "working" ? AWAKE : st === "error" ? ERROR : st === "idle" ? ASLEEP : "#52525b";
+  const nameSize = big ? 0.36 : 0.3;
+  const lineSize = 0.23;
+  const w = Math.max(name.length * nameSize * 0.58, line.length * lineSize * 0.55) + 1.1;
+  const h = big ? 1.15 : 1.0;
   return (
-    <Html position={[0, y, 0]} center distanceFactor={big ? 15 : 13} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-      <div style={{ textAlign: "center", whiteSpace: "nowrap", background: "rgba(9,9,11,0.78)", border: `1px solid ${colour}66`, borderRadius: 8, padding: "3px 9px" }}>
-        <div style={{ fontSize: big ? 15 : 13, fontWeight: 700, color: "#fafafa" }}>
-          <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 9, background: dot, marginRight: 6, boxShadow: st === "working" ? `0 0 8px ${dot}` : "none" }} />
-          {name}
-        </div>
-        <div style={{ fontSize: 11, color: colour }}>{line}</div>
-      </div>
-    </Html>
+    <FaceCamera position={[0, y, 0]}>
+      <mesh position={[0, 0, -0.02]}>
+        <planeGeometry args={[w, h]} />
+        <meshBasicMaterial color="#09090b" transparent opacity={0.8} depthWrite={false} />
+      </mesh>
+      <mesh position={[-w / 2 + 0.32, h * 0.2, 0]}>
+        <circleGeometry args={[0.11, 12]} />
+        <meshBasicMaterial color={dot} />
+      </mesh>
+      <Text position={[0.18, h * 0.2, 0]} fontSize={nameSize} color="#fafafa" anchorX="center" anchorY="middle" maxWidth={w - 0.9}>
+        {name}
+      </Text>
+      <Text position={[0, -h * 0.22, 0]} fontSize={lineSize} color={colour} anchorX="center" anchorY="middle" maxWidth={w - 0.4}>
+        {line}
+      </Text>
+    </FaceCamera>
   );
 }
 
 function Zzz() {
+  const g = useRef<THREE.Group>(null);
+  const txt = useRef<{ fillOpacity: number } | null>(null);
+  useFrame((s) => {
+    const k = (s.clock.elapsedTime * 0.45) % 1;
+    if (g.current) g.current.position.y = 0.45 + k * 0.6;
+    if (txt.current) txt.current.fillOpacity = k < 0.3 ? k / 0.3 : 1 - (k - 0.3) / 0.7;
+  });
   return (
-    <Html position={[0.3, 0.5, 0]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
-      <div className="tf3-zzz" aria-hidden>
-        <span>z</span>
-        <span>z</span>
-        <span>Z</span>
-      </div>
-    </Html>
+    <group ref={g} position={[0.3, 0.5, 0]}>
+      <FaceCamera>
+        <Text ref={txt as never} fontSize={0.34} color="#93c5fd" anchorX="center" anchorY="middle">
+          z z Z
+        </Text>
+      </FaceCamera>
+    </group>
   );
 }
 
@@ -136,13 +154,11 @@ function Zzz() {
 function Beacon({ st, phase }: { st: St; phase: number }) {
   const lamp = useRef<THREE.MeshStandardMaterial>(null);
   const halo = useRef<THREE.Mesh>(null);
-  const light = useRef<THREE.PointLight>(null);
   const colour = st === "working" ? AWAKE : st === "error" ? ERROR : ASLEEP;
   useFrame((s) => {
     const t = s.clock.elapsedTime + phase;
     const pulse = st === "working" ? 0.75 + Math.sin(t * 3) * 0.25 : st === "error" ? 0.6 + (Math.sin(t * 12) > 0 ? 0.5 : 0) : 0.12;
     if (lamp.current) lamp.current.emissiveIntensity = pulse * 2.2;
-    if (light.current) light.current.intensity = st === "idle" ? 0.4 : pulse * 6;
     if (halo.current) {
       const k = st === "working" ? 1 + Math.sin(t * 3) * 0.18 : 1;
       halo.current.scale.setScalar(k);
@@ -157,14 +173,13 @@ function Beacon({ st, phase }: { st: St; phase: number }) {
         <meshStandardMaterial color="#27272a" />
       </mesh>
       <mesh position={[0, 3.3, 0]}>
-        <sphereGeometry args={[0.2, 14, 12]} />
+        <sphereGeometry args={[0.2, 10, 8]} />
         <meshStandardMaterial ref={lamp} color={colour} emissive={colour} emissiveIntensity={1} />
       </mesh>
       <mesh ref={halo} position={[0, 3.3, 0]}>
-        <sphereGeometry args={[0.45, 14, 12]} />
+        <sphereGeometry args={[0.45, 10, 8]} />
         <meshBasicMaterial color={colour} transparent opacity={0.2} depthWrite={false} />
       </mesh>
-      <pointLight ref={light} position={[0, 3.3, 0]} color={colour} intensity={2} distance={6} />
     </group>
   );
 }
@@ -232,7 +247,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
       ) : null}
       {mgr ? (
         <>
-          <mesh position={[0, 0.05, -0.2]} receiveShadow>
+          <mesh position={[0, 0.05, -0.2]}>
             <boxGeometry args={[3.7, 0.1, 3.1]} />
             <meshStandardMaterial color="#14141a" />
           </mesh>
@@ -245,7 +260,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
 
       {/* desk, seen from the person's seat: the monitor faces them */}
       <group position={[0, lift, 0]}>
-        <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
+        <mesh position={[0, 0.72, 0]}>
           <boxGeometry args={[w, 0.08, 0.95]} />
           <meshStandardMaterial color={mgr ? "#4a3b2a" : "#3a3a44"} roughness={0.5} transparent={ghost} opacity={ghost ? 0.7 : 1} />
         </mesh>
@@ -261,7 +276,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         </mesh>
         {!ghost ? (
           <>
-            <mesh position={[0, 1.06, 0.2]} castShadow>
+            <mesh position={[0, 1.06, 0.2]}>
               <boxGeometry args={[0.92, 0.56, 0.05]} />
               <meshStandardMaterial color="#17171c" />
             </mesh>
@@ -298,7 +313,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
 
       {/* chair and person */}
       <group position={[0, lift, 0]}>
-        <mesh position={[0, 0.45, -0.75]} castShadow>
+        <mesh position={[0, 0.45, -0.75]}>
           <boxGeometry args={[0.7, 0.1, 0.6]} />
           <meshStandardMaterial color={mgr ? "#1f2937" : "#2a2a32"} transparent={ghost} opacity={ghost ? 0.6 : 1} />
         </mesh>
@@ -313,7 +328,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         {!ghost ? (
           <group position={[0, 0.5, -0.72]}>
             <group ref={torso} position={[0, 0.2, 0]}>
-              <mesh position={[0, 0.35, 0]} castShadow>
+              <mesh position={[0, 0.35, 0]}>
                 <boxGeometry args={[0.62, 0.78, 0.34]} />
                 <meshStandardMaterial color={mgr ? "#e5e7eb" : colour} roughness={0.7} />
               </mesh>
@@ -330,12 +345,12 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
                 </>
               ) : null}
               <group ref={head} position={[0, 1.18, 0]}>
-                <mesh castShadow>
-                  <sphereGeometry args={[0.27, 20, 16]} />
+                <mesh>
+                  <sphereGeometry args={[0.27, 12, 10]} />
                   <meshStandardMaterial color={skin} roughness={0.8} />
                 </mesh>
                 <mesh position={[0, 0.07, -0.03]}>
-                  <sphereGeometry args={[0.285, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.52]} />
+                  <sphereGeometry args={[0.285, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.52]} />
                   <meshStandardMaterial color={hair} roughness={0.9} />
                 </mesh>
                 {st === "idle" ? (
@@ -353,12 +368,12 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
               </group>
               {[-1, 1].map((sd) => (
                 <group key={sd} ref={sd < 0 ? armL : armR} position={[sd * 0.4, 0.62, 0]}>
-                  <mesh position={[0, -0.22, 0]} castShadow>
+                  <mesh position={[0, -0.22, 0]}>
                     <boxGeometry args={[0.16, 0.44, 0.16]} />
                     <meshStandardMaterial color={mgr ? "#111827" : colour} roughness={0.7} />
                   </mesh>
                   <group ref={sd < 0 ? foreL : foreR} position={[0, -0.44, 0]}>
-                    <mesh position={[0, -0.2, 0]} castShadow>
+                    <mesh position={[0, -0.2, 0]}>
                       <boxGeometry args={[0.13, 0.4, 0.13]} />
                       <meshStandardMaterial color={skin} roughness={0.8} />
                     </mesh>
@@ -461,9 +476,6 @@ function Billboard({ colour, awake }: { colour: string; awake: boolean }) {
           </mesh>
         ))}
       </group>
-      {[-1.2, 1.2].map((x) => (
-        <spotLight key={x} position={[x, 3.9, 0.9]} target-position={[x, 2.7, 0]} angle={0.5} penumbra={0.6} intensity={awake ? 6 : 1} color="#fff7ed" distance={5} />
-      ))}
     </group>
   );
 }
@@ -503,12 +515,11 @@ function ServerRack({ colour, awake }: { colour: string; awake: boolean }) {
           </mesh>
         )))}
       </group>
-      <pointLight position={[0, 1.5, 1]} color={colour} intensity={awake ? 3 : 0.5} distance={5} />
     </group>
   );
 }
 
-function Vault({ colour, awake }: { colour: string; awake: boolean }) {
+function Vault({ awake }: { colour: string; awake: boolean }) {
   const wheel = useRef<THREE.Mesh>(null);
   const coin = useRef<THREE.Mesh>(null);
   useFrame((s) => {
@@ -547,7 +558,6 @@ function Vault({ colour, awake }: { colour: string; awake: boolean }) {
         <cylinderGeometry args={[0.35, 0.35, 0.06, 24]} />
         <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={awake ? 0.6 : 0.15} metalness={0.9} roughness={0.25} />
       </mesh>
-      <pointLight position={[0, 2.9, 1]} color={colour} intensity={awake ? 3 : 0.6} distance={5} />
     </group>
   );
 }
@@ -736,7 +746,6 @@ function Tower({ colour, awake }: { colour: string; awake: boolean }) {
           <sphereGeometry args={[0.18, 10, 10]} />
           <meshStandardMaterial color="#f59e0b" emissive="#f59e0b" emissiveIntensity={awake ? 2.5 : 0.4} />
         </mesh>
-        <spotLight position={[0, 0, 0]} target-position={[4, -2, 0]} angle={0.4} penumbra={0.5} color="#f59e0b" intensity={awake ? 8 : 1} distance={9} />
       </group>
     </group>
   );
@@ -781,7 +790,7 @@ function Brain({ learnings, active }: { learnings: number; active: boolean }) {
   });
   return (
     <group>
-      <mesh position={[0, 0.15, 0]} receiveShadow>
+      <mesh position={[0, 0.15, 0]}>
         <cylinderGeometry args={[2.6, 2.8, 0.3, 48]} />
         <meshStandardMaterial color="#111827" roughness={0.6} />
       </mesh>
@@ -866,11 +875,11 @@ type Tally = { awake: number; asleep: number; error: number };
 function Room({ sectors, tally }: { sectors: Sector[]; tally: Record<string, Tally> }) {
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
         <circleGeometry args={[R_FLOOR + 4, 96]} />
         <meshStandardMaterial color="#07080b" roughness={1} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[R_FLOOR, 96]} />
         <meshStandardMaterial color="#101218" roughness={0.55} metalness={0.2} />
       </mesh>
@@ -973,22 +982,19 @@ export function TeamFloor3D({
   const totals = Object.values(tally).reduce((a, t) => ({ awake: a.awake + t.awake, asleep: a.asleep + t.asleep, error: a.error + t.error }), { awake: 0, asleep: 0, error: 0 });
   const anyWorking = totals.awake > 0;
   const [spin, setSpin] = useState(true);
+  // Phones start at 1x and only go sharper if the frame rate holds; desktops start at 1.5x and drop if it falls.
+  const [dpr, setDpr] = useState(() => (typeof window !== "undefined" && window.innerWidth < 720 ? 1 : 1.5));
   const resume = useRef<ReturnType<typeof setTimeout> | null>(null);
   return (
     <Boundary fallback={fallback}>
       <div className="relative h-[540px] w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 sm:h-[820px]">
-        <style>{`
-          .tf3-zzz { display:flex; gap:4px; font-weight:700; color:#93c5fd; font-size:18px; }
-          .tf3-zzz span { animation: tf3-float 2.4s ease-in-out infinite; opacity:0; }
-          .tf3-zzz span:nth-child(2) { animation-delay: .6s; font-size:22px; }
-          .tf3-zzz span:nth-child(3) { animation-delay: 1.2s; font-size:28px; }
-          @keyframes tf3-float { 0% { transform: translateY(8px); opacity:0 } 30% { opacity:.9 } 100% { transform: translateY(-22px); opacity:0 } }
-        `}</style>
-        <Canvas shadows dpr={[1, 1.75]} camera={{ position: [0, 28, 32], fov: 42 }} gl={{ antialias: true }}>
+        <Canvas dpr={dpr} camera={{ position: [0, 28, 32], fov: 42 }} gl={{ antialias: true, powerPreference: "high-performance" }} performance={{ min: 0.5 }}>
+          <PerformanceMonitor flipflops={3} onDecline={() => setDpr(1)} onIncline={() => setDpr((d) => Math.min(1.5, d + 0.25))} onFallback={() => setDpr(1)} />
+          <AdaptiveDpr />
           <color attach="background" args={["#08080b"]} />
           <fog attach="fog" args={["#08080b", 50, 95]} />
           <hemisphereLight args={["#cbd5e1", "#0b0b10", 0.8]} />
-          <directionalLight position={[10, 22, 12]} intensity={1.0} castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-22} shadow-camera-right={22} shadow-camera-top={22} shadow-camera-bottom={-22} />
+          <directionalLight position={[10, 22, 12]} intensity={1.0} />
           <Room sectors={sectors} tally={tally} />
           <Links events={events} spots={spots} />
           <Brain learnings={learnings} active={anyWorking} />
@@ -997,6 +1003,7 @@ export function TeamFloor3D({
           ))}
           <OrbitControls
             enablePan={false}
+            regress
             target={[0, 0.5, 0]}
             minDistance={9}
             maxDistance={56}
