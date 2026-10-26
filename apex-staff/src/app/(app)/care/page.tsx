@@ -36,13 +36,14 @@ export default async function CarePage({ searchParams }: { searchParams: { ok?: 
   ]);
   const byClient = Object.fromEntries((contacts ?? []).map((c) => [c.client_name, c]));
   const waiting = (drafts ?? []).filter((d) => d.status === "draft");
-  const done = (drafts ?? []).filter((d) => d.status !== "draft").slice(0, 8);
+  const queued = (drafts ?? []).filter((d) => d.status === "approved");
+  const done = (drafts ?? []).filter((d) => d.status !== "draft" && d.status !== "approved").slice(0, 8);
   const clients = (contacts ?? []).map((c) => c.client_name);
 
   return (
     <div className="space-y-8">
       <AutoRefresh seconds={60} />
-      <PageHeader title="Client care" subtitle="The care team drafts. You tap send. Nothing goes out on its own." />
+      <PageHeader title="Client care" subtitle="Routine check-ins and clip requests go out by SMS on their own (Mon to Sat, 9 to 7). Weekly reports and anything unusual wait here for you." />
       <Notice ok={searchParams.ok} error={searchParams.error} />
 
       <section>
@@ -68,6 +69,9 @@ export default async function CarePage({ searchParams }: { searchParams: { ok?: 
                       <a href={wa} target="_blank" rel="noreferrer" className={btnPrimary}>Open in WhatsApp</a>
                     ) : null}
                     {d.channel === "whatsapp" && !wa ? <span className="text-xs text-amber-300">Add {d.client_name}&apos;s WhatsApp number below to get a one-tap button.</span> : null}
+                    {d.channel === "ghl" ? (
+                      <form action={setDraftStatus}><input type="hidden" name="id" value={d.id} /><input type="hidden" name="status" value="approved" /><button className={btnPrimary}>Approve, team sends</button></form>
+                    ) : null}
                     <CopyButton text={d.body} className={btnGhost} />
                     <form action={setDraftStatus}><input type="hidden" name="id" value={d.id} /><input type="hidden" name="status" value="sent" /><button className={btnGhost}>I sent it</button></form>
                     <form action={setDraftStatus}><input type="hidden" name="id" value={d.id} /><input type="hidden" name="status" value="skipped" /><button className={btnGhost}>Skip</button></form>
@@ -78,6 +82,27 @@ export default async function CarePage({ searchParams }: { searchParams: { ok?: 
           </div>
         )}
       </section>
+
+      {queued.length > 0 ? (
+        <section>
+          <SectionTitle>Approved, going out on the next run ({queued.length})</SectionTitle>
+          <div className="grid gap-3">
+            {queued.map((d) => (
+              <Card key={d.id}>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-white">{d.client_name}</span>
+                  <Badge tone="good">{KIND[d.kind] ?? d.kind}</Badge>
+                  <span className="text-xs text-zinc-500">approved {ago(d.created_at)}</span>
+                </div>
+                <p className="whitespace-pre-wrap rounded-lg bg-white/5 p-3 text-sm text-zinc-200">{d.body}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <form action={setDraftStatus}><input type="hidden" name="id" value={d.id} /><input type="hidden" name="status" value="skipped" /><button className={btnGhost}>Cancel it</button></form>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section>
         <SectionTitle>Log booked and won</SectionTitle>
