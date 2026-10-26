@@ -2,7 +2,7 @@
 
 import { Component, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { AdaptiveDpr, Billboard as FaceCamera, Html, Line, OrbitControls, PerformanceMonitor, Text } from "@react-three/drei";
+import { Html, Line, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { TeamAgent, TeamEvent } from "@/lib/staff/admaker";
 import { liveLinks, status, teamColour } from "@/components/staff/TeamFloor";
@@ -104,21 +104,14 @@ function Label({ name, line, colour, y, big }: { name: string; line: string; col
 }
 
 function Zzz() {
-  const g = useRef<THREE.Group>(null);
-  const txt = useRef<{ fillOpacity: number } | null>(null);
-  useFrame((s) => {
-    const k = (s.clock.elapsedTime * 0.45) % 1;
-    if (g.current) g.current.position.y = 0.45 + k * 0.6;
-    if (txt.current) txt.current.fillOpacity = k < 0.3 ? k / 0.3 : 1 - (k - 0.3) / 0.7;
-  });
   return (
-    <group ref={g} position={[0.3, 0.5, 0]}>
-      <FaceCamera>
-        <Text ref={txt as never} fontSize={0.34} color="#93c5fd" anchorX="center" anchorY="middle">
-          z z Z
-        </Text>
-      </FaceCamera>
-    </group>
+    <Html position={[0.3, 0.5, 0]} center distanceFactor={10} style={{ pointerEvents: "none" }}>
+      <div className="tf3-zzz" aria-hidden>
+        <span>z</span>
+        <span>z</span>
+        <span>Z</span>
+      </div>
+    </Html>
   );
 }
 
@@ -177,7 +170,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
     <group position={[seat.x, 0, seat.z]} rotation={[0, seat.yaw, 0]} scale={sc}>
       {mgr ? (
         <>
-          <mesh position={[0, 0.05, -0.2]}>
+          <mesh position={[0, 0.05, -0.2]} receiveShadow>
             <boxGeometry args={[3.7, 0.1, 3.1]} />
             <meshStandardMaterial color="#14141a" />
           </mesh>
@@ -190,7 +183,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
 
       {/* desk, seen from the person's seat: the monitor faces them */}
       <group position={[0, lift, 0]}>
-        <mesh position={[0, 0.72, 0]}>
+        <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
           <boxGeometry args={[w, 0.08, 0.95]} />
           <meshStandardMaterial color={mgr ? "#4a3b2a" : "#3a3a44"} roughness={0.5} transparent={ghost} opacity={ghost ? 0.7 : 1} />
         </mesh>
@@ -206,7 +199,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         </mesh>
         {!ghost ? (
           <>
-            <mesh position={[0, 1.06, 0.2]}>
+            <mesh position={[0, 1.06, 0.2]} castShadow>
               <boxGeometry args={[0.92, 0.56, 0.05]} />
               <meshStandardMaterial color="#17171c" />
             </mesh>
@@ -234,7 +227,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
 
       {/* chair and person */}
       <group position={[0, lift, 0]}>
-        <mesh position={[0, 0.45, -0.75]}>
+        <mesh position={[0, 0.45, -0.75]} castShadow>
           <boxGeometry args={[0.7, 0.1, 0.6]} />
           <meshStandardMaterial color={mgr ? "#1f2937" : "#2a2a32"} transparent={ghost} opacity={ghost ? 0.6 : 1} />
         </mesh>
@@ -249,7 +242,7 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
         {!ghost ? (
           <group position={[0, 0.5, -0.72]}>
             <group ref={torso} position={[0, 0.2, 0]}>
-              <mesh position={[0, 0.35, 0]}>
+              <mesh position={[0, 0.35, 0]} castShadow>
                 <boxGeometry args={[0.62, 0.78, 0.34]} />
                 <meshStandardMaterial color={mgr ? "#e5e7eb" : colour} roughness={0.7} />
               </mesh>
@@ -266,12 +259,12 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
                 </>
               ) : null}
               <group ref={head} position={[0, 1.18, 0]}>
-                <mesh>
-                  <sphereGeometry args={[0.27, 12, 10]} />
+                <mesh castShadow>
+                  <sphereGeometry args={[0.27, 20, 16]} />
                   <meshStandardMaterial color={skin} roughness={0.8} />
                 </mesh>
                 <mesh position={[0, 0.07, -0.03]}>
-                  <sphereGeometry args={[0.285, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.52]} />
+                  <sphereGeometry args={[0.285, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.52]} />
                   <meshStandardMaterial color={hair} roughness={0.9} />
                 </mesh>
                 {st === "idle" ? (
@@ -289,12 +282,12 @@ function Person({ seat, agent }: { seat: Seat; agent?: TeamAgent }) {
               </group>
               {[-1, 1].map((sd) => (
                 <group key={sd} ref={sd < 0 ? armL : armR} position={[sd * 0.4, 0.62, 0]}>
-                  <mesh position={[0, -0.22, 0]}>
+                  <mesh position={[0, -0.22, 0]} castShadow>
                     <boxGeometry args={[0.16, 0.44, 0.16]} />
                     <meshStandardMaterial color={mgr ? "#111827" : colour} roughness={0.7} />
                   </mesh>
                   <group ref={sd < 0 ? foreL : foreR} position={[0, -0.44, 0]}>
-                    <mesh position={[0, -0.2, 0]}>
+                    <mesh position={[0, -0.2, 0]} castShadow>
                       <boxGeometry args={[0.13, 0.4, 0.13]} />
                       <meshStandardMaterial color={skin} roughness={0.8} />
                     </mesh>
@@ -335,7 +328,7 @@ function Brain({ learnings, active }: { learnings: number; active: boolean }) {
   });
   return (
     <group>
-      <mesh position={[0, 0.15, 0]}>
+      <mesh position={[0, 0.15, 0]} receiveShadow>
         <cylinderGeometry args={[2.6, 2.8, 0.3, 48]} />
         <meshStandardMaterial color="#111827" roughness={0.6} />
       </mesh>
@@ -418,11 +411,11 @@ function Links({ events, spots }: { events: TeamEvent[]; spots: Record<string, {
 function Room({ sectors }: { sectors: Sector[] }) {
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]} receiveShadow>
         <circleGeometry args={[R_FLOOR + 4, 96]} />
         <meshStandardMaterial color="#07080b" roughness={1} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[R_FLOOR, 96]} />
         <meshStandardMaterial color="#101218" roughness={0.55} metalness={0.2} />
       </mesh>
@@ -485,8 +478,6 @@ export function TeamFloor3D({
   const spots = useMemo(() => Object.fromEntries(seats.filter((s) => s.agentKey).map((s) => [s.agentKey as string, { x: s.x, z: s.z }])), [seats]);
   const anyWorking = agents.some((a) => status(a) === "working");
   const [spin, setSpin] = useState(true);
-  // Phones start at 1x and only go sharper if the frame rate holds; desktops start at 1.5x and drop if it falls.
-  const [dpr, setDpr] = useState(() => (typeof window !== "undefined" && window.innerWidth < 720 ? 1 : 1.5));
   const resume = useRef<ReturnType<typeof setTimeout> | null>(null);
   return (
     <Boundary fallback={fallback}>
@@ -511,7 +502,6 @@ export function TeamFloor3D({
           ))}
           <OrbitControls
             enablePan={false}
-            regress
             target={[0, 0.5, 0]}
             minDistance={9}
             maxDistance={52}
