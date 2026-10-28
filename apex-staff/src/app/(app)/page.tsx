@@ -8,6 +8,7 @@ import { Card, Notice, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "
 import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
 import { HarryQuestions } from "@/components/staff/HarryQuestions";
+import { ClientHealth } from "@/components/staff/ClientHealth";
 
 export const metadata = { title: "Dashboard | Apex Team" };
 
@@ -93,6 +94,7 @@ export default async function DashboardPage({
 
       <Notice ok={searchParams.ok} error={searchParams.error} />
       {me.role === "admin" ? <HarryQuestions supabase={supabase} /> : null}
+      {isManager(me.role) ? <ClientHealth supabase={supabase} /> : null}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Calls booked" value={String(team.booked)} />
