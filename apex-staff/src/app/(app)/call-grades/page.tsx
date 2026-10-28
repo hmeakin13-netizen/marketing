@@ -1,6 +1,6 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { fmtDateTime } from "@/lib/staff/dates";
-import { RUBRIC, WIN_OUTCOMES, loadGrades, loadWeekly, scoreTone, weakestItem, weekStartOf, type GradeRow, type WeeklyRow } from "@/lib/staff/grades";
+import { RUBRIC_CLOSER, RUBRIC_SETTER, WIN_OUTCOMES, loadGrades, loadWeekly, rubricFor, scoreTone, weakestItem, weekStartOf, type GradeRow, type WeeklyRow } from "@/lib/staff/grades";
 import { Badge, Card, PageHeader, SectionTitle, Stat } from "@/components/staff/ui";
 
 export const metadata = { title: "Call grades | Apex Team" };
@@ -25,7 +25,8 @@ export default async function CallGradesPage() {
     const tw = weekly.find((w) => w.staff_name === name && w.week_start === thisWeek);
     const lw = weekly.find((w) => w.staff_name === name && w.week_start === lastWeek);
     const recent = rows.slice(0, 10);
-    return { rows, tw, lw, weak: weakestItem(recent), tips: recent.flatMap((g) => lines(g.tips)).slice(0, 4) };
+    const role = rows[0]?.role ?? "unknown";
+    return { rows, tw, lw, weak: weakestItem(recent, rubricFor(role)), tips: recent.flatMap((g) => lines(g.tips)).slice(0, 4) };
   };
 
   return (
@@ -35,17 +36,24 @@ export default async function CallGradesPage() {
         subtitle="Every recorded sales call is marked out of 10 on the same five things, with tips. Closers' calls come from Fathom, setters' calls from GoHighLevel. Graded three times a day (07:13, 13:13 and 18:13)."
       />
 
-      <Card>
-        <SectionTitle>How a call is marked</SectionTitle>
-        <ul className="grid gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-5">
-          {RUBRIC.map((r) => (
-            <li key={r.key} className="rounded-lg bg-white/5 p-3">
-              <p className="font-semibold text-white">{r.label} <span className="text-xs font-normal text-zinc-500">0 to 2</span></p>
-              <p className="mt-1 text-xs text-zinc-400">{r.what}</p>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      {(manager ? (["setter", "closer"] as const) : ([me.role === "closer" ? "closer" : "setter"] as const)).map((r) => (
+        <Card key={r}>
+          <SectionTitle>How a {r === "setter" ? "setter" : "closer"} call is marked</SectionTitle>
+          <p className="-mt-2 mb-3 text-xs text-zinc-500">
+            {r === "setter"
+              ? "A setter's job is to qualify and book the call with the closer. The price is for the closer's call, so holding it back scores well here."
+              : "A closer's job is discovery first, then the pitch and the price once, clearly, then the close."}
+          </p>
+          <ul className="grid gap-2 text-sm text-zinc-300 sm:grid-cols-2 lg:grid-cols-5">
+            {(r === "setter" ? RUBRIC_SETTER : RUBRIC_CLOSER).map((it) => (
+              <li key={it.key} className="rounded-lg bg-white/5 p-3">
+                <p className="font-semibold text-white">{it.label} <span className="text-xs font-normal text-zinc-500">0 to 2</span></p>
+                <p className="mt-1 text-xs text-zinc-400">{it.what}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ))}
 
       {grades.length === 0 ? (
         <Card>
@@ -81,7 +89,7 @@ export default async function CallGradesPage() {
                 </ul>
               </Card>
             ) : null}
-            <WeeklyTable rows={weekly.filter((w) => w.staff_name === p.name)} />
+            <WeeklyTable rows={weekly.filter((w) => w.staff_name === p.name)} role={p.role} />
           </section>
         );
       })}
@@ -100,8 +108,9 @@ export default async function CallGradesPage() {
   );
 }
 
-function WeeklyTable({ rows }: { rows: WeeklyRow[] }) {
+function WeeklyTable({ rows, role }: { rows: WeeklyRow[]; role: string }) {
   if (rows.length === 0) return null;
+  const rubric = rubricFor(role);
   return (
     <Card>
       <SectionTitle>By week</SectionTitle>
@@ -112,7 +121,7 @@ function WeeklyTable({ rows }: { rows: WeeklyRow[] }) {
               <th className="pb-2 font-medium">Week of</th>
               <th className="pb-2 text-right font-medium">Calls</th>
               <th className="pb-2 text-right font-medium">Score</th>
-              {RUBRIC.map((r) => (
+              {rubric.map((r) => (
                 <th key={r.key} className="pb-2 text-right font-medium">{r.label}</th>
               ))}
               <th className="pb-2 text-right font-medium">Won</th>
@@ -140,6 +149,7 @@ function WeeklyTable({ rows }: { rows: WeeklyRow[] }) {
 }
 
 function GradeCard({ g, showName }: { g: GradeRow; showName: boolean }) {
+  const rubric = rubricFor(g.role);
   const win = g.outcome ? WIN_OUTCOMES.includes(g.outcome) : false;
   return (
     <Card>
@@ -155,7 +165,7 @@ function GradeCard({ g, showName }: { g: GradeRow; showName: boolean }) {
         ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {RUBRIC.map((r) => (
+        {rubric.map((r) => (
           <span key={r.key} className={`rounded-full px-2.5 py-0.5 text-xs ${g[r.key] === 2 ? "bg-emerald-500/15 text-emerald-300" : g[r.key] === 1 ? "bg-amber-500/15 text-amber-300" : "bg-rose-500/15 text-rose-300"}`}>
             {r.label} {g[r.key]}/2
           </span>

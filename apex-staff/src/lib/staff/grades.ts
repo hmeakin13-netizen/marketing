@@ -41,15 +41,39 @@ export interface WeeklyRow {
 }
 
 export type RubricKey = "opening" | "discovery" | "objections" | "next_step" | "confirmation";
+export type RubricItem = { key: RubricKey; label: string; what: string };
 
-/** The five things every call is marked on, 0 to 2 each, 10 in total. */
-export const RUBRIC: { key: RubricKey; label: string; what: string }[] = [
+/**
+ * The five things every call is marked on, 0 to 2 each, 10 in total. The same five columns mean
+ * slightly different things for a setter (qualify and book the call with the closer; the price is
+ * for the closer's call) and a closer (discovery, then pitch and price once, then close).
+ */
+export const RUBRIC_SETTER: RubricItem[] = [
+  { key: "opening", label: "Opening", what: "Named yourself and Apex, said why you were calling (we texted earlier), asked if now is a good time." },
+  { key: "discovery", label: "Qualifying", what: "Asked what they do, how busy they are, where work comes from, who decides, and whether the investment is realistic for them." },
+  { key: "objections", label: "Holding the line", what: "Kept the price and the detail for the closer's call without bluffing, and answered 'just send info' or 'not now' with a question." },
+  { key: "next_step", label: "Booking", what: "Booked a real slot from the calendar (never a time you had not checked), agreed with the prospect." },
+  { key: "confirmation", label: "Confirmation", what: "Said it is a Zoom with the closer by name, how long, that the link comes by text, and got a yes back." },
+];
+
+export const RUBRIC_CLOSER: RubricItem[] = [
+  { key: "opening", label: "Opening", what: "Agenda set, permission asked, a little rapport, apologies where owed." },
+  { key: "discovery", label: "Discovery", what: "Drew out their numbers, lead flow, goals, team and how they decide, before pitching anything." },
+  { key: "objections", label: "Pitch and price", what: "Presented the offer after the value, gave the price once, clearly, with the plan options explained once, and handled think-it-over, price and trust with questions, not goading." },
+  { key: "next_step", label: "Close", what: "Ended with a decision, a deposit or a payment, or a booked follow-up with a date and time." },
+  { key: "confirmation", label: "Confirmation", what: "Recapped what was agreed, who does what by when, and what will be sent (deck, calculator, invite)." },
+];
+
+/** Generic labels used where the role is mixed. */
+export const RUBRIC: RubricItem[] = [
   { key: "opening", label: "Opening", what: "Named yourself and Apex, said why you were calling, set the agenda." },
   { key: "discovery", label: "Discovery", what: "Asked real questions about their business, their lead flow and what they want." },
-  { key: "objections", label: "Objections", what: "Handled price, trust and 'let me think' with questions, not pressure." },
-  { key: "next_step", label: "Next step", what: "Ended with a clear next step they agreed to: a time, a decision or a payment." },
-  { key: "confirmation", label: "Confirmation", what: "Recapped and confirmed: who does what by when, text or email to follow." },
+  { key: "objections", label: "Objections", what: "Setter: held the price for the closer's call. Closer: pitched after the value and gave the price once, clearly." },
+  { key: "next_step", label: "Next step", what: "A real booking from the calendar, a decision, a deposit or a dated follow-up." },
+  { key: "confirmation", label: "Confirmation", what: "Recapped and confirmed: who does what by when, how the link or details arrive, a yes back." },
 ];
+
+export const rubricFor = (role: string): RubricItem[] => (role === "setter" ? RUBRIC_SETTER : role === "closer" ? RUBRIC_CLOSER : RUBRIC);
 
 export const WIN_OUTCOMES = ["booked", "rebooked", "closed"];
 
@@ -78,9 +102,9 @@ export function weekStartOf(d: Date) {
 }
 
 /** The rubric item a person scores lowest on, averaged over the given calls. */
-export function weakestItem(rows: GradeRow[]): { key: RubricKey; label: string; avg: number } | null {
+export function weakestItem(rows: GradeRow[], rubric: RubricItem[] = RUBRIC): { key: RubricKey; label: string; avg: number } | null {
   if (rows.length === 0) return null;
-  const avgs = RUBRIC.map((r) => ({ key: r.key, label: r.label, avg: rows.reduce((s, g) => s + g[r.key], 0) / rows.length }));
+  const avgs = rubric.map((r) => ({ key: r.key, label: r.label, avg: rows.reduce((s, g) => s + g[r.key], 0) / rows.length }));
   return avgs.sort((a, b) => a.avg - b.avg)[0];
 }
 
