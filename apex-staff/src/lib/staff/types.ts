@@ -17,6 +17,8 @@ export interface StaffRow {
   role: StaffRole;
   active: boolean;
   calendly_email: string | null;
+  /** GoHighLevel user id, so the Call Grader credits their calls to them. */
+  ghl_user_id: string | null;
   login_enabled: boolean;
   manager_id: string | null;
   created_at: string;

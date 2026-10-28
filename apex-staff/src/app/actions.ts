@@ -479,6 +479,7 @@ export async function updatePerson(formData: FormData) {
       role,
       full_name: fullName,
       calendly_email: optStr(formData, "calendly_email"),
+      ghl_user_id: optStr(formData, "ghl_user_id"),
       manager_id: optStr(formData, "manager_id"),
     })
     .eq("id", id);
