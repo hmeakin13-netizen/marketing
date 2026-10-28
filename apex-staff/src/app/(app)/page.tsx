@@ -4,17 +4,17 @@ import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
 import { parseRange, rangeBounds, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
 import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
-import { Card, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
+import { Card, Notice, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
 import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
-import { AdsHealth } from "@/components/staff/AdsHealth";
+import { HarryQuestions } from "@/components/staff/HarryQuestions";
 
 export const metadata = { title: "Dashboard | Apex Team" };
 
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { range?: string };
+  searchParams: { range?: string; ok?: string; error?: string };
 }) {
   const { supabase, me } = await requireStaff();
   const range = parseRange(searchParams.range);
@@ -91,7 +91,8 @@ export default async function DashboardPage({
         action={<RangeTabs base="/" range={range} />}
       />
 
-      {isManager(me.role) ? <AdsHealth supabase={supabase} /> : null}
+      <Notice ok={searchParams.ok} error={searchParams.error} />
+      {me.role === "admin" ? <HarryQuestions supabase={supabase} /> : null}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Calls booked" value={String(team.booked)} />

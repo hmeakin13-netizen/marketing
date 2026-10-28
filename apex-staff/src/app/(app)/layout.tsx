@@ -10,6 +10,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/", label: "Dashboard", icon: "◧" },
     { href: "/calendar", label: "Calendar", icon: "▦" },
     { href: "/calls", label: "Calls", icon: "☎" },
+    { href: "/call-grades", label: "Call grades", icon: "★" },
     { href: "/attention", label: "Needs attention", icon: "⚑" },
     { href: "/deals", label: "Deals & cash", icon: "£" },
     { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
