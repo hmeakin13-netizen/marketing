@@ -5,40 +5,47 @@ export const dynamic = "force-dynamic";
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const { me } = await requireStaff();
+  const manager = isManager(me.role);
 
+  // Three groups so the sidebar reads as "my work", "the AI team" and "admin" rather than one long list.
+  // The ad-maker sub-pages only show while you are inside Ads, which is where they belong.
   const items: NavItem[] = [
-    { href: "/", label: "Dashboard", icon: "◧" },
-    { href: "/calendar", label: "Calendar", icon: "▦" },
-    { href: "/calls", label: "Calls", icon: "☎" },
-    { href: "/call-grades", label: "Call grades", icon: "★" },
-    { href: "/setters", label: "Setters", icon: "⇄" },
-    { href: "/attention", label: "Needs attention", icon: "⚑" },
-    { href: "/deals", label: "Deals & cash", icon: "£" },
-    { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
-    { href: "/targets", label: "Targets", icon: "◎" },
-    { href: "/territories", label: "Territory map", icon: "⌖" },
+    { href: "/", label: "Dashboard", icon: "◧", group: "Sales" },
+    { href: "/calls", label: "Calls", icon: "☎", group: "Sales" },
+    { href: "/calendar", label: "Calendar", icon: "▦", group: "Sales" },
+    { href: "/call-grades", label: "Call grades", icon: "★", group: "Sales" },
   ];
-  if (me.role === "setter" || isManager(me.role)) items.splice(4, 0, { href: "/report", label: "End of day report", icon: "✍" });
-  if (isManager(me.role)) items.splice(
-      1,
-      0,
-      { href: "/ads", label: "Ads", icon: "▤" },
-      { href: "/ad-maker", label: "Ad maker rules", icon: "⚖", indent: true },
-      { href: "/ad-maker/learnings", label: "Ad maker learnings", icon: "✦", indent: true },
-      { href: "/ad-maker/activity", label: "Ad maker activity", icon: "≣", indent: true },
-      { href: "/ad-maker/team", label: "Research team", icon: "◎", indent: true },
-      { href: "/care", label: "Client care", icon: "☺" },
-      { href: "/sales", label: "Sales recovery", icon: "☏" },
-      { href: "/marketing", label: "Marketing", icon: "✦" },
+  if (manager) items.push({ href: "/setters", label: "Setters", icon: "⇄", group: "Sales" });
+  if (me.role === "setter" || manager) items.push({ href: "/report", label: "End of day report", icon: "✍", group: "Sales" });
+  items.push(
+    { href: "/attention", label: "Needs attention", icon: "⚑", group: "Sales" },
+    { href: "/deals", label: "Deals & cash", icon: "£", group: "Sales" },
+    { href: "/leaderboard", label: "Leaderboard", icon: "🏆", group: "Sales" },
+    { href: "/targets", label: "Targets", icon: "◎", group: "Sales" },
+    { href: "/territories", label: "Territory map", icon: "⌖", group: "Sales" }
+  );
+  if (manager) {
+    items.push(
+      { href: "/ads", label: "Ads", icon: "▤", group: "AI team" },
+      { href: "/ad-maker", label: "Rules", icon: "⚖", group: "AI team", indent: true, under: "/ads" },
+      { href: "/ad-maker/learnings", label: "Learnings", icon: "✦", group: "AI team", indent: true, under: "/ads" },
+      { href: "/ad-maker/activity", label: "Activity", icon: "≣", group: "AI team", indent: true, under: "/ads" },
+      { href: "/ad-maker/team", label: "Desks", icon: "◎", group: "AI team", indent: true, under: "/ads" },
+      { href: "/care", label: "Client care", icon: "☺", group: "AI team" },
+      { href: "/sales", label: "Sales recovery", icon: "☏", group: "AI team" },
+      { href: "/marketing", label: "Marketing", icon: "✦", group: "AI team" }
     );
-  if (isManager(me.role)) items.push({ href: "/audit", label: "Audit trail", icon: "✎" });
-  if (me.role === "admin") {
-    items.push({ href: "/team", label: "Team", icon: "☺" });
-    items.push({ href: "/clients", label: "Clients", icon: "★" });
-    items.push({ href: "/pay", label: "Pay & commission", icon: "◈" });
-    items.push({ href: "/invoices", label: "Invoices", icon: "🧾" });
-    items.push({ href: "/settings", label: "Settings", icon: "⚙" });
   }
+  if (me.role === "admin") {
+    items.push(
+      { href: "/team", label: "Team", icon: "☺", group: "Admin" },
+      { href: "/clients", label: "Clients", icon: "★", group: "Admin" },
+      { href: "/pay", label: "Pay & commission", icon: "◈", group: "Admin" },
+      { href: "/invoices", label: "Invoices", icon: "🧾", group: "Admin" },
+      { href: "/settings", label: "Settings", icon: "⚙", group: "Admin" }
+    );
+  }
+  if (manager) items.push({ href: "/audit", label: "Audit trail", icon: "✎", group: "Admin" });
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
