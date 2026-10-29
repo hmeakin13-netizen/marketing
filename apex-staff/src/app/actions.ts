@@ -888,6 +888,33 @@ export async function assignCall(formData: FormData) {
   back("/calls", "ok", "Updated who set and who closed that call.");
 }
 
+/**
+ * Setters and managers can credit a call to a setter themselves (admins use the fuller form above).
+ * Closed deals stay with managers because pay follows the deal.
+ */
+export async function setCallSetter(formData: FormData) {
+  const { me } = await requireRole("setter", "manager", "admin");
+  const callId = str(formData, "call_id");
+  const setterId = optStr(formData, "setter_id");
+  const admin = createAdminClient();
+
+  const { data: call } = await admin.from("calls").select("id, outcome").eq("id", callId).maybeSingle();
+  if (!call) back("/calls", "error", "Couldn't find that call.");
+  if (call!.outcome === "closed" && !isManager(me.role)) {
+    back("/calls", "error", "That deal is closed, so a manager has to change who set it.");
+  }
+  if (setterId) {
+    const { data: person } = await admin.from("staff").select("id, active").eq("id", setterId).maybeSingle();
+    if (!person || !person.active) back("/calls", "error", "Pick someone who is on the team.");
+  }
+
+  const { error } = await admin.from("calls").update({ setter_id: setterId }).eq("id", callId);
+  if (error) back("/calls", "error", error.message);
+
+  revalidatePath("/", "layout");
+  back("/calls", "ok", "Updated who set that call.");
+}
+
 /** Re-pick the closer on every upcoming, not-yet-worked call from the shifts under Settings. */
 export async function reapplyShifts() {
   await requireRole("admin");
