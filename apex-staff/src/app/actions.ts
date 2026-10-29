@@ -13,6 +13,7 @@ import type { CloseRow } from "@/lib/staff/types";
 import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/recording";
 import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
+import { emailSignInLink, makeSignInLink } from "@/lib/staff/login-link";
 import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
 import type { StaffRole, PaymentType } from "@/lib/staff/types";
@@ -385,9 +386,23 @@ export async function addPerson(formData: FormData) {
     path,
     "ok",
     giveLogin
-      ? `${fullName} added. Tell them to open the team login page and use ${email}.`
+      ? `${fullName} added. ${await emailLinkIfPossible(email, fullName)}`
       : `${fullName} added with no login yet. Click "Give access" when you want them to be able to sign in.`
   );
+}
+
+function requestOrigin() {
+  const h = headers();
+  return `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
+}
+
+/** Emails a sign-in link when Resend is set up. Returns the line to show the admin. */
+async function emailLinkIfPossible(email: string, fullName: string): Promise<string> {
+  if (!emailConfigured()) return `Tell them to open the team login page and use ${email}.`;
+  const failed = await emailSignInLink(email, fullName, requestOrigin());
+  return failed
+    ? `The sign-in email didn't send (${failed}). Use "Get a sign-in link to send them" instead.`
+    : `A sign-in link has been emailed to ${email}.`;
 }
 
 /** Creates (or un-bans) the Supabase Auth user. Returns an error message, or null on success. */
@@ -414,7 +429,7 @@ export async function giveAccess(formData: FormData) {
   if (failed) back(path, "error", `Couldn't create the login: ${failed}`);
   await supabase.from("staff").update({ login_enabled: true }).eq("id", person!.id);
   revalidatePath("/", "layout");
-  back(path, "ok", `${person!.full_name} can now sign in with ${person!.email}.`);
+  back(path, "ok", `${person!.full_name} can now sign in with ${person!.email}. ${await emailLinkIfPossible(person!.email, person!.full_name)}`);
 }
 
 /** One-time sign-in link the admin can send to someone directly (WhatsApp etc.), no email needed. */
@@ -428,14 +443,9 @@ export async function makeLoginLink(formData: FormData) {
   if (failed) back(path, "error", `Couldn't create the login: ${failed}`);
   await supabase.from("staff").update({ login_enabled: true }).eq("id", person!.id);
 
-  const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: person!.email });
-  const hashed = data?.properties?.hashed_token;
-  if (error || !hashed) back(path, "error", `Couldn't make a link: ${error?.message ?? "no token returned"}`);
-
-  const h = headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const link = `${proto}://${host}/auth/confirm?token_hash=${encodeURIComponent(hashed!)}&type=magiclink`;
+  const made = await makeSignInLink(person!.email, requestOrigin());
+  if ("error" in made) back(path, "error", `Couldn't make a link: ${made.error}`);
+  const link = (made as { link: string }).link;
   redirect(`${path}?link=${encodeURIComponent(link)}&for=${encodeURIComponent(person!.full_name)}`);
 }
 
