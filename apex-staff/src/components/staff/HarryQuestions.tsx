@@ -23,7 +23,12 @@ export async function loadQuestions(supabase: SupabaseClient): Promise<Q[]> {
   const activity = { data: [...(suggestions.data ?? []), ...(flags.data ?? [])] };
   const out: Q[] = [];
   for (const r of queue.data ?? []) out.push({ kind: "queue", id: r.id, text: r.question, why: r.why, from: r.asked_by ?? "team", at: r.created_at });
-  for (const r of activity.data ?? []) out.push({ kind: "activity", id: r.id, text: String(r.summary).replace(/^Question for Harry:\s*/i, ""), why: r.reason, from: r.kind === "flag" ? "flag" : "suggestion", at: r.created_at });
+  // Only real questions reach Harry: an update or a heads-up with no question in it is not a question.
+  for (const r of activity.data ?? []) {
+    const text = String(r.summary).replace(/^Question for Harry:\s*/i, "");
+    if (!text.includes("?")) continue;
+    out.push({ kind: "activity", id: r.id, text, why: r.reason, from: r.kind === "flag" ? "flag" : "suggestion", at: r.created_at });
+  }
   for (const r of orders.data ?? []) out.push({ kind: "order", id: r.id, text: r.said, why: r.result, from: "your order", at: r.created_at });
   return out.sort((a, b) => b.at.localeCompare(a.at));
 }
