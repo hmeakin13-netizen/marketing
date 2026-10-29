@@ -5,7 +5,6 @@ import { parseRange, rangeBounds, fmtDate, fmtDateTime, todayIso } from "@/lib/s
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
 import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
 import { Card, Notice, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
-import { CashGoal } from "@/components/staff/CashGoal";
 import { TargetBars } from "@/components/staff/TargetBars";
 import { HarryQuestions } from "@/components/staff/HarryQuestions";
 import { ClientHealth } from "@/components/staff/ClientHealth";
@@ -104,8 +103,6 @@ export default async function DashboardPage({
         <Stat label="Cash collected" value={money(team.cash)} tone="good" />
         <Stat label="Deal value closed" value={money(team.revenue)} />
       </div>
-
-      <CashGoal closes={closes} />
 
       {myFlags.length > 0 ? (
         <Card className={`mt-6 ${highFlags > 0 ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
