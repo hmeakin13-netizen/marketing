@@ -100,8 +100,16 @@ export async function logOutcome(formData: FormData) {
     .eq("id", callId)
     .single();
   if (!call) back(path, "error", "Couldn't find that call.");
-  const mayLog = me.role === "admin" || me.role === "manager" || call!.closer_id === me.id || (!call!.closer_id && me.role === "closer");
-  if (!mayLog) back(path, "error", "Only the closer on this call can log its outcome.");
+  const isSetterOfCall = call!.setter_id === me.id;
+  const mayLog =
+    me.role === "admin" ||
+    me.role === "manager" ||
+    call!.closer_id === me.id ||
+    (!call!.closer_id && me.role === "closer") ||
+    isSetterOfCall;
+  if (!mayLog) back(path, "error", "Only the closer or the setter on this call can log its outcome.");
+  // A setter's row-level access only covers calls they already own; the check above is the gate, so write as the service role.
+  const db = isManager(me.role) || call!.closer_id === me.id || me.role === "closer" ? supabase : createAdminClient();
   if (call!.outcome === "closed") {
     back(path, "error", "That call is already closed — edit the deal on the Deals page.");
   }
@@ -145,10 +153,10 @@ export async function logOutcome(formData: FormData) {
     const closerId = (update.closer_id as string | undefined) ?? call!.closer_id ?? me.id;
     update.closer_id = closerId;
 
-    const { error: callErr } = await supabase.from("calls").update(update).eq("id", callId);
+    const { error: callErr } = await db.from("calls").update(update).eq("id", callId);
     if (callErr) back(path, "error", callErr.message);
 
-    const { data: close, error: closeErr } = await supabase
+    const { data: close, error: closeErr } = await db
       .from("closes")
       .insert({
         call_id: callId,
@@ -164,7 +172,7 @@ export async function logOutcome(formData: FormData) {
     if (closeErr || !close) back(path, "error", closeErr?.message ?? "Couldn't save the deal.");
 
     if (cash > 0) {
-      const { error: payErr } = await supabase
+      const { error: payErr } = await db
         .from("payments")
         .insert({ close_id: close!.id, amount: cash });
       if (payErr) back(path, "error", payErr.message);
@@ -192,7 +200,7 @@ export async function logOutcome(formData: FormData) {
 
     await issuePayouts(close!.id);
   } else {
-    const { error } = await supabase.from("calls").update(update).eq("id", callId);
+    const { error } = await db.from("calls").update(update).eq("id", callId);
     if (error) back(path, "error", error.message);
   }
 
@@ -886,6 +894,35 @@ export async function assignCall(formData: FormData) {
 
   revalidatePath("/", "layout");
   back("/calls", "ok", "Updated who set and who closed that call.");
+}
+
+const SETTER_NOTE_KEYS = ["what_they_do", "how_they_get_work", "what_they_want", "budget_and_decision", "closer_should_know"] as const;
+
+/** The setter's notes on a lead (a few set prompts) so the closer is ready for the call. */
+export async function saveSetterNotes(formData: FormData) {
+  const { me } = await requireRole("setter", "manager", "admin");
+  const callId = str(formData, "call_id");
+  const admin = createAdminClient();
+
+  const { data: call } = await admin.from("calls").select("id, setter_id, lead_name").eq("id", callId).maybeSingle();
+  if (!call) back("/calls", "error", "Couldn't find that call.");
+  if (!isManager(me.role) && call!.setter_id && call!.setter_id !== me.id) {
+    back("/calls", "error", "Only the setter on this call can add its notes.");
+  }
+
+  const notes: Record<string, string> = {};
+  for (const key of SETTER_NOTE_KEYS) {
+    const v = str(formData, key).slice(0, 1000);
+    if (v) notes[key] = v;
+  }
+  const { error } = await admin
+    .from("calls")
+    .update({ setter_notes: Object.keys(notes).length > 0 ? notes : null })
+    .eq("id", callId);
+  if (error) back("/calls", "error", error.message);
+
+  revalidatePath("/", "layout");
+  back("/calls", "ok", `Notes saved for ${call!.lead_name}.`);
 }
 
 /**
