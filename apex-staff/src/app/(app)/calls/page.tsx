@@ -6,6 +6,7 @@ import { needsRecording } from "@/lib/staff/recording";
 import { CONFIRMATION_LABEL, OUTCOME_LABEL, type CallConfirmation, type CallRow, type CallOutcome, type StaffRow } from "@/lib/staff/types";
 import { assignCall, bookCall, setCallSetter, setConfirmation } from "../../actions";
 import { OutcomeForm } from "@/components/staff/OutcomeForm";
+import { SetterNotes } from "@/components/staff/SetterNotes";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
 
@@ -46,8 +47,11 @@ export default async function CallsPage({
   const setters = staff.filter((s) => s.role !== "closer");
   const closers = staff.filter((s) => s.role !== "setter");
   const now = Date.now();
-  // Closers log the outcome of their own calls (or an unassigned one they pick up); setters don't.
-  const canEdit = (c: CallRow) => isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer");
+  // Closers log the outcome of their own calls (or an unassigned one they pick up); a setter can log the calls they set.
+  const canEdit = (c: CallRow) =>
+    isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer") || c.setter_id === me.id;
+  // Setter notes: the setter on the call (or an unassigned call) and managers can write them; everyone reads them.
+  const canNote = (c: CallRow) => isManager(me.role) || (me.role === "setter" && (!c.setter_id || c.setter_id === me.id));
 
   const needsOutcome = calls.filter((c) => c.outcome === "scheduled" && new Date(c.call_at).getTime() < now && canEdit(c));
   const upcoming = calls
@@ -145,6 +149,7 @@ export default async function CallsPage({
                 ) : me.role !== "closer" ? (
                   <div className="mb-3"><SetterForm call={c} staff={staff} /></div>
                 ) : null}
+                <SetterNotes call={c} canEdit={canNote(c)} />
                 <OutcomeForm callId={c.id} existingNotes={c.notes} />
               </Card>
             ))}
@@ -157,7 +162,7 @@ export default async function CallsPage({
       ) : null}
 
       <SectionTitle>Upcoming ({upcoming.length})</SectionTitle>
-      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} canEditSetter={me.role !== "closer"} confirm />
+      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} canEditSetter={me.role !== "closer"} canNote={canNote} confirm />
 
       <div className="mt-8" />
       <SectionTitle>Recent results ({filtered.length})</SectionTitle>
@@ -178,7 +183,7 @@ export default async function CallsPage({
           );
         })}
       </div>
-      <CallList calls={done} staff={staff} empty={`No ${filter.label.toLowerCase()} calls yet.`} showOutcome admin={me.role === "admin"} canEditSetter={me.role !== "closer"} />
+      <CallList calls={done} staff={staff} empty={`No ${filter.label.toLowerCase()} calls yet.`} showOutcome admin={me.role === "admin"} canEditSetter={me.role !== "closer"} canNote={canNote} />
       {!showAll && filtered.length > RESULT_PAGE ? (
         <Link href={`/calls?result=${filter.key}&all=1`} className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
           Show all {filtered.length} →
@@ -249,6 +254,7 @@ function CallList({
   showOutcome,
   admin,
   canEditSetter,
+  canNote,
   confirm,
 }: {
   calls: CallRow[];
@@ -257,6 +263,7 @@ function CallList({
   showOutcome?: boolean;
   admin?: boolean;
   canEditSetter?: boolean;
+  canNote?: (c: CallRow) => boolean;
   confirm?: boolean;
 }) {
   if (calls.length === 0) return <p className="text-sm text-zinc-500">{empty}</p>;
@@ -305,6 +312,7 @@ function CallList({
                 ) : canEditSetter && c.outcome !== "closed" ? (
                   <div className="mt-1"><SetterForm call={c} staff={staff} /></div>
                 ) : null}
+                <SetterNotes call={c} canEdit={canNote ? canNote(c) : false} />
               </td>
             </tr>
           ))}

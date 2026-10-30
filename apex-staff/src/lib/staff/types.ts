@@ -39,6 +39,7 @@ export interface CallRow {
   outcome_logged_at: string | null;
   recording_url: string | null;
   notes: string | null;
+  setter_notes: Record<string, string> | null;
   confirmation: CallConfirmation;
   confirmation_note: string | null;
   confirmation_at: string | null;
