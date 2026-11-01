@@ -21,9 +21,12 @@ export async function answerQuestion(formData: FormData) {
   const db = createAdminClient();
   const kind = kindOf(str(formData, "kind"));
   const id = Number(str(formData, "id"));
-  const answer = str(formData, "answer");
+  // Yes and No buttons send the answer as the button value; the optional note rides along with it.
+  const choice = str(formData, "answer");
+  const note = str(formData, "note");
+  const answer = choice && note ? `${choice}. ${note}` : choice || note;
   if (!kind || !Number.isFinite(id)) back("error", "Something went wrong with that question.");
-  if (!answer) back("error", "Type an answer first.");
+  if (!answer) back("error", "Pick Yes or No, or type a note first.");
 
   let question = "";
   if (kind === "queue") {

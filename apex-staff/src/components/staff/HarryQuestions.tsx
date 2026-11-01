@@ -49,14 +49,30 @@ export async function HarryQuestions({ supabase }: { supabase: SupabaseClient })
                 {q.from} · {ago(q.at)}
                 {q.why ? ` · ${q.why}` : ""}
               </p>
-              <form action={answerQuestion} className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start">
+              <form action={answerQuestion} className="mt-2 flex flex-col gap-2">
                 <input type="hidden" name="kind" value={q.kind} />
                 <input type="hidden" name="id" value={q.id} />
-                <textarea name="answer" rows={2} placeholder="Type your answer. The team reads it on their next run." className={`${inputCls} sm:flex-1`} />
-                <div className="flex gap-2">
-                  <button className={btnPrimary}>Answer</button>
-                  <button formAction={markQuestionDone} formNoValidate className={btnGhost}>Done</button>
-                </div>
+                {q.kind === "order" ? (
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <textarea name="note" rows={2} placeholder="Type your answer. The team reads it on their next run." className={`${inputCls} sm:flex-1`} />
+                    <div className="flex gap-2">
+                      <button className={btnPrimary}>Answer</button>
+                      <button formAction={markQuestionDone} formNoValidate className={btnGhost}>Done</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <button name="answer" value="Yes" className={btnPrimary}>Yes</button>
+                      <button name="answer" value="No" className={btnGhost}>No</button>
+                      <button formAction={markQuestionDone} formNoValidate className={btnGhost}>Done</button>
+                    </div>
+                    <details className="text-xs text-zinc-500">
+                      <summary className="cursor-pointer">Add a note with your answer</summary>
+                      <textarea name="note" rows={2} placeholder="Optional. Press Yes or No after typing." className={`${inputCls} mt-2`} />
+                    </details>
+                  </>
+                )}
               </form>
             </li>
           ))}
