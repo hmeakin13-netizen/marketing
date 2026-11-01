@@ -55,7 +55,7 @@ export default async function AdMakerRulesPage() {
 
   return (
     <>
-      <PageHeader title="Ad maker rules" subtitle="The limits the ad maker works inside. Nothing is created yet: research first, FG is the pilot." />
+      <PageHeader title="Ad maker rules" subtitle="The limits the ad maker works inside. The ad desks work inside these limits for every live client." />
       <Card className="mb-5">
         <SectionTitle>Always true</SectionTitle>
         <ul className="space-y-1.5 text-sm text-zinc-300">
