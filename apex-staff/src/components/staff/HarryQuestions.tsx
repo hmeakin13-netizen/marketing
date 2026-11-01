@@ -16,7 +16,7 @@ export async function loadQuestions(supabase: SupabaseClient): Promise<Q[]> {
   const since = new Date(Date.now() - 21 * 86400000).toISOString();
   const [queue, suggestions, flags, orders] = await Promise.all([
     supabase.from("ad_research_queue").select("id, question, why, asked_by, created_at").eq("status", "open").is("assigned_to", null).order("created_at", { ascending: false }).limit(20),
-    supabase.from("ad_activity").select("id, kind, summary, reason, created_at").is("handled_at", null).gte("created_at", since).eq("kind", "suggestion").ilike("summary", "Question for Harry%").order("created_at", { ascending: false }).limit(20),
+    supabase.from("ad_activity").select("id, kind, summary, reason, created_at").is("handled_at", null).gte("created_at", since).eq("kind", "suggestion").ilike("summary", "Question for Harry%").order("created_at", { ascending: false }).limit(60),
     supabase.from("ad_activity").select("id, kind, summary, reason, created_at").is("handled_at", null).gte("created_at", since).eq("kind", "flag").ilike("summary", "%Harry%").order("created_at", { ascending: false }).limit(20),
     supabase.from("harry_orders").select("id, said, result, created_at").eq("status", "needs_harry").order("created_at", { ascending: false }).limit(20),
   ]);
