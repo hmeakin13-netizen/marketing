@@ -1,6 +1,6 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore } from "@/lib/staff/data";
-import { rangeBounds, fmtDate, todayIso, parseRange } from "@/lib/staff/dates";
+import { rangeBounds, fmtDate, todayIso, parseRange, parseBack, rangeLabel } from "@/lib/staff/dates";
 import { money, nameOf, outstanding, owed, paidTotal, computeStats } from "@/lib/staff/metrics";
 import { dealPayableOn } from "@/lib/staff/pay";
 import { PAYMENT_TYPE_LABEL, type CloseRow, type StaffRow } from "@/lib/staff/types";
@@ -13,11 +13,12 @@ export const metadata = { title: "Deals & cash | Apex Team" };
 export default async function DealsPage({
   searchParams,
 }: {
-  searchParams: { ok?: string; error?: string; range?: string };
+  searchParams: { ok?: string; error?: string; range?: string; back?: string };
 }) {
   const { supabase, me } = await requireStaff();
   const range = parseRange(searchParams.range);
-  const { from, to } = rangeBounds(range);
+  const back = parseBack(searchParams.back);
+  const { from, to } = rangeBounds(range, new Date(), back);
   const { staff, calls, closes } = await loadCore(supabase, from);
   const stats = computeStats(calls, closes, from, to);
   const owing = outstanding(closes);
@@ -31,8 +32,8 @@ export default async function DealsPage({
     <>
       <PageHeader
         title="Deals & cash"
-        subtitle="Every close, what's been paid and what's still owed."
-        action={<RangeTabs base="/deals" range={range} />}
+        subtitle={`Every close, what's been paid and what's still owed. Cash collected shows ${rangeLabel(range, back).toLowerCase()}.`}
+        action={<RangeTabs base="/deals" range={range} back={back} />}
       />
       <Notice ok={searchParams.ok} error={searchParams.error} />
 

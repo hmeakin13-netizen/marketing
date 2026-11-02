@@ -1,6 +1,6 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore } from "@/lib/staff/data";
-import { parseRange, rangeBounds, fmtDate } from "@/lib/staff/dates";
+import { parseRange, parseBack, rangeBounds, rangeLabel, fmtDate } from "@/lib/staff/dates";
 import { computeStats, pct } from "@/lib/staff/metrics";
 import { loadGrades, scoreTone } from "@/lib/staff/grades";
 import { fmtSpeed, loadSetterDays, sumSetterDays, type SetterDay } from "@/lib/staff/setters";
@@ -13,11 +13,12 @@ const ukDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Lon
 const n0 = (n: number) => n.toLocaleString("en-GB");
 const ratio = (a: number, b: number) => (b > 0 ? pct((a / b) * 100) : "–");
 
-export default async function SettersPage({ searchParams }: { searchParams: { range?: string } }) {
+export default async function SettersPage({ searchParams }: { searchParams: { range?: string; back?: string } }) {
   const { supabase, me } = await requireStaff();
   const manager = isManager(me.role);
   const range = parseRange(searchParams.range);
-  const { from, to } = rangeBounds(range);
+  const back = parseBack(searchParams.back);
+  const { from, to } = rangeBounds(range, new Date(), back);
   const sinceDay = ukDay(from);
 
   const { staff, calls, closes } = await loadCore(supabase, from);
@@ -34,7 +35,7 @@ export default async function SettersPage({ searchParams }: { searchParams: { ra
 
   const [days, grades] = await Promise.all([
     loadSetterDays(supabase, { staffId: manager ? undefined : me.id, sinceDay }),
-    loadGrades(supabase, { staffId: manager ? undefined : me.id, days: 60 }),
+    loadGrades(supabase, { staffId: manager ? undefined : me.id, days: 400 }),
   ]);
 
   const cols = setters.map((s) => {
@@ -71,8 +72,8 @@ export default async function SettersPage({ searchParams }: { searchParams: { ra
     <>
       <PageHeader
         title={manager ? "Setters, side by side" : "My setter numbers"}
-        subtitle={`${range === "today" ? "Today" : range === "week" ? "This week" : "This month"}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}. Bookings and show rate come from the portal; dials, texts, speed to lead and follow-ups come from GoHighLevel, counted three times a day (09:02, 14:02, 18:02).`}
-        action={<RangeTabs base="/setters" range={range} />}
+        subtitle={`${rangeLabel(range, back)}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}. Bookings and show rate come from the portal; dials, texts, speed to lead and follow-ups come from GoHighLevel, counted three times a day (09:02, 14:02, 18:02).`}
+        action={<RangeTabs base="/setters" range={range} back={back} />}
       />
 
       {setters.length === 0 ? (
