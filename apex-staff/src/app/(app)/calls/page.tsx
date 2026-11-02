@@ -47,6 +47,8 @@ export default async function CallsPage({
   const setters = staff.filter((s) => s.role !== "closer");
   const closers = staff.filter((s) => s.role !== "setter");
   const now = Date.now();
+  // Admins can change who set and who closed a call; so can anyone the owner has switched it on for (e.g. Dan).
+  const mayAssign = me.role === "admin" || !!me.can_assign_calls;
   // Closers log the outcome of their own calls (or an unassigned one they pick up); a setter can log the calls they set.
   const canEdit = (c: CallRow) =>
     isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer") || c.setter_id === me.id;
@@ -144,7 +146,7 @@ export default async function CallsPage({
                   </div>
                   <Badge tone="warn">Needs outcome</Badge>
                 </div>
-                {me.role === "admin" ? (
+                {mayAssign ? (
                   <div className="mb-3"><AssignForm call={c} staff={staff} /></div>
                 ) : me.role !== "closer" ? (
                   <div className="mb-3"><SetterForm call={c} staff={staff} /></div>
@@ -162,7 +164,7 @@ export default async function CallsPage({
       ) : null}
 
       <SectionTitle>Upcoming ({upcoming.length})</SectionTitle>
-      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={me.role === "admin"} canEditSetter={me.role !== "closer"} canNote={canNote} confirm />
+      <CallList calls={upcoming} staff={staff} empty="Nothing booked yet." admin={mayAssign} canEditSetter={me.role !== "closer"} canNote={canNote} confirm />
 
       <div className="mt-8" />
       <SectionTitle>Recent results ({filtered.length})</SectionTitle>
@@ -183,7 +185,7 @@ export default async function CallsPage({
           );
         })}
       </div>
-      <CallList calls={done} staff={staff} empty={`No ${filter.label.toLowerCase()} calls yet.`} showOutcome admin={me.role === "admin"} canEditSetter={me.role !== "closer"} canNote={canNote} />
+      <CallList calls={done} staff={staff} empty={`No ${filter.label.toLowerCase()} calls yet.`} showOutcome admin={mayAssign} canEditSetter={me.role !== "closer"} canNote={canNote} />
       {!showAll && filtered.length > RESULT_PAGE ? (
         <Link href={`/calls?result=${filter.key}&all=1`} className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
           Show all {filtered.length} →

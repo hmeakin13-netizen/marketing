@@ -881,16 +881,27 @@ export async function reinstateClient(formData: FormData) {
 // ------------------------------------------------------------------ call assignment (admin)
 
 export async function assignCall(formData: FormData) {
-  const { supabase } = await requireRole("admin");
+  const { me } = await requireRole("admin", "closer", "manager");
+  const isAdmin = me.role === "admin";
+  // Admins always; anyone else only when the owner has switched this on for them (staff.can_assign_calls).
+  if (!isAdmin && !me.can_assign_calls) redirect("/");
   const callId = str(formData, "call_id");
   const setterId = optStr(formData, "setter_id");
   const closerId = optStr(formData, "closer_id");
+  const db = createAdminClient();
 
-  const { error } = await supabase.from("calls").update({ setter_id: setterId, closer_id: closerId }).eq("id", callId);
+  // Pay follows a closed deal, so only the admin may move one.
+  if (!isAdmin) {
+    const { data: call } = await db.from("calls").select("outcome").eq("id", callId).maybeSingle();
+    if (!call) back("/calls", "error", "Couldn't find that call.");
+    if (call!.outcome === "closed") back("/calls", "error", "That deal is closed, so only the owner can change who closed it.");
+  }
+
+  const { error } = await db.from("calls").update({ setter_id: setterId, closer_id: closerId }).eq("id", callId);
   if (error) back("/calls", "error", error.message);
 
   // If this call was already closed, pay follows the deal, so keep the deal in step.
-  await supabase.from("closes").update({ setter_id: setterId, closer_id: closerId }).eq("call_id", callId);
+  if (isAdmin) await db.from("closes").update({ setter_id: setterId, closer_id: closerId }).eq("call_id", callId);
 
   revalidatePath("/", "layout");
   back("/calls", "ok", "Updated who set and who closed that call.");

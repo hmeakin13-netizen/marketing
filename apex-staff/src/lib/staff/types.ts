@@ -20,6 +20,8 @@ export interface StaffRow {
   /** GoHighLevel user id, so the Call Grader credits their calls to them. */
   ghl_user_id: string | null;
   login_enabled: boolean;
+  /** Lets a non-admin change who set and who closed a call (not on closed deals). */
+  can_assign_calls?: boolean;
   manager_id: string | null;
   created_at: string;
   deactivated_at: string | null;
