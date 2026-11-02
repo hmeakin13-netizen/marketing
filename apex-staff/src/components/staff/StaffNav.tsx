@@ -14,6 +14,8 @@ export interface NavItem {
   indent?: boolean;
   /** Sub-page that only shows while the parent section (this href prefix) is open. */
   under?: string;
+  /** Small count shown beside the label (e.g. questions waiting). */
+  badge?: number;
 }
 
 const STORAGE_KEY = "apex-nav-closed";
@@ -87,6 +89,7 @@ export function StaffNav({ items, name, role }: { items: NavItem[]; name: string
                     >
                       <span className="w-5 text-center text-base">{i.icon}</span>
                       {i.label}
+                      {i.badge ? <span className="ml-auto rounded-full bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-300">{i.badge}</span> : null}
                     </Link>
                   );
                 })}

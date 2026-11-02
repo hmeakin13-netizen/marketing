@@ -6,7 +6,7 @@ import { requireRole } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
-const back = (kind: "ok" | "error", message: string): never => redirect(`/?${kind}=${encodeURIComponent(message)}`);
+const back = (kind: "ok" | "error", message: string): never => redirect(`/questions?${kind}=${encodeURIComponent(message)}`);
 
 type Kind = "queue" | "activity" | "order";
 const kindOf = (v: string): Kind | null => (v === "queue" || v === "activity" || v === "order" ? v : null);

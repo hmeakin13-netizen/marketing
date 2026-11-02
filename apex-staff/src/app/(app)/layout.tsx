@@ -1,10 +1,11 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { StaffNav, type NavItem } from "@/components/staff/StaffNav";
+import { loadQuestions } from "@/components/staff/HarryQuestions";
 
 export const dynamic = "force-dynamic";
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
-  const { me } = await requireStaff();
+  const { me, supabase } = await requireStaff();
   const manager = isManager(me.role);
 
   // Three groups so the sidebar reads as "my work", "the AI team" and "admin" rather than one long list.
@@ -37,7 +38,10 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     );
   }
   if (me.role === "admin") {
+    // Questions for Harry live on their own page; the sidebar only shows how many are waiting.
+    const waiting = (await loadQuestions(supabase)).length;
     items.push(
+      { href: "/questions", label: "Questions", icon: "?", group: "Admin", badge: waiting },
       { href: "/team", label: "Team", icon: "☺", group: "Admin" },
       { href: "/clients", label: "Clients", icon: "★", group: "Admin" },
       { href: "/pay", label: "Pay & commission", icon: "◈", group: "Admin" },
