@@ -85,22 +85,34 @@ export function Notice({ ok, error }: { ok?: string; error?: string }) {
   );
 }
 
-export function RangeTabs({ base, range }: { base: string; range: Range }) {
+export function RangeTabs({ base, range, back = 0 }: { base: string; range: Range; back?: number }) {
+  const href = (r: Range, b: number) => `${base}?range=${r}${b > 0 ? `&back=${b}` : ""}`;
+  const arrow = "rounded-full border border-white/10 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-300 transition hover:text-white";
   return (
-    <div className="inline-flex rounded-full border border-white/10 bg-zinc-900 p-1">
-      {RANGES.map((r) => (
-        <Link
-          key={r.value}
-          href={`${base}?range=${r.value}`}
-          className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-            r.value === range
-              ? "bg-emerald-500 text-zinc-950"
-              : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          {r.label}
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="inline-flex rounded-full border border-white/10 bg-zinc-900 p-1">
+        {RANGES.map((r) => (
+          <Link
+            key={r.value}
+            href={href(r.value, 0)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              r.value === range
+                ? "bg-emerald-500 text-zinc-950"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            {r.label}
+          </Link>
+        ))}
+      </div>
+      <Link href={href(range, back + 1)} className={arrow} aria-label="Earlier">
+        ← Earlier
+      </Link>
+      {back > 0 ? (
+        <Link href={href(range, back - 1)} className={arrow} aria-label="Later">
+          Later →
         </Link>
-      ))}
+      ) : null}
     </div>
   );
 }

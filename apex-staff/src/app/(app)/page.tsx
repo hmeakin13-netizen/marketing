@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
-import { parseRange, rangeBounds, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
+import { parseRange, parseBack, rangeBounds, rangeLabel, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
 import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
 import { Card, Notice, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
@@ -14,11 +14,12 @@ export const metadata = { title: "Dashboard | Apex Team" };
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { range?: string; ok?: string; error?: string };
+  searchParams: { range?: string; back?: string; ok?: string; error?: string };
 }) {
   const { supabase, me } = await requireStaff();
   const range = parseRange(searchParams.range);
-  const { from, to } = rangeBounds(range);
+  const back = parseBack(searchParams.back);
+  const { from, to } = rangeBounds(range, new Date(), back);
   const week = rangeBounds("week");
   const month = rangeBounds("month");
 
@@ -87,8 +88,8 @@ export default async function DashboardPage({
     <>
       <PageHeader
         title={`Hey ${me.full_name.split(" ")[0]} 👋`}
-        subtitle={`Showing ${range === "today" ? "today" : range === "week" ? "this week" : "this month"}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
-        action={<RangeTabs base="/" range={range} />}
+        subtitle={`Showing ${rangeLabel(range, back).toLowerCase()}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
+        action={<RangeTabs base="/" range={range} back={back} />}
       />
 
       <Notice ok={searchParams.ok} error={searchParams.error} />
