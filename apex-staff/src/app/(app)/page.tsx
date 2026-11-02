@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireStaff, isManager } from "@/lib/staff/auth";
 import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
+import { GoalBanner } from "@/components/staff/GoalBanner";
 import { parseRange, parseBack, rangeBounds, rangeLabel, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
 import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
 import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
@@ -86,6 +87,7 @@ export default async function DashboardPage({
 
   return (
     <>
+      {isManager(me.role) ? <GoalBanner closes={closes} /> : null}
       <PageHeader
         title={`Hey ${me.full_name.split(" ")[0]} 👋`}
         subtitle={`Showing ${rangeLabel(range, back).toLowerCase()}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
