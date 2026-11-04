@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-TERMS = {"30_in_60": (30, 60), "25_in_30": (25, 30)}  # (leads required, window days)
-GUARANTEES = ("30_in_60", "25_in_30", "free_trial", "none")
+TERMS = {"30_in_60": (30, 60), "25_in_30": (25, 30), "15_in_30": (15, 30)}  # (leads required, window days)
+GUARANTEES = ("30_in_60", "25_in_30", "15_in_30", "free_trial", "none")
 PLACEHOLDER_ACCOUNT = "act_REPLACE_ME"
 TARGET_SHARE_OF_MAX = 0.75
 

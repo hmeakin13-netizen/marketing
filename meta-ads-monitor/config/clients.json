@@ -7,16 +7,8 @@
       "guarantee": "none",
       "own": true,
       "target_cpl": 5,
-      "notes": "Own account. CPL target under \u00a35.",
+      "notes": "Own account. CPL target under £5.",
       "max_cpl": 5
-    },
-    {
-      "name": "FG Landscaping",
-      "ad_account_id": "act_1643660040527320",
-      "guarantee": "25_in_30",
-      "go_live": "auto",
-      "daily_budget": 20,
-      "notes": "Owner: Florin. Go-live = first day of spend (worked out automatically)."
     },
     {
       "name": "Dreamy Landscapes",
@@ -34,6 +26,14 @@
       "go_live": "auto",
       "daily_budget": 20,
       "notes": "James O'Leary roofing and building. Not live yet: go-live = first day of spend (worked out automatically)."
+    },
+    {
+      "name": "Sovereign Roofing and Building",
+      "ad_account_id": "act_2051994528838795",
+      "guarantee": "15_in_30",
+      "go_live": "auto",
+      "daily_budget": 20,
+      "notes": "Bobby (Rob) Friend, Kent. 15 qualified leads a month. Not live yet: go-live = first day of spend (worked out automatically)."
     }
   ]
 }
