@@ -30,10 +30,10 @@
     {
       "name": "Sovereign Roofing and Building",
       "ad_account_id": "act_2051994528838795",
-      "guarantee": "15_in_30",
+      "guarantee": "30_in_60",
       "go_live": "auto",
       "daily_budget": 20,
-      "notes": "Bobby (Rob) Friend, Kent. 15 qualified leads a month. Not live yet: go-live = first day of spend (worked out automatically)."
+      "notes": "Bobby (Rob) Friend, Kent. 30 qualified leads in 60 days (changed from 15 a month on 12 Nov 2026). Not live yet: go-live = first day of spend (worked out automatically)."
     }
   ]
 }
