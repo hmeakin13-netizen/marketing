@@ -11,15 +11,6 @@
       "max_cpl": 5
     },
     {
-      "name": "Dreamy Landscapes",
-      "ad_account_id": "act_2230556564185151",
-      "guarantee": "30_in_60",
-      "go_live": "auto",
-      "daily_budget": 20,
-      "excluded_leads": 1,
-      "notes": "Thomas (confirmed). Go-live = first day of spend (worked out automatically). 1 lead had an invalid number so does not count: 2 of 30."
-    },
-    {
       "name": "Efficient Roofing",
       "ad_account_id": "act_1726310475597012",
       "guarantee": "30_in_60",
@@ -34,6 +25,14 @@
       "go_live": "auto",
       "daily_budget": 20,
       "notes": "Bobby (Rob) Friend, Kent. 30 qualified leads in 60 days (changed from 15 a month on 12 Nov 2026). Not live yet: go-live = first day of spend (worked out automatically)."
+    },
+    {
+      "name": "Eco Ground Solutions Ltd",
+      "ad_account_id": "act_2545632992580003",
+      "guarantee": "30_in_60",
+      "go_live": "auto",
+      "daily_budget": 20,
+      "notes": "Landscaper, West Midlands (Birmingham, Worcestershire). Joined Nov 2026. Retainer starts when the campaign is live: go-live = first day of spend (worked out automatically)."
     }
   ]
 }
