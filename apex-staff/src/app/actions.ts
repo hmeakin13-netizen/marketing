@@ -697,7 +697,7 @@ export async function saveShift(formData: FormData) {
 
 export async function addClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
-  const path = "/clients";
+  const path = "/clients/billing";
   const fee = num(formData, "monthly_fee");
   const setup = num(formData, "setup_fee");
   const closeId = optStr(formData, "close_id");
@@ -763,7 +763,7 @@ export async function addClient(formData: FormData) {
 export async function updateClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const fee = num(formData, "monthly_fee");
-  if (Number.isNaN(fee) || fee < 0) back("/clients", "error", "Enter the monthly retainer.");
+  if (Number.isNaN(fee) || fee < 0) back("/clients/billing", "error", "Enter the monthly retainer.");
   const billing = parseInt(str(formData, "billing_day"), 10);
   const setupFee = num(formData, "setup_fee");
   const { error } = await supabase
@@ -789,9 +789,9 @@ export async function updateClient(formData: FormData) {
       notes: optStr(formData, "notes"),
     })
     .eq("id", str(formData, "client_id"));
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Client updated.");
+  back("/clients/billing", "ok", "Client updated.");
 }
 
 /** Set where a client is based; blocks `radius_km` around their postcode for new clients. Admin only. */
@@ -801,14 +801,14 @@ export async function saveClientLocation(formData: FormData) {
   const postcode = str(formData, "postcode");
   const radius = num(formData, "radius_km");
   const { data: client } = await supabase.from("retainer_clients").select("name, end_date").eq("id", clientId).single();
-  if (!client) back("/clients", "error", "Client not found.");
+  if (!client) back("/clients/billing", "error", "Client not found.");
   if (!postcode) {
     await supabase.from("territories").delete().eq("client_id", clientId);
     revalidatePath("/", "layout");
-    back("/clients", "ok", "Location removed from the map.");
+    back("/clients/billing", "ok", "Location removed from the map.");
   }
   const geo = await geocodePostcode(postcode);
-  if (!geo) back("/clients", "error", `Couldn't find the postcode "${postcode}". Check it and try again.`);
+  if (!geo) back("/clients/billing", "error", `Couldn't find the postcode "${postcode}". Check it and try again.`);
   const { error } = await supabase.from("territories").upsert(
     {
       client_id: clientId,
@@ -821,9 +821,9 @@ export async function saveClientLocation(formData: FormData) {
     },
     { onConflict: "client_id" }
   );
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", `${client!.name} is on the map (${geo!.postcode}).`);
+  back("/clients/billing", "ok", `${client!.name} is on the map (${geo!.postcode}).`);
 }
 
 /** Put a client's retainer on hold (free trial, guarantee not hit yet, account still being set up). */
@@ -835,11 +835,11 @@ export async function pauseClient(formData: FormData) {
   const reason = [preset, note].filter(Boolean).join(" — ") || "Paused";
   const from = optStr(formData, "pause_from") ?? todayIso();
   const until = optStr(formData, "pause_until");
-  if (until && until <= from) back("/clients", "error", "The resume date has to be after the pause date.");
+  if (until && until <= from) back("/clients/billing", "error", "The resume date has to be after the pause date.");
   const { error } = await supabase.from("retainer_clients").update({ pause_from: from, pause_until: until, pause_reason: reason }).eq("id", id);
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", until ? `Paused until ${until}. It restarts by itself that day.` : "Paused. Nothing is due, and no commission share, until you resume it.");
+  back("/clients/billing", "ok", until ? `Paused until ${until}. It restarts by itself that day.` : "Paused. Nothing is due, and no commission share, until you resume it.");
 }
 
 /** Restart a paused retainer from today (nothing is backdated). */
@@ -851,9 +851,9 @@ export async function resumeClient(formData: FormData) {
   const patch =
     c?.pause_from && c.pause_from <= today ? { pause_until: today } : { pause_from: null, pause_until: null, pause_reason: null };
   const { error } = await supabase.from("retainer_clients").update(patch).eq("id", id);
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Resumed. The retainer counts again from today.");
+  back("/clients/billing", "ok", "Resumed. The retainer counts again from today.");
 }
 
 export async function endClient(formData: FormData) {
@@ -863,19 +863,19 @@ export async function endClient(formData: FormData) {
     .from("retainer_clients")
     .update({ end_date: leftOn })
     .eq("id", str(formData, "client_id"));
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   await supabase.from("territories").update({ active: false }).eq("client_id", str(formData, "client_id"));
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Client ended. Nothing further is owed on them from the next payment onwards.");
+  back("/clients/billing", "ok", "Client ended. Nothing further is owed on them from the next payment onwards.");
 }
 
 export async function reinstateClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const { error } = await supabase.from("retainer_clients").update({ end_date: null }).eq("id", str(formData, "client_id"));
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   await supabase.from("territories").update({ active: true }).eq("client_id", str(formData, "client_id"));
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Client reinstated.");
+  back("/clients/billing", "ok", "Client reinstated.");
 }
 
 // ------------------------------------------------------------------ call assignment (admin)

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/staff/auth";
 import { geocodePostcode } from "@/lib/staff/geo";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 const money = (f: FormData, k: string) => str(f, k).replace(/[£,\s]/g, "");
@@ -79,4 +80,69 @@ export async function markClientLeft(formData: FormData) {
   if (error) back("/clients", "error", error.message);
   revalidatePath("/", "layout");
   back("/clients", "ok", `${name} marked as left. Their retainer is ended and the team has been told.`);
+}
+
+/** Setup is finished and ads are running: the client shows as live on the dashboard and the desks are told. */
+export async function setClientLive(formData: FormData) {
+  await requireRole("admin");
+  const db = createAdminClient();
+  const name = str(formData, "client_name");
+  const { data, error } = await db
+    .from("ad_client_profiles")
+    .update({ status: "live", updated_at: new Date().toISOString() })
+    .eq("client_name", name)
+    .eq("status", "onboarding")
+    .select("client_name");
+  if (error) back("/clients", "error", error.message);
+  if (!data?.length) back("/clients", "error", `${name} is not in setup, so nothing changed.`);
+  const day = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
+  const { data: rules } = await db.from("team_playbooks").select("body").eq("key", "standing_rules").maybeSingle();
+  if (rules) {
+    await db
+      .from("team_playbooks")
+      .update({ body: `${rules.body}\n${day} CLIENT LIVE (Harry, portal): ${name} is now live. Treat them as a live client from today.`, updated_at: new Date().toISOString() })
+      .eq("key", "standing_rules");
+  }
+  revalidatePath("/", "layout");
+  back("/clients", "ok", `${name} is live. The team has been told.`);
+}
+
+/** Edit the details the desks and the ads monitor work from (not the money: that is on Billing details). */
+export async function updateClientRecord(formData: FormData) {
+  await requireRole("admin");
+  const db = createAdminClient();
+  const name = str(formData, "client_name");
+  const trade = str(formData, "trade");
+  if (!trade) back("/clients", "error", "The trade can't be blank.");
+  const account = str(formData, "meta_ad_account_id").replace(/\D/g, "") || null;
+  const { data: current } = await db.from("ad_client_profiles").select("monitor").eq("client_name", name).maybeSingle();
+  if (!current) back("/clients", "error", `No client called ${name}.`);
+  const { error } = await db
+    .from("ad_client_profiles")
+    .update({
+      trade,
+      area: str(formData, "area") || null,
+      services: str(formData, "services") || null,
+      notes: str(formData, "notes") || null,
+      meta_ad_account_id: account,
+      meta_page_id: str(formData, "meta_page_id") || null,
+      meta_form_id: str(formData, "meta_form_id") || null,
+      // The first time an ad account is added, switch the ads monitor on with the standard guarantee.
+      ...(account && !current!.monitor ? { monitor: { guarantee: "30_in_60", go_live: "auto", daily_budget: 20 } } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("client_name", name);
+  if (error) back("/clients", "error", error.message);
+  const { error: contactError } = await db.from("care_contacts").upsert(
+    {
+      client_name: name,
+      contact_name: str(formData, "contact_name") || null,
+      ghl_contact_id: str(formData, "ghl_contact_id") || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "client_name" }
+  );
+  if (contactError) back("/clients", "error", contactError.message);
+  revalidatePath("/", "layout");
+  back("/clients", "ok", `${name} saved.`);
 }
