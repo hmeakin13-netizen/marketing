@@ -16,6 +16,8 @@ Python 3.11+, standard library only.
 
 ## Setup
 
+**Client list**: a scheduled run reads its clients from the team portal's database (`monitor_clients()`, filled by the portal's Add client form). `config/clients.json` is the fallback if the database can't be read or has no clients, and is used as-is when `--config` is given.
+
 1. **Settings**: edit `config/clients.json`. Replace every `act_REPLACE_ME`, confirm the go-live dates
    (FG and Dreamy are inferred from "day 10" / "day 3" on 22 Oct), set Elite's `free_trial_from` and
    `leads_owed` (leads owed *as at* `free_trial_from`; leads delivered since are subtracted automatically).

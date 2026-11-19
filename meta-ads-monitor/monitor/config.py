@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
+import urllib.request
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -121,3 +124,43 @@ def load_clients(path: str | Path) -> list[Client]:
     if len(set(names)) != len(names):
         raise ValueError("client names must be unique")
     return clients
+
+
+def fetch_db_clients() -> list[dict] | None:
+    """The client list from the team portal's database (monitor_clients()), or None if it can't be read.
+
+    Uses the same public anon key plus shared ingest key as the snapshot publish, so adding a client
+    in the portal is enough: no edit to config/clients.json needed.
+    """
+    base = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    anon = os.environ.get("SUPABASE_ANON_KEY", "").strip()
+    secret = os.environ.get("ADS_INGEST_KEY", "").strip()
+    if not (base and anon and secret):
+        return None
+    request = urllib.request.Request(
+        f"{base}/rest/v1/rpc/monitor_clients",
+        data=json.dumps({"p_secret": secret}).encode(),
+        method="POST",
+        headers={"apikey": anon, "Authorization": f"Bearer {anon}", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            rows = json.loads(response.read())
+    except (OSError, ValueError) as err:
+        print(f"Client list: database not readable ({err}); using the settings file.", file=sys.stderr)
+        return None
+    return rows if isinstance(rows, list) else None
+
+
+def load_clients_db_first(path: str | Path, fetch=fetch_db_clients) -> list[Client]:
+    """Clients from the database when it has any; otherwise (or on any problem) from the settings file."""
+    rows = fetch()
+    if rows:
+        try:
+            clients = [parse_client(raw) for raw in rows]
+            if len({c.name for c in clients}) == len(clients):
+                return clients
+            print("Client list: database has duplicate names; using the settings file.", file=sys.stderr)
+        except (ValueError, TypeError) as err:
+            print(f"Client list: database entry not usable ({err}); using the settings file.", file=sys.stderr)
+    return load_clients(path)

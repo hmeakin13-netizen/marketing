@@ -12,6 +12,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   // The ad-maker sub-pages only show while you are inside Ads, which is where they belong.
   const items: NavItem[] = [
     { href: "/", label: "Dashboard", icon: "◧", group: "Sales" },
+    { href: "/overview", label: "Sales numbers", icon: "▥", group: "Sales" },
     { href: "/calls", label: "Calls", icon: "☎", group: "Sales" },
     { href: "/calendar", label: "Calendar", icon: "▦", group: "Sales" },
     { href: "/call-grades", label: "Call grades", icon: "★", group: "Sales" },
