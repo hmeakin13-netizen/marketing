@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/staff/auth";
 import { fmtDate, todayIso } from "@/lib/staff/dates";
 import { money, nameOf } from "@/lib/staff/metrics";
@@ -5,20 +6,27 @@ import { fmtIsoDay, isPaused, nextRetainerDate, payoutDateFor } from "@/lib/staf
 import type { Territory } from "@/lib/staff/geo";
 import type { CloseRow, PayRow, RetainerClient, StaffRow } from "@/lib/staff/types";
 import { addClient, endClient, pauseClient, resumeClient, saveClientLocation, reinstateClient, updateClient } from "../../actions";
+import { markClientLeft } from "./actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
-import { Badge, Card, Field, Notice, PageHeader, SectionTitle, Stat, inputCls } from "@/components/staff/ui";
+import { Badge, Card, Field, Notice, PageHeader, SectionTitle, Stat, btnPrimary, inputCls } from "@/components/staff/ui";
 
 export const metadata = { title: "Clients | Apex Team" };
 
+type Profile = { client_name: string; trade: string; status: string; meta_ad_account_id?: string | null; left_on?: string | null };
+
 export default async function ClientsPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase } = await requireRole("admin");
-  const [{ data: clientData }, { data: staffData }, { data: payData }, { data: dealData }, { data: terrData }] = await Promise.all([
+  const [{ data: clientData }, { data: staffData }, { data: payData }, { data: dealData }, { data: terrData }, { data: profileData }] = await Promise.all([
     supabase.from("retainer_clients").select("*").order("created_at", { ascending: false }),
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
     supabase.from("staff_pay").select("*"),
     supabase.from("closes").select("id, closed_at, calls(lead_name)").order("closed_at", { ascending: false }).limit(100),
     supabase.from("territories").select("*"),
+    supabase.from("ad_client_profiles").select("*").neq("trade", "agency").order("client_name"),
   ]);
+  const profiles = (profileData ?? []) as Profile[];
+  const statusRank: Record<string, number> = { live: 0, onboarding: 1, left: 2 };
+  profiles.sort((a, b) => (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3) || a.client_name.localeCompare(b.client_name));
   const territories = new Map(((terrData ?? []) as Territory[]).map((t) => [t.client_id, t]));
   const clients = (clientData ?? []) as RetainerClient[];
   const staff = (staffData ?? []) as StaffRow[];
@@ -54,6 +62,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
       <PageHeader
         title="Clients"
         subtitle="Everyone on a monthly retainer, who signed them, and what that earns. End a client when they leave and their closer's share stops."
+        action={
+          <Link href="/clients/new" className={btnPrimary}>
+            + Add a client
+          </Link>
+        }
       />
       <Notice ok={searchParams.ok} error={searchParams.error} />
 
@@ -91,7 +104,43 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
       ) : null}
 
       <Card className="mb-8">
-        <SectionTitle>Add a client</SectionTitle>
+        <SectionTitle>Client records ({profiles.filter((p) => p.status !== "left").length} current)</SectionTitle>
+        <p className="-mt-2 mb-3 text-xs text-zinc-500">What the AI desks and the ads monitor work from. Marking a client as left also ends their retainer and tells the team.</p>
+        <ul className="divide-y divide-white/5">
+          {profiles.map((p) => (
+            <li key={p.client_name} className={`py-3 ${p.status === "left" ? "opacity-60" : ""}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-white">
+                  {p.client_name} <Badge tone={p.status === "live" ? "good" : p.status === "onboarding" ? "info" : "default"}>{p.status}</Badge>
+                </p>
+                <p className="text-xs text-zinc-500">
+                  {p.trade}
+                  {p.meta_ad_account_id ? ` · ad account ${p.meta_ad_account_id}` : " · no ad account yet"}
+                  {p.left_on ? ` · left ${fmtDate(p.left_on)}` : ""}
+                </p>
+              </div>
+              {p.status !== "left" ? (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-zinc-400 hover:text-white">Mark as left</summary>
+                  <form action={markClientLeft} className="mt-2 flex flex-wrap items-end gap-3">
+                    <input type="hidden" name="client_name" value={p.client_name} />
+                    <Field label="Left on">
+                      <input name="left_on" type="date" defaultValue={today} className={inputCls} />
+                    </Field>
+                    <button className="rounded-full border border-rose-500/40 px-4 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10">
+                      {p.client_name} has left
+                    </button>
+                  </form>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <details className="mb-8 rounded-2xl border border-white/10 bg-zinc-900/60 p-5">
+        <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-zinc-400">Add a retainer only (old form)</summary>
+        <p className="mb-3 mt-2 text-xs text-zinc-500">Use &quot;Add a client&quot; at the top for a new client. This only adds the retainer row.</p>
         <form action={addClient} className="grid gap-3 sm:grid-cols-4">
           <Field label="From a closed deal (optional — fills in the rest)" className="sm:col-span-2">
             <select name="close_id" className={inputCls} defaultValue="">
@@ -141,10 +190,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
             <input name="radius_km" inputMode="decimal" className={inputCls} placeholder="15" />
           </Field>
           <div className="flex items-end sm:col-span-4">
-            <SubmitButton>Add client</SubmitButton>
+            <SubmitButton>Add retainer</SubmitButton>
           </div>
         </form>
-      </Card>
+      </details>
 
       <SectionTitle>Active ({active.length})</SectionTitle>
       <div className="mb-8 space-y-3">

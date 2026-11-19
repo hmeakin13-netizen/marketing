@@ -1,0 +1,381 @@
+import Link from "next/link";
+import { requireStaff, isManager } from "@/lib/staff/auth";
+import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
+import { GoalBanner } from "@/components/staff/GoalBanner";
+import { parseRange, parseBack, rangeBounds, rangeLabel, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
+import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
+import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
+import { Card, Notice, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
+import { TargetBars } from "@/components/staff/TargetBars";
+import { ClientHealth } from "@/components/staff/ClientHealth";
+
+export const metadata = { title: "Sales numbers | Apex Team" };
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { range?: string; back?: string; ok?: string; error?: string };
+}) {
+  const { supabase, me } = await requireStaff();
+  const range = parseRange(searchParams.range);
+  const back = parseBack(searchParams.back);
+  const { from, to } = rangeBounds(range, new Date(), back);
+  const week = rangeBounds("week");
+  const month = rangeBounds("month");
+
+  const { staff, calls, closes, targets } = await loadCore(
+    supabase,
+    earliest(from, week.from, month.from)
+  );
+
+  const { flags } = await loadFlags(supabase);
+  // End-of-day report: setters owe one each working day; the owner can see who has filed.
+  const { data: repToday } = await supabase.from("daily_reports").select("staff_id").eq("report_date", todayIso());
+  const filedToday = new Set((repToday ?? []).map((r) => String(r.staff_id)));
+  const myFlags = flags.filter((f) => f.ownerId === me.id);
+  const highFlags = myFlags.filter((f) => f.severity === "high").length;
+  const team = computeStats(calls, closes, from, to);
+  const owing = outstanding(closes);
+  // The owner closes calls too, so admins are listed (and measured) as closers.
+  const people = staff
+    .filter((s) => s.active && (s.role === "closer" || s.role === "setter" || s.role === "admin"))
+    .map((s) => ({ ...s, role: s.role === "admin" ? ("closer" as const) : s.role }));
+
+  const myRole = me.role === "closer" || me.role === "setter" ? me.role : null;
+  const myTargets = targets.filter((t) => t.staff_id === me.id);
+  const myWeek = myRole ? computeStats(calls, closes, week.from, week.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
+  const myMonth = myRole ? computeStats(calls, closes, month.from, month.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
+
+  // Calls that already happened but nobody has logged what happened. The closer on the call owns
+  // the outcome (the setter only if there's no closer yet); admin and managers see everyone's.
+  const now = Date.now();
+  const needsOutcome = calls
+    .filter(
+      (c) =>
+        c.outcome === "scheduled" &&
+        new Date(c.call_at).getTime() < now &&
+        (isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer"))
+    )
+    .sort((a, b) => a.call_at.localeCompare(b.call_at));
+
+  // Today's calls (UK day), earliest first. Closers see only their own; everyone else sees the whole team.
+  const todayR = rangeBounds("today");
+  const todaysCalls = calls
+    .filter((c) => {
+      const t = new Date(c.call_at).getTime();
+      return t >= todayR.from.getTime() && t < todayR.to.getTime() && c.outcome !== "cancelled" && (me.role !== "closer" || c.closer_id === me.id);
+    })
+    .sort((a, b) => a.call_at.localeCompare(b.call_at));
+
+  // Campaign / source performance for the selected range.
+  const sources = new Map<string, { calls: number; showed: number; closed: number }>();
+  for (const c of calls) {
+    // By the day the call was BOOKED, so a setter's work counts on the day they did it.
+    const t = new Date(c.booked_at).getTime();
+    if (t < from.getTime() || t >= to.getTime()) continue;
+    const key = c.source?.trim() || "Unknown";
+    const row = sources.get(key) ?? { calls: 0, showed: 0, closed: 0 };
+    row.calls++;
+    if (["follow_up", "lost", "closed"].includes(c.outcome)) row.showed++;
+    if (c.outcome === "closed") row.closed++;
+    sources.set(key, row);
+  }
+
+  const showTone = team.showRate === null ? "default" : team.showRate >= 70 ? "good" : team.showRate >= 50 ? "warn" : "bad";
+  const closeTone = team.closeRate === null ? "default" : team.closeRate >= 25 ? "good" : team.closeRate >= 15 ? "warn" : "bad";
+
+  return (
+    <>
+      {isManager(me.role) ? <GoalBanner closes={closes} /> : null}
+      <PageHeader
+        title="Sales numbers"
+        subtitle={`Showing ${rangeLabel(range, back).toLowerCase()}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
+        action={<RangeTabs base="/overview" range={range} back={back} />}
+      />
+
+      <Notice ok={searchParams.ok} error={searchParams.error} />
+      {isManager(me.role) ? <ClientHealth supabase={supabase} /> : null}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Calls booked" value={String(team.booked)} />
+        <Stat label="Calls taken" value={String(team.taken)} hint={`${team.noShow} no-show${team.noShow === 1 ? "" : "s"}`} />
+        <Stat label="Show rate" value={pct(team.showRate)} tone={showTone} />
+        <Stat label="Close rate" value={pct(team.closeRate)} tone={closeTone} hint={`${team.closed} closed`} />
+        <Stat label="Cash collected" value={money(team.cash)} tone="good" />
+        <Stat label="Deal value closed" value={money(team.revenue)} />
+      </div>
+
+      {myFlags.length > 0 ? (
+        <Card className={`mt-6 ${highFlags > 0 ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className={`font-semibold ${highFlags > 0 ? "text-rose-300" : "text-amber-300"}`}>
+                ⚑ {myFlags.length} thing{myFlags.length === 1 ? "" : "s"} need{myFlags.length === 1 ? "s" : ""} chasing
+                {highFlags > 0 ? ` — ${highFlags} high priority` : ""}
+              </p>
+              <p className="mt-1 text-sm text-zinc-400">{myFlags[0].title}</p>
+            </div>
+            <Link href="/attention" className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
+              See what&apos;s been dropped
+            </Link>
+          </div>
+        </Card>
+      ) : null}
+
+      {me.role === "setter" && !filedToday.has(me.id) ? (
+        <Card className="mt-6 border-sky-500/30 bg-sky-500/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-sky-300">Your end of day report is still to do</p>
+              <p className="mt-1 text-sm text-zinc-400">How did the calls go today? It takes two minutes and has to be filed every working day.</p>
+            </div>
+            <Link href="/report" className="rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-sky-300">
+              File my report
+            </Link>
+          </div>
+        </Card>
+      ) : null}
+
+      {me.role === "admin" && staff.some((x) => x.active && x.role === "setter") ? (
+        <Card className="mt-6">
+          <SectionTitle>End of day reports — today</SectionTitle>
+          <p className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
+            {staff
+              .filter((x) => x.active && x.role === "setter")
+              .map((x) => (
+                <span key={x.id}>
+                  {x.full_name} <Badge tone={filedToday.has(x.id) ? "good" : "warn"}>{filedToday.has(x.id) ? "filed" : "not yet"}</Badge>
+                </span>
+              ))}
+            <Link href="/report" className="text-emerald-400 hover:text-emerald-300">
+              Read reports →
+            </Link>
+          </p>
+        </Card>
+      ) : null}
+
+      {needsOutcome.length > 0 ? (
+        <Card className="mt-6 border-amber-500/30 bg-amber-500/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-amber-300">
+                {needsOutcome.length} call{needsOutcome.length === 1 ? "" : "s"} waiting for an outcome and notes
+              </p>
+              <p className="mt-1 text-sm text-zinc-400">
+                {needsOutcome
+                  .slice(0, 3)
+                  .map((c) => `${c.lead_name} (${fmtDateTime(c.call_at)})`)
+                  .join(" · ")}
+                {needsOutcome.length > 3 ? ` · +${needsOutcome.length - 3} more` : ""}
+              </p>
+            </div>
+            <Link href="/calls" className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-300">
+              Log outcomes
+            </Link>
+          </div>
+        </Card>
+      ) : null}
+
+      <Card className="mt-6">
+        <SectionTitle>
+          {me.role === "closer" ? "Your calls today" : "Today's calls"} ({todaysCalls.length})
+        </SectionTitle>
+        {todaysCalls.length === 0 ? (
+          <p className="text-sm text-zinc-500">No calls today.</p>
+        ) : (
+          <ul className="max-h-[28rem] divide-y divide-white/5 overflow-y-auto text-sm">
+            {todaysCalls.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-zinc-100">
+                  <span className="mr-2 tabular-nums text-zinc-400">
+                    {new Date(c.call_at).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {c.lead_name}{" "}
+                  <span className="text-xs text-zinc-500">
+                    {me.role === "closer"
+                      ? `· set by ${nameOf(staff, c.setter_id)}${c.source ? ` · ${c.source}` : ""}`
+                      : `· closer ${nameOf(staff, c.closer_id)}${c.source ? ` · ${c.source}` : ""}`}
+                  </span>
+                </span>
+                {c.outcome !== "scheduled" ? (
+                  <Badge tone={c.outcome === "closed" ? "good" : c.outcome === "no_show" ? "bad" : "default"}>{OUTCOME_LABEL[c.outcome]}</Badge>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
+                      Booked: {CONFIRMATION_LABEL[c.confirmation]}
+                    </Badge>
+                    <Badge tone={c.same_day_confirmation === "confirmed" ? "good" : c.same_day_confirmation === "no_answer" ? "bad" : "warn"}>
+                      Today: {CONFIRMATION_LABEL[c.same_day_confirmation]}
+                    </Badge>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link href="/calls" className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
+          All calls →
+        </Link>
+      </Card>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <SectionTitle>Team performance</SectionTitle>
+          <PeopleTable
+            rows={people.map((p) => ({
+              p,
+              s: computeStats(calls, closes, from, to, { staffId: p.id, role: p.role as "setter" | "closer", name: p.full_name }),
+            }))}
+          />
+        </Card>
+
+        <Card>
+          <SectionTitle>Cash forecast</SectionTitle>
+          <p className="text-3xl font-semibold tabular-nums text-white">{money(owing.total)}</p>
+          <p className="text-xs text-zinc-500">still owed across all deals</p>
+          <dl className="mt-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-zinc-400">Overdue</dt>
+              <dd className={`tabular-nums ${owing.overdue > 0 ? "text-rose-400" : "text-zinc-300"}`}>{money(owing.overdue)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-zinc-400">Due in next 7 days</dt>
+              <dd className="tabular-nums text-amber-300">{money(owing.dueThisWeek)}</dd>
+            </div>
+          </dl>
+          <Link href="/deals" className="mt-4 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
+            View deals →
+          </Link>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <SectionTitle>Setter handoff quality</SectionTitle>
+          <p className="-mt-2 mb-3 text-xs text-zinc-500">How well each setter&apos;s booked calls turn into shows and closes.</p>
+          <SetterTable
+            rows={people
+              .filter((p) => p.role === "setter")
+              .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "setter", name: p.full_name }) }))}
+          />
+        </Card>
+
+        <Card>
+          <SectionTitle>Campaign / source</SectionTitle>
+          <p className="-mt-2 mb-3 text-xs text-zinc-500">Calls counted on the day they were booked. Which sources turn into closes.</p>
+          {sources.size === 0 ? (
+            <p className="text-sm text-zinc-500">No calls in this period.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-zinc-500">
+                <tr>
+                  <th className="pb-2 font-medium">Source</th>
+                  <th className="pb-2 text-right font-medium">Calls</th>
+                  <th className="pb-2 text-right font-medium">Showed</th>
+                  <th className="pb-2 text-right font-medium">Closed</th>
+                  <th className="pb-2 text-right font-medium">Close %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {Array.from(sources.entries())
+                  .sort((a, b) => b[1].closed - a[1].closed || b[1].calls - a[1].calls)
+                  .map(([name, r]) => (
+                    <tr key={name}>
+                      <td className="py-2 text-zinc-200">{name}</td>
+                      <td className="py-2 text-right tabular-nums">{r.calls}</td>
+                      <td className="py-2 text-right tabular-nums">{r.showed}</td>
+                      <td className="py-2 text-right tabular-nums">{r.closed}</td>
+                      <td className="py-2 text-right tabular-nums">{r.showed ? pct((r.closed / r.showed) * 100) : "–"}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </div>
+
+      {myRole && myWeek && myMonth ? (
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <Card>
+            <SectionTitle>My targets — this week</SectionTitle>
+            <TargetBars title="weekly" stats={myWeek} targets={myTargets.filter((t) => t.period === "week")} />
+          </Card>
+          <Card>
+            <SectionTitle>My targets — this month</SectionTitle>
+            <TargetBars title="monthly" stats={myMonth} targets={myTargets.filter((t) => t.period === "month")} />
+          </Card>
+        </div>
+      ) : null}
+
+      <p className="mt-8 text-xs text-zinc-600">
+        Calls booked counts when the call was booked; show and close rates count calls by the day
+        they took place.
+      </p>
+    </>
+  );
+}
+
+type Row = { p: { id: string; full_name: string; role: string }; s: ReturnType<typeof computeStats> };
+
+function PeopleTable({ rows }: { rows: Row[] }) {
+  if (rows.length === 0) return <p className="text-sm text-zinc-500">No setters or closers yet.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[480px] text-sm">
+        <thead className="text-left text-xs text-zinc-500">
+          <tr>
+            <th className="pb-2 font-medium">Name</th>
+            <th className="pb-2 text-right font-medium">Booked</th>
+            <th className="pb-2 text-right font-medium">Taken</th>
+            <th className="pb-2 text-right font-medium">Show %</th>
+            <th className="pb-2 text-right font-medium">Close %</th>
+            <th className="pb-2 text-right font-medium">Cash</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {rows.map(({ p, s }) => (
+            <tr key={p.id}>
+              <td className="py-2.5">
+                <span className="text-zinc-100">{p.full_name}</span>{" "}
+                <Badge tone={p.role === "closer" ? "info" : "default"}>{p.role}</Badge>
+              </td>
+              <td className="py-2.5 text-right tabular-nums">{p.role === "setter" ? s.booked : "–"}</td>
+              <td className="py-2.5 text-right tabular-nums">{s.taken}</td>
+              <td className="py-2.5 text-right tabular-nums">{pct(s.showRate)}</td>
+              <td className="py-2.5 text-right tabular-nums">{p.role === "closer" ? pct(s.closeRate) : "–"}</td>
+              <td className="py-2.5 text-right font-medium tabular-nums text-emerald-400">{money(s.cash)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SetterTable({ rows }: { rows: Row[] }) {
+  if (rows.length === 0) return <p className="text-sm text-zinc-500">No setters yet.</p>;
+  return (
+    <table className="w-full text-sm">
+      <thead className="text-left text-xs text-zinc-500">
+        <tr>
+          <th className="pb-2 font-medium">Setter</th>
+          <th className="pb-2 text-right font-medium">Booked</th>
+          <th className="pb-2 text-right font-medium">Show %</th>
+          <th className="pb-2 text-right font-medium">Closed</th>
+          <th className="pb-2 text-right font-medium">Close %</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-white/5">
+        {rows.map(({ p, s }) => (
+          <tr key={p.id}>
+            <td className="py-2 text-zinc-200">{p.full_name}</td>
+            <td className="py-2 text-right tabular-nums">{s.booked}</td>
+            <td className="py-2 text-right tabular-nums">{pct(s.showRate)}</td>
+            <td className="py-2 text-right tabular-nums">{s.closed}</td>
+            <td className="py-2 text-right tabular-nums">{pct(s.closeRate)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}

@@ -8,7 +8,7 @@ from unittest import mock
 
 from monitor import demo, guarantee
 from monitor.analyse import AMBER, GREEN, RED, build_report, cpl_severity
-from monitor.config import parse_client
+from monitor.config import load_clients_db_first, parse_client
 from monitor.leads import Lead, LeadStore
 from monitor.meta_client import MetaClient
 from monitor.model import AccountData, Ad, Day
@@ -335,6 +335,23 @@ class ReadOnlyClient(unittest.TestCase):
 
     def test_no_write_methods_exist(self):
         self.assertFalse([m for m in dir(MetaClient) if m.lstrip("_") in {"post", "delete", "put", "update"}])
+
+
+class ClientListSource(unittest.TestCase):
+    FILE = Path(__file__).resolve().parent.parent / "config" / "clients.json"
+
+    def test_database_list_wins_when_it_has_clients(self):
+        rows = [{"name": "New Co", "ad_account_id": "act_9", "guarantee": "30_in_60", "go_live": "auto", "daily_budget": 20}]
+        clients = load_clients_db_first(self.FILE, fetch=lambda: rows)
+        self.assertEqual([c.name for c in clients], ["New Co"])
+        self.assertTrue(clients[0].go_live_auto)
+
+    def test_falls_back_to_the_file(self):
+        from_file = [c.name for c in load_clients_db_first(self.FILE, fetch=lambda: None)]
+        self.assertIn("Efficient Roofing", from_file)
+        self.assertEqual([c.name for c in load_clients_db_first(self.FILE, fetch=lambda: [])], from_file)
+        bad = [{"name": "Broken", "ad_account_id": "act_1", "guarantee": "nonsense"}]
+        self.assertEqual([c.name for c in load_clients_db_first(self.FILE, fetch=lambda: bad)], from_file)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ from pathlib import Path
 from . import demo as demo_mod
 from .analyse import build_report, is_not_live
 from .collect import fetch_account, fetch_ad_daily, fetch_leads, history_start
-from .config import load_clients
+from .config import load_clients, load_clients_db_first
 from .deliver import CHANNELS
 from .leads import LONDON, LeadStore
 from .meta_client import MetaClient, MetaError
@@ -22,7 +22,8 @@ DEFAULT_LEADS = ROOT / "data" / "leads.csv"
 
 
 def cmd_run(args) -> int:
-    clients = load_clients(args.config)
+    # The portal's database is the client list; the settings file is the fallback (and wins if --config is given).
+    clients = load_clients(args.config) if args.config != DEFAULT_CONFIG else load_clients_db_first(args.config)
     today = args.today or datetime.now(LONDON).date()
     store = LeadStore(args.leads)
     meta = MetaClient()

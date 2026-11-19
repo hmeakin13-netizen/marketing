@@ -1,381 +1,203 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { requireStaff, isManager } from "@/lib/staff/auth";
-import { loadCore, loadFlags, earliest } from "@/lib/staff/data";
-import { GoalBanner } from "@/components/staff/GoalBanner";
-import { parseRange, parseBack, rangeBounds, rangeLabel, fmtDate, fmtDateTime, todayIso } from "@/lib/staff/dates";
-import { computeStats, money, nameOf, outstanding, pct } from "@/lib/staff/metrics";
-import { CONFIRMATION_LABEL, OUTCOME_LABEL } from "@/lib/staff/types";
-import { Card, Notice, PageHeader, RangeTabs, SectionTitle, Stat, Badge } from "@/components/staff/ui";
-import { TargetBars } from "@/components/staff/TargetBars";
-import { ClientHealth } from "@/components/staff/ClientHealth";
+import { loadCore, loadFlags } from "@/lib/staff/data";
+import { rangeBounds, todayIso, ukIso } from "@/lib/staff/dates";
+import { computeStats, pct } from "@/lib/staff/metrics";
+import { bandTone, loadClientHealth } from "@/lib/staff/health";
+import { loadQuestions } from "@/components/staff/HarryQuestions";
+import { Badge, Card, Notice, PageHeader, SectionTitle, Stat } from "@/components/staff/ui";
 
 export const metadata = { title: "Dashboard | Apex Team" };
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: { range?: string; back?: string; ok?: string; error?: string };
-}) {
+type Todo = { key: string; text: string; detail?: string; href: string; tone: "bad" | "warn" | "info" };
+
+/**
+ * The home page is deliberately three things only: Clients, Needs you, Sales.
+ * Everything that used to live here is on its own page (Sales numbers, Questions, Client care, Ads ...).
+ */
+export default async function HomePage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase, me } = await requireStaff();
-  const range = parseRange(searchParams.range);
-  const back = parseBack(searchParams.back);
-  const { from, to } = rangeBounds(range, new Date(), back);
+  const manager = isManager(me.role);
   const week = rangeBounds("week");
-  const month = rangeBounds("month");
 
-  const { staff, calls, closes, targets } = await loadCore(
-    supabase,
-    earliest(from, week.from, month.from)
-  );
+  const [{ calls, closes }, { flags }] = await Promise.all([loadCore(supabase, week.from), loadFlags(supabase)]);
+  const sales = computeStats(calls, closes, week.from, week.to);
 
-  const { flags } = await loadFlags(supabase);
-  // End-of-day report: setters owe one each working day; the owner can see who has filed.
-  const { data: repToday } = await supabase.from("daily_reports").select("staff_id").eq("report_date", todayIso());
-  const filedToday = new Set((repToday ?? []).map((r) => String(r.staff_id)));
-  const myFlags = flags.filter((f) => f.ownerId === me.id);
-  const highFlags = myFlags.filter((f) => f.severity === "high").length;
-  const team = computeStats(calls, closes, from, to);
-  const owing = outstanding(closes);
-  // The owner closes calls too, so admins are listed (and measured) as closers.
-  const people = staff
-    .filter((s) => s.active && (s.role === "closer" || s.role === "setter" || s.role === "admin"))
-    .map((s) => ({ ...s, role: s.role === "admin" ? ("closer" as const) : s.role }));
-
-  const myRole = me.role === "closer" || me.role === "setter" ? me.role : null;
-  const myTargets = targets.filter((t) => t.staff_id === me.id);
-  const myWeek = myRole ? computeStats(calls, closes, week.from, week.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
-  const myMonth = myRole ? computeStats(calls, closes, month.from, month.to, { staffId: me.id, role: myRole, name: me.full_name }) : null;
-
-  // Calls that already happened but nobody has logged what happened. The closer on the call owns
-  // the outcome (the setter only if there's no closer yet); admin and managers see everyone's.
-  const now = Date.now();
-  const needsOutcome = calls
-    .filter(
-      (c) =>
-        c.outcome === "scheduled" &&
-        new Date(c.call_at).getTime() < now &&
-        (isManager(me.role) || c.closer_id === me.id || (!c.closer_id && me.role === "closer"))
-    )
-    .sort((a, b) => a.call_at.localeCompare(b.call_at));
-
-  // Today's calls (UK day), earliest first. Closers see only their own; everyone else sees the whole team.
-  const todayR = rangeBounds("today");
-  const todaysCalls = calls
-    .filter((c) => {
-      const t = new Date(c.call_at).getTime();
-      return t >= todayR.from.getTime() && t < todayR.to.getTime() && c.outcome !== "cancelled" && (me.role !== "closer" || c.closer_id === me.id);
-    })
-    .sort((a, b) => a.call_at.localeCompare(b.call_at));
-
-  // Campaign / source performance for the selected range.
-  const sources = new Map<string, { calls: number; showed: number; closed: number }>();
-  for (const c of calls) {
-    // By the day the call was BOOKED, so a setter's work counts on the day they did it.
-    const t = new Date(c.booked_at).getTime();
-    if (t < from.getTime() || t >= to.getTime()) continue;
-    const key = c.source?.trim() || "Unknown";
-    const row = sources.get(key) ?? { calls: 0, showed: 0, closed: 0 };
-    row.calls++;
-    if (["follow_up", "lost", "closed"].includes(c.outcome)) row.showed++;
-    if (c.outcome === "closed") row.closed++;
-    sources.set(key, row);
+  // ---------------------------------------------------------------- Needs you
+  const todos: Todo[] = [];
+  if (me.role === "admin") {
+    const questions = await loadQuestions(supabase);
+    if (questions.length) {
+      todos.push({
+        key: "questions",
+        text: `${questions.length} question${questions.length === 1 ? "" : "s"} from the team`,
+        detail: questions[0].text,
+        href: "/questions",
+        tone: "info",
+      });
+    }
   }
-
-  const showTone = team.showRate === null ? "default" : team.showRate >= 70 ? "good" : team.showRate >= 50 ? "warn" : "bad";
-  const closeTone = team.closeRate === null ? "default" : team.closeRate >= 25 ? "good" : team.closeRate >= 15 ? "warn" : "bad";
+  if (manager) {
+    const waiting = (table: string, status: string) => supabase.from(table).select("id", { count: "exact", head: true }).eq("status", status);
+    const [care, recovery, ads, posts] = await Promise.all([
+      waiting("care_drafts", "draft"),
+      waiting("sales_drafts", "draft"),
+      waiting("ad_proposals", "proposed"),
+      waiting("marketing_posts", "drafted"),
+    ]);
+    const approvals: [number, string, string][] = [
+      [care.count ?? 0, "client message", "/care"],
+      [recovery.count ?? 0, "sales follow-up", "/sales"],
+      [ads.count ?? 0, "ad proposal", "/ads"],
+      [posts.count ?? 0, "marketing post", "/marketing"],
+    ];
+    for (const [n, label, href] of approvals) {
+      if (n > 0) todos.push({ key: href, text: `${n} ${label}${n === 1 ? "" : "s"} waiting for your approval`, href, tone: "warn" });
+    }
+  }
+  const myFlags = flags.filter((f) => f.ownerId === me.id);
+  if (myFlags.length) {
+    const high = myFlags.filter((f) => f.severity === "high").length;
+    todos.push({
+      key: "flags",
+      text: `${myFlags.length} thing${myFlags.length === 1 ? "" : "s"} to chase${high ? ` (${high} high priority)` : ""}`,
+      detail: myFlags[0].title,
+      href: "/attention",
+      tone: high ? "bad" : "warn",
+    });
+  }
+  const now = Date.now();
+  const needsOutcome = calls.filter(
+    (c) =>
+      c.outcome === "scheduled" &&
+      new Date(c.call_at).getTime() < now &&
+      (manager || c.closer_id === me.id || (!c.closer_id && me.role === "closer"))
+  );
+  if (needsOutcome.length) {
+    todos.push({
+      key: "outcomes",
+      text: `${needsOutcome.length} call${needsOutcome.length === 1 ? "" : "s"} waiting for an outcome`,
+      detail: needsOutcome.slice(0, 3).map((c) => c.lead_name).join(", "),
+      href: "/calls",
+      tone: "warn",
+    });
+  }
+  if (me.role === "setter") {
+    const { data: filed } = await supabase.from("daily_reports").select("staff_id").eq("report_date", todayIso()).eq("staff_id", me.id);
+    if (!filed?.length) todos.push({ key: "report", text: "Your end of day report is still to do", href: "/report", tone: "info" });
+  }
 
   return (
     <>
-      {isManager(me.role) ? <GoalBanner closes={closes} /> : null}
-      <PageHeader
-        title={`Hey ${me.full_name.split(" ")[0]} 👋`}
-        subtitle={`Showing ${rangeLabel(range, back).toLowerCase()}: ${fmtDate(from.toISOString())}${range === "today" ? "" : ` to ${fmtDate(new Date(to.getTime() - 1).toISOString())}`}`}
-        action={<RangeTabs base="/" range={range} back={back} />}
-      />
-
+      <PageHeader title={`Hey ${me.full_name.split(" ")[0]} 👋`} subtitle="Clients, what needs you, and sales this week." />
       <Notice ok={searchParams.ok} error={searchParams.error} />
-      {isManager(me.role) ? <ClientHealth supabase={supabase} /> : null}
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Calls booked" value={String(team.booked)} />
-        <Stat label="Calls taken" value={String(team.taken)} hint={`${team.noShow} no-show${team.noShow === 1 ? "" : "s"}`} />
-        <Stat label="Show rate" value={pct(team.showRate)} tone={showTone} />
-        <Stat label="Close rate" value={pct(team.closeRate)} tone={closeTone} hint={`${team.closed} closed`} />
-        <Stat label="Cash collected" value={money(team.cash)} tone="good" />
-        <Stat label="Deal value closed" value={money(team.revenue)} />
-      </div>
+      {manager ? <ClientsSection supabase={supabase} weekStart={ukIso(week.from)} /> : null}
 
-      {myFlags.length > 0 ? (
-        <Card className={`mt-6 ${highFlags > 0 ? "border-rose-500/30 bg-rose-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className={`font-semibold ${highFlags > 0 ? "text-rose-300" : "text-amber-300"}`}>
-                ⚑ {myFlags.length} thing{myFlags.length === 1 ? "" : "s"} need{myFlags.length === 1 ? "s" : ""} chasing
-                {highFlags > 0 ? ` — ${highFlags} high priority` : ""}
-              </p>
-              <p className="mt-1 text-sm text-zinc-400">{myFlags[0].title}</p>
-            </div>
-            <Link href="/attention" className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20">
-              See what&apos;s been dropped
-            </Link>
-          </div>
-        </Card>
-      ) : null}
-
-      {me.role === "setter" && !filedToday.has(me.id) ? (
-        <Card className="mt-6 border-sky-500/30 bg-sky-500/5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-sky-300">Your end of day report is still to do</p>
-              <p className="mt-1 text-sm text-zinc-400">How did the calls go today? It takes two minutes and has to be filed every working day.</p>
-            </div>
-            <Link href="/report" className="rounded-full bg-sky-400 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-sky-300">
-              File my report
-            </Link>
-          </div>
-        </Card>
-      ) : null}
-
-      {me.role === "admin" && staff.some((x) => x.active && x.role === "setter") ? (
-        <Card className="mt-6">
-          <SectionTitle>End of day reports — today</SectionTitle>
-          <p className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
-            {staff
-              .filter((x) => x.active && x.role === "setter")
-              .map((x) => (
-                <span key={x.id}>
-                  {x.full_name} <Badge tone={filedToday.has(x.id) ? "good" : "warn"}>{filedToday.has(x.id) ? "filed" : "not yet"}</Badge>
-                </span>
-              ))}
-            <Link href="/report" className="text-emerald-400 hover:text-emerald-300">
-              Read reports →
-            </Link>
-          </p>
-        </Card>
-      ) : null}
-
-      {needsOutcome.length > 0 ? (
-        <Card className="mt-6 border-amber-500/30 bg-amber-500/5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-amber-300">
-                {needsOutcome.length} call{needsOutcome.length === 1 ? "" : "s"} waiting for an outcome and notes
-              </p>
-              <p className="mt-1 text-sm text-zinc-400">
-                {needsOutcome
-                  .slice(0, 3)
-                  .map((c) => `${c.lead_name} (${fmtDateTime(c.call_at)})`)
-                  .join(" · ")}
-                {needsOutcome.length > 3 ? ` · +${needsOutcome.length - 3} more` : ""}
-              </p>
-            </div>
-            <Link href="/calls" className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-300">
-              Log outcomes
-            </Link>
-          </div>
-        </Card>
-      ) : null}
-
-      <Card className="mt-6">
-        <SectionTitle>
-          {me.role === "closer" ? "Your calls today" : "Today's calls"} ({todaysCalls.length})
-        </SectionTitle>
-        {todaysCalls.length === 0 ? (
-          <p className="text-sm text-zinc-500">No calls today.</p>
+      <Card className={`mb-6 ${todos.length ? "border-amber-500/30" : "border-emerald-500/30"}`}>
+        <SectionTitle>Needs you ({todos.length})</SectionTitle>
+        {todos.length === 0 ? (
+          <p className="text-sm text-zinc-400">Nothing waiting on you.</p>
         ) : (
-          <ul className="max-h-[28rem] divide-y divide-white/5 overflow-y-auto text-sm">
-            {todaysCalls.map((c) => (
-              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span className="text-zinc-100">
-                  <span className="mr-2 tabular-nums text-zinc-400">
-                    {new Date(c.call_at).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" })}
+          <ul className="divide-y divide-white/5">
+            {todos.map((t) => (
+              <li key={t.key}>
+                <Link href={t.href} className="flex items-center justify-between gap-3 py-3 hover:bg-white/[0.02]">
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2 text-sm font-medium text-zinc-100">
+                      <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${t.tone === "bad" ? "bg-rose-500" : t.tone === "warn" ? "bg-amber-400" : "bg-sky-400"}`} aria-hidden />
+                      {t.text}
+                    </span>
+                    {t.detail ? <span className="mt-0.5 block truncate pl-[1.125rem] text-xs text-zinc-500">{t.detail}</span> : null}
                   </span>
-                  {c.lead_name}{" "}
-                  <span className="text-xs text-zinc-500">
-                    {me.role === "closer"
-                      ? `· set by ${nameOf(staff, c.setter_id)}${c.source ? ` · ${c.source}` : ""}`
-                      : `· closer ${nameOf(staff, c.closer_id)}${c.source ? ` · ${c.source}` : ""}`}
-                  </span>
-                </span>
-                {c.outcome !== "scheduled" ? (
-                  <Badge tone={c.outcome === "closed" ? "good" : c.outcome === "no_show" ? "bad" : "default"}>{OUTCOME_LABEL[c.outcome]}</Badge>
-                ) : (
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <Badge tone={c.confirmation === "confirmed" ? "good" : c.confirmation === "no_answer" ? "bad" : "warn"}>
-                      Booked: {CONFIRMATION_LABEL[c.confirmation]}
-                    </Badge>
-                    <Badge tone={c.same_day_confirmation === "confirmed" ? "good" : c.same_day_confirmation === "no_answer" ? "bad" : "warn"}>
-                      Today: {CONFIRMATION_LABEL[c.same_day_confirmation]}
-                    </Badge>
-                  </span>
-                )}
+                  <span className="shrink-0 text-sm text-emerald-400">Open →</span>
+                </Link>
               </li>
             ))}
           </ul>
         )}
-        <Link href="/calls" className="mt-3 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
-          All calls →
-        </Link>
       </Card>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <SectionTitle>Team performance</SectionTitle>
-          <PeopleTable
-            rows={people.map((p) => ({
-              p,
-              s: computeStats(calls, closes, from, to, { staffId: p.id, role: p.role as "setter" | "closer", name: p.full_name }),
-            }))}
+      <Card>
+        <SectionHead title="Sales this week" href="/overview" link="All sales numbers →" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Stat label="Calls booked" value={String(sales.booked)} />
+          <Stat
+            label="Show rate"
+            value={pct(sales.showRate)}
+            tone={sales.showRate === null ? "default" : sales.showRate >= 70 ? "good" : sales.showRate >= 50 ? "warn" : "bad"}
+            hint={`${sales.showed} showed, ${sales.noShow} no-show${sales.noShow === 1 ? "" : "s"}`}
           />
-        </Card>
-
-        <Card>
-          <SectionTitle>Cash forecast</SectionTitle>
-          <p className="text-3xl font-semibold tabular-nums text-white">{money(owing.total)}</p>
-          <p className="text-xs text-zinc-500">still owed across all deals</p>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-zinc-400">Overdue</dt>
-              <dd className={`tabular-nums ${owing.overdue > 0 ? "text-rose-400" : "text-zinc-300"}`}>{money(owing.overdue)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-zinc-400">Due in next 7 days</dt>
-              <dd className="tabular-nums text-amber-300">{money(owing.dueThisWeek)}</dd>
-            </div>
-          </dl>
-          <Link href="/deals" className="mt-4 inline-block text-sm font-medium text-emerald-400 hover:text-emerald-300">
-            View deals →
-          </Link>
-        </Card>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <Card>
-          <SectionTitle>Setter handoff quality</SectionTitle>
-          <p className="-mt-2 mb-3 text-xs text-zinc-500">How well each setter&apos;s booked calls turn into shows and closes.</p>
-          <SetterTable
-            rows={people
-              .filter((p) => p.role === "setter")
-              .map((p) => ({ p, s: computeStats(calls, closes, from, to, { staffId: p.id, role: "setter", name: p.full_name }) }))}
-          />
-        </Card>
-
-        <Card>
-          <SectionTitle>Campaign / source</SectionTitle>
-          <p className="-mt-2 mb-3 text-xs text-zinc-500">Calls counted on the day they were booked. Which sources turn into closes.</p>
-          {sources.size === 0 ? (
-            <p className="text-sm text-zinc-500">No calls in this period.</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-zinc-500">
-                <tr>
-                  <th className="pb-2 font-medium">Source</th>
-                  <th className="pb-2 text-right font-medium">Calls</th>
-                  <th className="pb-2 text-right font-medium">Showed</th>
-                  <th className="pb-2 text-right font-medium">Closed</th>
-                  <th className="pb-2 text-right font-medium">Close %</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {Array.from(sources.entries())
-                  .sort((a, b) => b[1].closed - a[1].closed || b[1].calls - a[1].calls)
-                  .map(([name, r]) => (
-                    <tr key={name}>
-                      <td className="py-2 text-zinc-200">{name}</td>
-                      <td className="py-2 text-right tabular-nums">{r.calls}</td>
-                      <td className="py-2 text-right tabular-nums">{r.showed}</td>
-                      <td className="py-2 text-right tabular-nums">{r.closed}</td>
-                      <td className="py-2 text-right tabular-nums">{r.showed ? pct((r.closed / r.showed) * 100) : "–"}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
-      </div>
-
-      {myRole && myWeek && myMonth ? (
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <Card>
-            <SectionTitle>My targets — this week</SectionTitle>
-            <TargetBars title="weekly" stats={myWeek} targets={myTargets.filter((t) => t.period === "week")} />
-          </Card>
-          <Card>
-            <SectionTitle>My targets — this month</SectionTitle>
-            <TargetBars title="monthly" stats={myMonth} targets={myTargets.filter((t) => t.period === "month")} />
-          </Card>
+          <Stat label="Closes" value={String(sales.closed)} tone={sales.closed > 0 ? "good" : "default"} />
         </div>
-      ) : null}
-
-      <p className="mt-8 text-xs text-zinc-600">
-        Calls booked counts when the call was booked; show and close rates count calls by the day
-        they took place.
-      </p>
+      </Card>
     </>
   );
 }
 
-type Row = { p: { id: string; full_name: string; role: string }; s: ReturnType<typeof computeStats> };
-
-function PeopleTable({ rows }: { rows: Row[] }) {
-  if (rows.length === 0) return <p className="text-sm text-zinc-500">No setters or closers yet.</p>;
+function SectionHead({ title, href, link }: { title: ReactNode; href: string; link: string }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[480px] text-sm">
-        <thead className="text-left text-xs text-zinc-500">
-          <tr>
-            <th className="pb-2 font-medium">Name</th>
-            <th className="pb-2 text-right font-medium">Booked</th>
-            <th className="pb-2 text-right font-medium">Taken</th>
-            <th className="pb-2 text-right font-medium">Show %</th>
-            <th className="pb-2 text-right font-medium">Close %</th>
-            <th className="pb-2 text-right font-medium">Cash</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-white/5">
-          {rows.map(({ p, s }) => (
-            <tr key={p.id}>
-              <td className="py-2.5">
-                <span className="text-zinc-100">{p.full_name}</span>{" "}
-                <Badge tone={p.role === "closer" ? "info" : "default"}>{p.role}</Badge>
-              </td>
-              <td className="py-2.5 text-right tabular-nums">{p.role === "setter" ? s.booked : "–"}</td>
-              <td className="py-2.5 text-right tabular-nums">{s.taken}</td>
-              <td className="py-2.5 text-right tabular-nums">{pct(s.showRate)}</td>
-              <td className="py-2.5 text-right tabular-nums">{p.role === "closer" ? pct(s.closeRate) : "–"}</td>
-              <td className="py-2.5 text-right font-medium tabular-nums text-emerald-400">{money(s.cash)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <SectionTitle>{title}</SectionTitle>
+      <Link href={href} className="text-sm font-medium text-emerald-400 hover:text-emerald-300">
+        {link}
+      </Link>
     </div>
   );
 }
 
-function SetterTable({ rows }: { rows: Row[] }) {
-  if (rows.length === 0) return <p className="text-sm text-zinc-500">No setters yet.</p>;
+/** Each live client: traffic light, the one reason that matters, and leads so far this week. */
+async function ClientsSection({ supabase, weekStart }: { supabase: Awaited<ReturnType<typeof requireStaff>>["supabase"]; weekStart: string }) {
+  const [{ data: profiles }, health, { data: adRows }] = await Promise.all([
+    supabase.from("ad_client_profiles").select("client_name, status, trade").in("status", ["live", "onboarding"]).neq("trade", "agency").order("client_name"),
+    loadClientHealth(supabase),
+    supabase.from("ad_daily").select("client_name, leads").gte("day", weekStart).limit(5000),
+  ]);
+  const leads = new Map<string, number>();
+  for (const r of adRows ?? []) leads.set(r.client_name, (leads.get(r.client_name) ?? 0) + Number(r.leads ?? 0));
+  const healthOf = new Map(health.map((h) => [h.client, h.latest]));
+  const rank = { red: 0, amber: 1, green: 2 } as const;
+  const live = (profiles ?? [])
+    .filter((p) => p.status === "live")
+    .sort((a, b) => (rank[healthOf.get(a.client_name)?.band ?? "amber"] - rank[healthOf.get(b.client_name)?.band ?? "amber"]) || a.client_name.localeCompare(b.client_name));
+  const onboarding = (profiles ?? []).filter((p) => p.status === "onboarding");
+
   return (
-    <table className="w-full text-sm">
-      <thead className="text-left text-xs text-zinc-500">
-        <tr>
-          <th className="pb-2 font-medium">Setter</th>
-          <th className="pb-2 text-right font-medium">Booked</th>
-          <th className="pb-2 text-right font-medium">Show %</th>
-          <th className="pb-2 text-right font-medium">Closed</th>
-          <th className="pb-2 text-right font-medium">Close %</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-white/5">
-        {rows.map(({ p, s }) => (
-          <tr key={p.id}>
-            <td className="py-2 text-zinc-200">{p.full_name}</td>
-            <td className="py-2 text-right tabular-nums">{s.booked}</td>
-            <td className="py-2 text-right tabular-nums">{pct(s.showRate)}</td>
-            <td className="py-2 text-right tabular-nums">{s.closed}</td>
-            <td className="py-2 text-right tabular-nums">{pct(s.closeRate)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Card className="mb-6">
+      <SectionHead title={`Clients (${live.length} live)`} href="/care" link="Client care →" />
+      {live.length === 0 ? (
+        <p className="text-sm text-zinc-400">No live clients yet.</p>
+      ) : (
+        <ul className="divide-y divide-white/5">
+          {live.map((p) => {
+            const h = healthOf.get(p.client_name);
+            const dot = h?.band === "green" ? "bg-emerald-400" : h?.band === "amber" ? "bg-amber-400" : h?.band === "red" ? "bg-rose-500" : "bg-zinc-600";
+            const n = leads.get(p.client_name) ?? 0;
+            return (
+              <li key={p.client_name} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+                    <span className={`inline-block h-3 w-3 shrink-0 rounded-full ${dot}`} aria-hidden />
+                    {p.client_name}
+                    {h ? <Badge tone={bandTone(h.band)}>{h.score ?? "?"}/100</Badge> : <Badge>not scored yet</Badge>}
+                  </p>
+                  {h?.reason ? <p className="mt-1 pl-5 text-xs text-zinc-400">{h.reason}</p> : null}
+                </div>
+                <p className="text-right">
+                  <span className="text-2xl font-semibold tabular-nums text-white">{n}</span>
+                  <span className="ml-1.5 text-xs text-zinc-500">lead{n === 1 ? "" : "s"} this week</span>
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {onboarding.length ? (
+        <p className="mt-3 border-t border-white/5 pt-3 text-xs text-zinc-500">
+          Setting up: {onboarding.map((p) => p.client_name).join(", ")}
+        </p>
+      ) : null}
+    </Card>
   );
 }
