@@ -25,6 +25,10 @@ Read this first. It tells a new chat what the business is, where everything live
 - When he gives facts or decisions, write them into the database (business_facts or standing_rules) so the desks pick them up. Do not leave them only in chat.
 
 ## Which chat does what
-- **Apex HQ** (Claude Code): day-to-day running, desks, data fixes, ads launches and client onboarding.
-- **Apex Portal dev** (Claude Code): building portal features (next: an Add client form that fills every table in one go, and a simpler dashboard).
+- **Apex HQ** (Claude Code): day-to-day running, the AI desks, data fixes, Harry's questions.
+- **Apex Clients & Onboarding** (Claude Code): adding, setting up and removing clients (profiles, contacts, ad accounts, GHL alerts, money list).
+- **Apex Ads** (Claude Code): writing, launching and testing ads for every client and Apex.
+- **Apex Portal dev** (Claude Code, Fable): building portal features (Add client form, simpler dashboard).
+- When a chat gets long, start a fresh one with the same name: memory lives in this file and the database, not in the chat.
 - claude.ai Projects for thinking and writing: Business plan and money, Sales and hiring, Ad copy and creative.
+- Supabase and Meta ads tools are pre-approved in .claude/settings.json; pick Auto mode in the chat's mode dropdown for fewer prompts.

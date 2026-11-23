@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "mcp__Supabase",
-      "mcp__Meta_ads"
+      "mcp__Supabase__*",
+      "mcp__supabase",
+      "mcp__supabase__*",
+      "mcp__1c97611e-c8a5-4d34-bb43-9837783e1b6c",
+      "mcp__1c97611e-c8a5-4d34-bb43-9837783e1b6c__*",
+      "mcp__Meta_ads",
+      "mcp__Meta_ads__*",
+      "mcp__Meta-ads",
+      "mcp__Meta-ads__*",
+      "mcp__8ff3d486-e61d-40d7-bc7b-27f1d412a88f",
+      "mcp__8ff3d486-e61d-40d7-bc7b-27f1d412a88f__*"
     ]
   }
 }
