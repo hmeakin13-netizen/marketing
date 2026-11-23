@@ -23,8 +23,10 @@ export async function addClientEverywhere(formData: FormData) {
   if (!str(formData, "trade")) back(path, "error", "Add the client's trade.");
 
   const fee = money(formData, "monthly_fee");
-  const setup = money(formData, "setup_fee");
-  if ((fee && !(Number(fee) >= 0)) || (setup && !(Number(setup) >= 0))) back(path, "error", "The fees have to be numbers.");
+  if (fee && !(Number(fee) >= 0)) back(path, "error", "The monthly fee has to be a number.");
+  const tierKey = str(formData, "tier") || "pro";
+  const { data: tier } = await supabase.from("offer_tiers").select("exclusive_radius_km").eq("key", tierKey).maybeSingle();
+  if (!tier) back(path, "error", "Pick a tier.");
   const billingDay = str(formData, "billing_day");
   if (billingDay && !(Number(billingDay) >= 1 && Number(billingDay) <= 31)) back(path, "error", "The billing day has to be between 1 and 31.");
 
@@ -36,6 +38,7 @@ export async function addClientEverywhere(formData: FormData) {
   const { data: retainerId, error } = await supabase.rpc("add_client", {
     p: {
       name,
+      tier: tierKey,
       trade: str(formData, "trade"),
       area: str(formData, "area"),
       services: str(formData, "services"),
@@ -44,7 +47,6 @@ export async function addClientEverywhere(formData: FormData) {
       meta_page_id: str(formData, "meta_page_id"),
       meta_form_id: str(formData, "meta_form_id"),
       monthly_fee: fee,
-      setup_fee: setup,
       start_date: str(formData, "start_date"),
       billing_day: billingDay,
       closer_id: str(formData, "closer_id"),
@@ -56,15 +58,16 @@ export async function addClientEverywhere(formData: FormData) {
   if (error) back(path, "error", error.message);
 
   let mapNote = "";
-  if (geo && retainerId) {
-    const radius = Number(str(formData, "radius_km"));
+  // The tier decides the exclusive area: none on Growth, otherwise the tier's radius unless one was typed in.
+  const radius = Number(str(formData, "radius_km")) || Number(tier!.exclusive_radius_km ?? 0);
+  if (geo && retainerId && radius > 0) {
     const { error: mapError } = await supabase.from("territories").insert({
       client_id: retainerId,
       name,
       postcode: geo.postcode,
       lat: geo.lat,
       lng: geo.lng,
-      radius_km: radius > 0 ? radius : 15,
+      radius_km: radius,
     });
     if (mapError) mapNote = " The territory map did not save: add the postcode on this page.";
   }
@@ -117,6 +120,10 @@ export async function updateClientRecord(formData: FormData) {
   const account = str(formData, "meta_ad_account_id").replace(/\D/g, "") || null;
   const { data: current } = await db.from("ad_client_profiles").select("monitor").eq("client_name", name).maybeSingle();
   if (!current) back("/clients", "error", `No client called ${name}.`);
+  const tierKey = str(formData, "tier");
+  const { data: tier } = tierKey ? await db.from("offer_tiers").select("key, min_daily_ad_spend, guarantee_leads, guarantee_days").eq("key", tierKey).maybeSingle() : { data: null };
+  if (tierKey && !tier) back("/clients", "error", "That tier doesn't exist.");
+  const guarantee = tier?.guarantee_leads ? `${tier.guarantee_leads}_in_${tier.guarantee_days}` : "none";
   const { error } = await db
     .from("ad_client_profiles")
     .update({
@@ -127,8 +134,9 @@ export async function updateClientRecord(formData: FormData) {
       meta_ad_account_id: account,
       meta_page_id: str(formData, "meta_page_id") || null,
       meta_form_id: str(formData, "meta_form_id") || null,
-      // The first time an ad account is added, switch the ads monitor on with the standard guarantee.
-      ...(account && !current!.monitor ? { monitor: { guarantee: "30_in_60", go_live: "auto", daily_budget: 20 } } : {}),
+      ...(tier ? { tier: tier.key } : {}),
+      // The first time an ad account is added, switch the ads monitor on with the tier's guarantee and ad spend.
+      ...(account && !current!.monitor ? { monitor: { guarantee: tier ? guarantee : "30_in_60", go_live: "auto", daily_budget: Number(tier?.min_daily_ad_spend ?? 20) } } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("client_name", name);

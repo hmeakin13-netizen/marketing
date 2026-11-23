@@ -4,6 +4,7 @@ import { fmtDate, todayIso } from "@/lib/staff/dates";
 import { money } from "@/lib/staff/metrics";
 import { isPaused } from "@/lib/staff/pay";
 import type { RetainerClient } from "@/lib/staff/types";
+import { minimumTermEnd, type OfferTier } from "@/lib/staff/contracts";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, Stat, btnPrimary, inputCls } from "@/components/staff/ui";
 import { markClientLeft, setClientLive, updateClientRecord } from "./actions";
@@ -21,6 +22,7 @@ type Profile = {
   meta_page_id: string | null;
   meta_form_id: string | null;
   left_on: string | null;
+  tier?: string | null;
 };
 type Contact = { client_name: string; contact_name: string | null; ghl_contact_id: string | null };
 type Retainer = RetainerClient & { client_name: string | null };
@@ -30,11 +32,16 @@ const ordinal = (d: number) => `${d}${[1, 21, 31].includes(d) ? "st" : [2, 22].i
 /** One card per client. The money detail (commission, pauses, payment dates) lives on Billing details. */
 export default async function ClientsPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase } = await requireRole("admin");
-  const [{ data: profileData }, { data: retainerData }, { data: contactData }] = await Promise.all([
+  const [{ data: profileData }, { data: retainerData }, { data: contactData }, { data: tierData }, { data: contractData }] = await Promise.all([
     supabase.from("ad_client_profiles").select("*").neq("trade", "agency").order("client_name"),
     supabase.from("retainer_clients").select("*"),
     supabase.from("care_contacts").select("client_name, contact_name, ghl_contact_id"),
+    supabase.from("offer_tiers").select("*").order("sort"),
+    supabase.from("contracts").select("client_name, status").neq("status", "ended"),
   ]);
+  const tiers = (tierData ?? []) as OfferTier[];
+  const tierOf = new Map(tiers.map((t) => [t.key, t]));
+  const signed = new Set((contractData ?? []).filter((c) => c.status === "signed").map((c) => c.client_name as string));
   const profiles = (profileData ?? []) as Profile[];
   const today = todayIso();
   const retainerOf = new Map<string, Retainer>();
@@ -67,7 +74,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
       ["Contact", Boolean(c?.contact_name)],
       ["GoHighLevel contact", Boolean(c?.ghl_contact_id)],
       ["Retainer", Boolean(r)],
+      ...(tiers.length ? ([["Contract signed", signed.has(p.client_name)]] as [string, boolean][]) : []),
     ];
+    const tier = p.tier ? tierOf.get(p.tier) : undefined;
+    const termEnd = tier && r ? minimumTermEnd(tier, r.start_date) : null;
+    const inMinimum = Boolean(termEnd && termEnd > today);
     const missing = checks.filter(([, ok]) => !ok).length;
     return (
       <Card key={p.client_name}>
@@ -76,12 +87,14 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
             <p className="flex flex-wrap items-center gap-2 font-semibold text-white">
               {p.client_name}
               <Badge tone={p.status === "live" ? "good" : "info"}>{p.status === "live" ? "live" : "setting up"}</Badge>
+              {tier ? <Badge>{tier.name}</Badge> : null}
               {paused ? <Badge tone="warn">payments paused</Badge> : null}
             </p>
             <p className="mt-1 text-xs text-zinc-400">
               {p.trade}
               {c?.contact_name ? ` · ${c.contact_name}` : ""}
               {r ? ` · signed ${fmtDate(r.start_date)} · pays on the ${ordinal(r.billing_day)}` : ""}
+              {inMinimum ? ` · minimum term until ${fmtDate(termEnd!)}` : ""}
             </p>
           </div>
           <p className="text-right text-lg font-semibold tabular-nums text-white">
@@ -114,6 +127,16 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
               <Field label="Trade">
                 <input name="trade" defaultValue={p.trade} className={inputCls} />
               </Field>
+              {tiers.length ? (
+                <Field label="Tier (does not change their fee)" className="sm:col-span-2">
+                  <select name="tier" defaultValue={p.tier ?? ""} className={inputCls}>
+                    <option value="">— not set —</option>
+                    {tiers.map((t) => (
+                      <option key={t.key} value={t.key}>{t.name}</option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
               <Field label="Contact name">
                 <input name="contact_name" defaultValue={c?.contact_name ?? ""} className={inputCls} />
               </Field>
@@ -145,6 +168,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
           </details>
           <details>
             <summary className="inline-block cursor-pointer rounded-full border border-rose-500/40 px-4 py-2 text-sm font-medium text-rose-300 hover:bg-rose-500/10">Mark as left</summary>
+            {inMinimum ? <p className="mt-3 text-xs text-amber-300">Still inside the minimum term, which runs until {fmtDate(termEnd!)}.</p> : null}
             <form action={markClientLeft} className="mt-3 flex flex-wrap items-end gap-3">
               <input type="hidden" name="client_name" value={p.client_name} />
               <Field label="Left on">

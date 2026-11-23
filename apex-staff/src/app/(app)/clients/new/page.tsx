@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/staff/auth";
 import { todayIso } from "@/lib/staff/dates";
 import type { StaffRow } from "@/lib/staff/types";
+import { tierSummary, type OfferTier } from "@/lib/staff/contracts";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
 import { addClientEverywhere } from "../actions";
@@ -10,7 +11,11 @@ export const metadata = { title: "Add a client | Apex Team" };
 
 export default async function NewClientPage({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const { supabase } = await requireRole("admin");
-  const { data } = await supabase.from("staff").select("*").eq("active", true).order("full_name");
+  const [{ data }, { data: tierData }] = await Promise.all([
+    supabase.from("staff").select("*").eq("active", true).order("full_name"),
+    supabase.from("offer_tiers").select("*").order("sort"),
+  ]);
+  const tiers = (tierData ?? []) as OfferTier[];
   const staff = (data ?? []) as StaffRow[];
   const closers = staff.filter((s) => s.role !== "setter");
   const setters = staff.filter((s) => s.role === "setter" || s.role === "manager");
@@ -72,13 +77,21 @@ export default async function NewClientPage({ searchParams }: { searchParams: { 
         </Card>
 
         <Card>
-          <SectionTitle>Retainer</SectionTitle>
+          <SectionTitle>Tier and retainer</SectionTitle>
+          <div className="mb-4 space-y-2">
+            {tiers.map((t) => (
+              <label key={t.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 p-3 hover:border-white/20">
+                <input type="radio" name="tier" value={t.key} defaultChecked={t.key === "pro"} required className="mt-1 accent-emerald-500" />
+                <span>
+                  <span className="block text-sm font-semibold text-white">{t.name}</span>
+                  <span className="block text-xs text-zinc-400">{tierSummary(t)}{t.extras ? ` · ${t.extras}` : ""}</span>
+                </span>
+              </label>
+            ))}
+          </div>
           <div className="grid gap-3 sm:grid-cols-4">
-            <Field label="Monthly fee (£)">
-              <input name="monthly_fee" inputMode="decimal" defaultValue="1000" className={inputCls} />
-            </Field>
-            <Field label="Setup fee (£, one-time)">
-              <input name="setup_fee" inputMode="decimal" defaultValue="500" className={inputCls} />
+            <Field label="Monthly fee (£, blank = tier price)" className="sm:col-span-2">
+              <input name="monthly_fee" inputMode="decimal" className={inputCls} />
             </Field>
             <Field label="Start date">
               <input name="start_date" type="date" defaultValue={todayIso()} className={inputCls} />
@@ -105,8 +118,8 @@ export default async function NewClientPage({ searchParams }: { searchParams: { 
             <Field label="Postcode (blocks the area on the territory map)" className="sm:col-span-2">
               <input name="postcode" className={inputCls} placeholder="NG1 5FS" />
             </Field>
-            <Field label="Exclusive radius (km)" className="sm:col-span-2">
-              <input name="radius_km" inputMode="decimal" className={inputCls} placeholder="15" />
+            <Field label="Exclusive radius (km, blank = the tier's; Growth has none)" className="sm:col-span-2">
+              <input name="radius_km" inputMode="decimal" className={inputCls} />
             </Field>
           </div>
         </Card>

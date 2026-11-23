@@ -26,6 +26,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/targets", label: "Targets", icon: "◎", group: "Sales" },
     { href: "/territories", label: "Territory map", icon: "⌖", group: "Sales" }
   );
+  if (me.role === "closer") items.push({ href: "/contracts", label: "Contracts", icon: "✒", group: "Sales" });
   if (manager) {
     items.push(
       { href: "/ads", label: "Ads", icon: "▤", group: "AI team" },
@@ -45,6 +46,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
       { href: "/questions", label: "Questions", icon: "?", group: "Admin", badge: waiting },
       { href: "/team", label: "Team", icon: "☺", group: "Admin" },
       { href: "/clients", label: "Clients", icon: "★", group: "Admin" },
+      { href: "/contracts", label: "Contracts", icon: "✒", group: "Admin" },
       { href: "/pay", label: "Pay & commission", icon: "◈", group: "Admin" },
       { href: "/invoices", label: "Invoices", icon: "🧾", group: "Admin" },
       { href: "/settings", label: "Settings", icon: "⚙", group: "Admin" }
