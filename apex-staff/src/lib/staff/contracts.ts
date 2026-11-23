@@ -66,14 +66,22 @@ export function minimumTermEnd(t: OfferTier, startDate: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+const BLANK = "____________________";
+
+/** A tier's contract with the client's details left as blank lines: an example to show a prospect before they buy. */
+export function blankContract(body: string, t: OfferTier): string {
+  return fillTemplate(body, t, { business_name: BLANK, contact_name: BLANK, area: BLANK, start_date: "", monthly_fee: Number(t.monthly_fee) });
+}
+
 /** Fill a template's {{placeholders}} from the tier's terms and the client's details. */
 export function fillTemplate(body: string, t: OfferTier, d: ContractDetails): string {
+  const start = d.start_date ? longDate(d.start_date) : BLANK;
   const values: Record<string, string> = {
     tier_name: t.name,
     business_name: d.business_name,
     contact_name: d.contact_name || d.business_name,
     area: d.area || "[AREA TO BE AGREED]",
-    start_date: longDate(d.start_date),
+    start_date: start,
     monthly_fee: gbp(d.monthly_fee),
     ad_spend: gbp(t.min_daily_ad_spend),
     guarantee: t.guarantee_leads
@@ -83,7 +91,7 @@ export function fillTemplate(body: string, t: OfferTier, d: ContractDetails): st
       ? `Apex-Leads will not take on another client in the same trade within ${t.exclusive_radius_km} km of the Client's base while this agreement runs.`
       : "This tier does not include an exclusive area.",
     term: t.min_term_months
-      ? `This agreement has a minimum term of ${t.min_term_months} months from ${longDate(d.start_date)}. After that it continues month to month and either side can end it with ${t.notice_days} days' written notice.`
+      ? `This agreement has a minimum term of ${t.min_term_months} months from ${start}. After that it continues month to month and either side can end it with ${t.notice_days} days' written notice.`
       : `This agreement runs month to month. Either side can end it with ${t.notice_days} days' written notice.`,
     reporting: `Apex-Leads sends the Client a results report every ${t.report_every_days === 7 ? "week" : t.report_every_days === 14 ? "two weeks" : `${t.report_every_days} days`}.${t.extras ? ` ${t.extras}` : ""}`,
   };
@@ -110,7 +118,9 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
 const safe = (s: string) => s.replace(/[^\x09\x0A\x20-\x7E\xA0-\xFF‘’“”–—]/g, "?").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-");
 
 /** The contract as a PDF, with the signature record on the end when it has been signed. */
-export async function buildContractPdf(c: Pick<ContractRow, "body" | "client_name" | "signed_at" | "signer_name"> & { signer_ip?: string | null }): Promise<Uint8Array> {
+export async function buildContractPdf(
+  c: Pick<ContractRow, "body" | "client_name" | "signed_at" | "signer_name"> & { signer_ip?: string | null; example?: boolean }
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -128,8 +138,16 @@ export async function buildContractPdf(c: Pick<ContractRow, "body" | "client_nam
     page.drawText(t, { x: M, y, size, font: f, color: ink });
     y -= lead;
   };
+  if (c.example) {
+    page.drawText("EXAMPLE ONLY - NOT FOR SIGNATURE", { x: M, y, size: 9, font: bold, color: rgb(0.55, 0.55, 0.6) });
+    y -= lead * 1.5;
+  }
   const lines = wrap(safe(c.body), font, size, 595 - 2 * M);
   lines.forEach((t, i) => line(t, i === 0 || /^\d+\.\s/.test(t) ? bold : font));
+  if (c.example) {
+    y -= lead;
+    line("Signed: " + "____________________" + "     Date: " + "______________");
+  }
   if (c.signed_at) {
     y -= lead;
     line("Signature record", bold);

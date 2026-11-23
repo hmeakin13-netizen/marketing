@@ -126,6 +126,17 @@ export default async function ContractsPage({ searchParams }: { searchParams: { 
               <summary className="cursor-pointer text-sm font-semibold text-white">
                 {t.name} <span className="font-normal text-zinc-500">· {tierSummary(t)}{tpl ? ` · version ${tpl.version}, ${fmtDate(tpl.created_at)}` : " · no template yet"}</span>
               </summary>
+              {tpl ? (
+                <p className="mt-3 flex flex-wrap gap-4 text-sm">
+                  <a href={`/api/contracts/preview/${t.key}`} target="_blank" rel="noreferrer" className="font-medium text-emerald-400 hover:text-emerald-300">
+                    Open blank example →
+                  </a>
+                  <a href={`/api/contracts/preview/${t.key}?download=1`} className="font-medium text-emerald-400 hover:text-emerald-300">
+                    Download as PDF
+                  </a>
+                  <span className="text-xs text-zinc-500">The client&apos;s details are left as blank lines, to show a prospect what they would sign.</span>
+                </p>
+              ) : null}
               {admin ? (
                 <form action={saveTemplate} className="mt-3 space-y-3">
                   <input type="hidden" name="tier" value={t.key} />
