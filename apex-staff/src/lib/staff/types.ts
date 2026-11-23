@@ -160,7 +160,7 @@ export type CallConfirmation = "unconfirmed" | "confirmed" | "no_answer" | "left
 
 export const CONFIRMATION_LABEL: Record<CallConfirmation, string> = {
   unconfirmed: "Not confirmed yet",
-  confirmed: "Confirmed on Zoom",
+  confirmed: "Confirmed for Google Meet",
   no_answer: "No answer",
   left_message: "Left a message",
   reschedule: "Wants to reschedule",

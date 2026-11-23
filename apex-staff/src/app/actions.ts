@@ -1018,7 +1018,7 @@ export async function submitReport(formData: FormData) {
   back("/report", "ok", "Report filed. Thanks!");
 }
 
-/** Setter's pre-call check: confirmed on Zoom, no answer, left a message, etc. */
+/** Setter's pre-call check: confirmed for the video call, no answer, left a message, etc. */
 export async function setConfirmation(formData: FormData) {
   const { me } = await requireStaff();
   const valid = ["unconfirmed", "confirmed", "no_answer", "left_message", "reschedule", "other"];

@@ -53,7 +53,7 @@ export const RUBRIC_SETTER: RubricItem[] = [
   { key: "discovery", label: "Qualifying", what: "Asked what they do, how busy they are, where work comes from, who decides, and whether the investment is realistic for them." },
   { key: "objections", label: "Holding the line", what: "Kept the price and the detail for the closer's call without bluffing, and answered 'just send info' or 'not now' with a question." },
   { key: "next_step", label: "Booking", what: "Booked a real slot from the calendar (never a time you had not checked), agreed with the prospect." },
-  { key: "confirmation", label: "Confirmation", what: "Said it is a Zoom with the closer by name, how long, that the link comes by text, and got a yes back." },
+  { key: "confirmation", label: "Confirmation", what: "Said it is a Google Meet video call with the closer by name, how long, that the link comes by text, and got a yes back." },
 ];
 
 export const RUBRIC_CLOSER: RubricItem[] = [
