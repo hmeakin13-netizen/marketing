@@ -1,4 +1,6 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { syncGhlIfStale } from "@/lib/ghl";
 import { StaffNav, type NavItem } from "@/components/staff/StaffNav";
 import { loadQuestions } from "@/components/staff/HarryQuestions";
 
@@ -7,6 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const { me, supabase } = await requireStaff();
   const manager = isManager(me.role);
+  // Keeps cancellations and reschedules fresh even if a GoHighLevel webhook is missed.
+  await syncGhlIfStale(createAdminClient());
 
   // Three groups so the sidebar reads as "my work", "the AI team" and "admin" rather than one long list.
   // The ad-maker sub-pages only show while you are inside Ads, which is where they belong.
