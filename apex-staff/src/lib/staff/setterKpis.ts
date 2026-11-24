@@ -15,8 +15,9 @@ export type KpiKey = "dials" | "conversations" | "booked" | "overdue";
 export const KPI_LABEL: Record<KpiKey, string> = { dials: "Dials", conversations: "Conversations", booked: "Calls booked", overdue: "Overdue tasks" };
 
 export const STEP_LABEL: Record<string, string> = {
-  text_a_day0: "Text A after the first missed call (day 0)",
-  text_b_day2: "Text B on day 2",
+  // Text A was dropped on 24 Nov (the automatic first text covers Day 0), and text B moved to Day 1.
+  // The desk still writes the step name text_b_day2 for B.
+  text_b_day2: "Text B (Day 1)",
   text_c_day7: "Text C on day 7",
   text_d_booked: "Text D straight after booking",
   confirm_call_morning: "Morning-of confirm call (09:00 to 10:30)",
@@ -200,7 +201,8 @@ export async function loadSetterReports(supabase: SupabaseClient, setters: Staff
     supabase.from("setter_playbook_misses").select("*").in("staff_id", ids).gte("day", since).order("day", { ascending: false }).returns<PlaybookMiss[]>(),
   ]);
   const rows = daysRes.data ?? [];
-  const allMisses = missRes.data ?? [];
+  // text_a_day0 is no longer a step: any old rows are ignored everywhere (lists and scores).
+  const allMisses = (missRes.data ?? []).filter((m) => m.step !== "text_a_day0");
   const week = weekStart(today);
   return setters.map((setter) => {
     const mine = rows.filter((r) => r.staff_id === setter.id);
