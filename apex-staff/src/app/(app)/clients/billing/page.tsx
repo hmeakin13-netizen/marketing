@@ -186,11 +186,6 @@ export default async function ClientsPage({ searchParams }: { searchParams: { ok
                       </>
                     ) : null}
                   </p>
-                  {sharePctOf(c) === 0 ? (
-                    <p className="mt-1 text-xs text-amber-300">
-                      No retainer share set for {nameOf(staff, c.closer_id)} yet. Set it on the Pay page.
-                    </p>
-                  ) : null}
                 </div>
                 <p className="text-right text-lg font-semibold tabular-nums text-white">
                   {money(Number(c.monthly_fee))}
