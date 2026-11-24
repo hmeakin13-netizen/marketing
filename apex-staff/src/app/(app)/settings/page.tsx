@@ -41,6 +41,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
             <span className="text-sm text-zinc-400">
               {ghlConfig.last_sync_at ? `last sync ${fmtDateTime(ghlConfig.last_sync_at)} (${ghlConfig.last_sync_count ?? 0} bookings)` : "not synced yet"}
               {ghlConfig.last_error ? ` · ${ghlConfig.last_error}` : ""}
+              {ghlConfig.last_push_error ? ` · last pipeline move failed: ${ghlConfig.last_push_error}` : ghlConfig.last_push_at ? ` · last pipeline move ${fmtDateTime(ghlConfig.last_push_at)}` : ""}
             </span>
             <form action={syncGhlNow} className="ml-auto">
               <SubmitButton pendingText="Syncing…">Sync now</SubmitButton>
@@ -58,7 +59,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
           <summary className="cursor-pointer text-sm font-medium text-emerald-400">{ghlConfig ? "Change connection" : "Connect GoHighLevel"}</summary>
           <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
             <li>In GoHighLevel open the <b className="text-zinc-200">Apex leads</b> sub-account, then <b className="text-zinc-200">Settings → Private Integrations → Create new integration</b>.</li>
-            <li>Name it &ldquo;Apex portal&rdquo; and tick these scopes: <b className="text-zinc-200">View Calendars, View Calendar Events, View Contacts</b>.</li>
+            <li>Name it &ldquo;Apex portal&rdquo; and tick these scopes: <b className="text-zinc-200">View Calendars, View Calendar Events, View Contacts, View Opportunities, Edit Opportunities</b>. The Opportunities ones let a logged outcome move the lead in the Marketing Pipeline.</li>
             <li>Copy the token and paste it below. It&apos;s stored on the server and never shown again.</li>
           </ol>
           <form action={connectGhl} className="mt-4 grid gap-3 sm:grid-cols-3">

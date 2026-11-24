@@ -14,6 +14,8 @@ export interface GhlConfig {
   last_sync_at?: string;
   last_sync_count?: number;
   last_error?: string | null;
+  last_push_at?: string;
+  last_push_error?: string | null;
 }
 
 export interface GhlEvent {
@@ -241,5 +243,104 @@ export async function syncGhlIfStale(admin: SupabaseClient) {
     await syncGhl(admin, config);
   } catch {
     /* shown on the Settings page */
+  }
+}
+
+// ------------------------------------------------------------------ write-back: call outcome -> GHL pipeline stage
+
+/** Marketing Pipeline in the Apex leads sub-account, and the stage each logged outcome moves the lead to. */
+const PIPELINE_ID = "W2ilSmqPa9y2flbkz6B0";
+const OUTCOME_STAGE: Record<string, { stageId: string; stage: string; status?: "won" }> = {
+  no_show: { stageId: "e99ddd40-a6ff-4448-b897-218ed3939c26", stage: "No show (rebook)" },
+  lost: { stageId: "d3aa0927-a523-453c-bed3-1eb2bd08ea74", stage: "No close" },
+  follow_up: { stageId: "048d4211-418f-41b8-90c9-496ac474c66a", stage: "Follow up" },
+  closed: { stageId: "2f2faf14-7d26-4124-875d-198cdf628252", stage: "Closed - won", status: "won" },
+  // "cancelled" and "scheduled" are left alone on purpose.
+};
+
+async function ghlSend<T>(token: string, path: string, method: "GET" | "PUT", body?: unknown): Promise<T> {
+  const res = await fetch(API + path, {
+    method,
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Version: "2021-07-28",
+      Accept: "application/json",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`GoHighLevel ${res.status}: ${(await res.text()).slice(0, 240)}`);
+  return (await res.json()) as T;
+}
+
+async function findContactId(
+  config: GhlConfig,
+  call: { ghl_event_id: string | null; lead_email: string | null; lead_phone: string | null }
+): Promise<string | null> {
+  if (call.ghl_event_id) {
+    const ev = await fetchEvent(config, call.ghl_event_id);
+    if (ev?.contactId) return ev.contactId;
+  }
+  const tries: Record<string, string>[] = [];
+  if (call.lead_email) tries.push({ email: call.lead_email });
+  if (call.lead_phone) tries.push({ number: call.lead_phone });
+  for (const t of tries) {
+    try {
+      const q = new URLSearchParams({ locationId: config.location_id, ...t });
+      const r = await ghlSend<{ contact?: { id?: string } | null }>(config.token, `/contacts/search/duplicate?${q}`, "GET");
+      if (r.contact?.id) return r.contact.id;
+    } catch {
+      /* try the next way */
+    }
+  }
+  return null;
+}
+
+/**
+ * After a closer logs an outcome in the portal, move the lead's opportunity in the GHL Marketing Pipeline.
+ * Never throws: the outcome is already saved in the portal; a failure is kept on the Settings page.
+ */
+export async function pushOutcomeToGhl(admin: SupabaseClient, callId: string, outcome: string): Promise<string> {
+  const target = OUTCOME_STAGE[outcome];
+  if (!target) return "no change";
+  try {
+    const config = await getGhlConfig(admin);
+    if (!config) return "not connected";
+    const { data: call } = await admin
+      .from("calls")
+      .select("lead_name, ghl_event_id, lead_email, lead_phone")
+      .eq("id", callId)
+      .maybeSingle();
+    if (!call) return "call not found";
+    const contactId = await findContactId(config, call);
+    if (!contactId) throw new Error(`no GHL contact found for ${call.lead_name}`);
+
+    const q = new URLSearchParams({ location_id: config.location_id, contact_id: contactId, pipeline_id: PIPELINE_ID });
+    const r = await ghlSend<{ opportunities?: { id: string; pipelineStageId?: string; updatedAt?: string }[] }>(
+      config.token,
+      `/opportunities/search?${q}`,
+      "GET"
+    );
+    const opps = (r.opportunities ?? []).sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
+    const opp = opps[0];
+    if (!opp) throw new Error(`${call.lead_name} has no lead in the Marketing Pipeline`);
+
+    await ghlSend(config.token, `/opportunities/${encodeURIComponent(opp.id)}`, "PUT", {
+      pipelineId: PIPELINE_ID,
+      pipelineStageId: target.stageId,
+      ...(target.status ? { status: target.status } : {}),
+    });
+    await saveGhlConfig(admin, { ...config, last_push_at: new Date().toISOString(), last_push_error: null });
+    return `moved to ${target.stage}`;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "unknown error";
+    try {
+      const config = await getGhlConfig(admin);
+      if (config) await saveGhlConfig(admin, { ...config, last_push_error: `${new Date().toISOString().slice(0, 16)} ${msg}` });
+    } catch {
+      /* ignore */
+    }
+    return `not moved: ${msg}`;
   }
 }

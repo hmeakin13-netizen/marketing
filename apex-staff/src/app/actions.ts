@@ -13,7 +13,7 @@ import type { CloseRow } from "@/lib/staff/types";
 import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/recording";
 import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
-import { getGhlConfig, saveGhlConfig, syncGhl, ghl } from "@/lib/ghl";
+import { getGhlConfig, saveGhlConfig, syncGhl, ghl, pushOutcomeToGhl } from "@/lib/ghl";
 import { emailSignInLink, makeSignInLink } from "@/lib/staff/login-link";
 import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
@@ -205,8 +205,12 @@ export async function logOutcome(formData: FormData) {
     if (error) back(path, "error", error.message);
   }
 
+  // Move the lead in the GHL Marketing Pipeline to match (cancelled is left alone).
+  const ghlResult = await pushOutcomeToGhl(createAdminClient(), callId, outcome);
+  const ghlNote = ghlResult.startsWith("moved") ? ` GoHighLevel: ${ghlResult}.` : ghlResult.startsWith("not moved") ? ` GoHighLevel ${ghlResult}; move it there by hand.` : "";
+
   revalidatePath("/", "layout");
-  back(path, "ok", `Saved: ${call!.lead_name}.`);
+  back(path, "ok", `Saved: ${call!.lead_name}.${ghlNote}`);
 }
 
 // ------------------------------------------------------------------ deals
@@ -310,6 +314,7 @@ export async function markFollowUpLost(formData: FormData) {
     .eq("id", callId)
     .eq("outcome", "follow_up");
   if (error) back("/attention", "error", error.message);
+  await pushOutcomeToGhl(createAdminClient(), callId, "lost");
   revalidatePath("/", "layout");
   back("/attention", "ok", "Marked as lost.");
 }
