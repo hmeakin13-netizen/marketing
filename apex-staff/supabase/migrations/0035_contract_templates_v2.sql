@@ -14,7 +14,7 @@ Plan: {{tier_name}}
 1. Services
 - Facebook & Instagram ad campaigns, built and run inside Client's own ad account.
 - Ongoing optimisation of targeting, creative and budget.
-- Qualified enquiries delivered to Client, visible in the Apex Leads client portal.
+- Qualified enquiries delivered to Client.
 - Direct support via a WhatsApp group with Agency.
 {{services_extra}}
 
