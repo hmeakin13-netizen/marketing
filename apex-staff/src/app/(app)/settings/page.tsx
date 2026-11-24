@@ -1,9 +1,11 @@
 import { requireRole } from "@/lib/staff/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getConfig, getStored } from "@/lib/calendly";
+import { getGhlConfig } from "@/lib/ghl";
+import { headers } from "next/headers";
 import { fmtDateTime } from "@/lib/staff/dates";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
-import { connectCalendly, reapplyShifts, saveShift, syncCalendly } from "../../actions";
+import { connectCalendly, connectGhl, reapplyShifts, saveShift, syncCalendly, syncGhlNow } from "../../actions";
 import { SubmitButton } from "@/components/staff/SubmitButton";
 import { Badge, Card, Field, Notice, PageHeader, SectionTitle, inputCls } from "@/components/staff/ui";
 
@@ -15,6 +17,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
   const { supabase } = await requireRole("admin");
   const admin = createAdminClient();
   const config = await getConfig(admin);
+  const ghlConfig = await getGhlConfig(admin);
+  const h = headers();
+  const siteHost = h.get("x-forwarded-host") ?? h.get("host");
   const hasSavedToken = Boolean((await getStored(admin))?.token);
   const [{ data: staffData }, { data: shiftData }] = await Promise.all([
     supabase.from("staff").select("*").eq("active", true).order("full_name"),
@@ -25,10 +30,65 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Connect Calendly and set who takes calls when." />
+      <PageHeader title="Settings" subtitle="Connect the booking calendar and set who takes calls when." />
       <Notice ok={searchParams.ok} error={searchParams.error} />
 
-      <SectionTitle>Calendly</SectionTitle>
+      <SectionTitle>GoHighLevel calendar</SectionTitle>
+      <Card className="mb-8">
+        {ghlConfig ? (
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <Badge tone={ghlConfig.last_error ? "bad" : "good"}>{ghlConfig.last_error ? "Error" : "Connected"}</Badge>
+            <span className="text-sm text-zinc-400">
+              {ghlConfig.last_sync_at ? `last sync ${fmtDateTime(ghlConfig.last_sync_at)} (${ghlConfig.last_sync_count ?? 0} bookings)` : "not synced yet"}
+              {ghlConfig.last_error ? ` · ${ghlConfig.last_error}` : ""}
+            </span>
+            <form action={syncGhlNow} className="ml-auto">
+              <SubmitButton pendingText="Syncing…">Sync now</SubmitButton>
+            </form>
+          </div>
+        ) : (
+          <div className="mb-4"><Badge tone="warn">Not connected</Badge></div>
+        )}
+        <p className="mb-4 text-sm text-zinc-400">
+          Reads every booking on the <b className="text-zinc-200">Apex Sales Call</b> calendar: the lead, the time, who is closing it
+          (the closer the round-robin gave it to), who set it, plus cancellations and reschedules. It refreshes itself whenever
+          someone opens the portal (at most every 5 minutes), and instantly if you add the webhook below.
+        </p>
+        <details className="rounded-xl border border-white/10 p-3" open={!ghlConfig}>
+          <summary className="cursor-pointer text-sm font-medium text-emerald-400">{ghlConfig ? "Change connection" : "Connect GoHighLevel"}</summary>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-zinc-400">
+            <li>In GoHighLevel open the <b className="text-zinc-200">Apex leads</b> sub-account, then <b className="text-zinc-200">Settings → Private Integrations → Create new integration</b>.</li>
+            <li>Name it &ldquo;Apex portal&rdquo; and tick these scopes: <b className="text-zinc-200">View Calendars, View Calendar Events, View Contacts</b>.</li>
+            <li>Copy the token and paste it below. It&apos;s stored on the server and never shown again.</li>
+          </ol>
+          <form action={connectGhl} className="mt-4 grid gap-3 sm:grid-cols-3">
+            <Field label="Private integration token">
+              <input name="token" type="password" autoComplete="off" className={inputCls} placeholder={ghlConfig ? "(saved — leave blank to keep)" : "pit-…"} />
+            </Field>
+            <Field label="Location id">
+              <input name="location_id" required defaultValue={ghlConfig?.location_id ?? "f9Ds82Vhe1EWVVl65VOk"} className={inputCls} />
+            </Field>
+            <Field label="Calendar id (Apex Sales Call)">
+              <input name="calendar_id" required defaultValue={ghlConfig?.calendar_id ?? "EuipPetkfukHLBILdiDe"} className={inputCls} />
+            </Field>
+            <div className="sm:col-span-3">
+              <SubmitButton pendingText="Connecting…">{ghlConfig ? "Save" : "Connect"}</SubmitButton>
+            </div>
+          </form>
+        </details>
+        {ghlConfig ? (
+          <details className="mt-3 rounded-xl border border-white/10 p-3">
+            <summary className="cursor-pointer text-sm font-medium text-zinc-300">Optional: instant updates (webhook)</summary>
+            <p className="mt-2 text-sm text-zinc-400">
+              In GoHighLevel create a workflow with the <b className="text-zinc-200">Customer Booked Appointment</b> trigger (and a second with
+              Appointment Status changed) and add a <b className="text-zinc-200">Webhook</b> action, POST to:
+            </p>
+            <input readOnly value={`https://${siteHost}/api/ghl/webhook?key=${ghlConfig.webhook_key}`} className={`${inputCls} mt-2 font-mono text-xs`} />
+          </details>
+        ) : null}
+      </Card>
+
+      <SectionTitle>Calendly (old — switched off once GoHighLevel is connected)</SectionTitle>
       <Card className="mb-8">
         {config ? (
           <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -81,7 +141,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { o
 
       <SectionTitle>Who takes calls when</SectionTitle>
       <p className="-mt-1 mb-3 text-sm text-zinc-400">
-        Everyone books the same Calendly event, so the closer is picked from the time of the call (UK time). Set each
+        If a booking has no closer assigned in GoHighLevel, the closer is picked from the time of the call (UK time). Set each
         closer&apos;s shift here.
       </p>
       <div className="space-y-3">

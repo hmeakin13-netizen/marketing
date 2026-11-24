@@ -13,6 +13,7 @@ import type { CloseRow } from "@/lib/staff/types";
 import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/recording";
 import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
+import { getGhlConfig, saveGhlConfig, syncGhl, ghl } from "@/lib/ghl";
 import { emailSignInLink, makeSignInLink } from "@/lib/staff/login-link";
 import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
@@ -670,6 +671,51 @@ export async function syncCalendly() {
   if (error) back("/settings", "error", `Sync failed: ${error}`);
   revalidatePath("/", "layout");
   back("/settings", "ok", `Synced ${count} upcoming booking${count === 1 ? "" : "s"}.`);
+}
+
+export async function connectGhl(formData: FormData) {
+  await requireRole("admin");
+  const admin = createAdminClient();
+  const prev = await getGhlConfig(admin);
+  const token = str(formData, "token") || prev?.token || "";
+  const location_id = str(formData, "location_id");
+  const calendar_id = str(formData, "calendar_id");
+  if (!token || !location_id || !calendar_id) back("/settings", "error", "Paste the token and check the location and calendar ids.");
+  let count = 0;
+  let error: string | null = null;
+  try {
+    // Prove the token can read this calendar before saving anything.
+    await ghl(token, `/calendars/${encodeURIComponent(calendar_id)}`);
+    const config = {
+      token,
+      location_id,
+      calendar_id,
+      webhook_key: prev?.webhook_key ?? crypto.randomBytes(24).toString("hex"),
+      connected_at: prev?.connected_at ?? new Date().toISOString(),
+    };
+    await saveGhlConfig(admin, config);
+    count = await syncGhl(admin, config);
+  } catch (e) {
+    error = e instanceof Error ? e.message : "unknown error";
+  }
+  if (error) back("/settings", "error", `Couldn't connect GoHighLevel: ${error}`);
+  revalidatePath("/", "layout");
+  back("/settings", "ok", `GoHighLevel connected. ${count} booking${count === 1 ? "" : "s"} read from the Apex Sales Call calendar.`);
+}
+
+export async function syncGhlNow() {
+  await requireRole("admin", "manager");
+  const admin = createAdminClient();
+  const config = await getGhlConfig(admin);
+  if (!config) back("/settings", "error", "GoHighLevel isn't connected yet.");
+  let count = 0;
+  try {
+    count = await syncGhl(admin, config!);
+  } catch (e) {
+    back("/settings", "error", `Sync failed: ${e instanceof Error ? e.message : "unknown error"}`);
+  }
+  revalidatePath("/", "layout");
+  back("/settings", "ok", `Synced ${count} booking${count === 1 ? "" : "s"} from GoHighLevel.`);
 }
 
 export async function saveShift(formData: FormData) {
