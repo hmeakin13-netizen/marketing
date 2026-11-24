@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getGhlConfig } from "@/lib/ghl";
 import { getConfig, upsertInvitee, verifySignature, type Invitee } from "@/lib/calendly";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const raw = await request.text();
   const admin = createAdminClient();
+  // GoHighLevel is the booking calendar now; ignore old Calendly bookings so nothing is counted twice.
+  if (await getGhlConfig(admin)) return NextResponse.json({ ok: true, ignored: "ghl is the source" });
   const config = await getConfig(admin);
   if (!config) return NextResponse.json({ error: "not connected" }, { status: 503 });
 

@@ -17,6 +17,7 @@ export interface StaffRow {
   role: StaffRole;
   active: boolean;
   calendly_email: string | null;
+  ghl_user_id?: string | null;
   login_enabled: boolean;
   manager_id: string | null;
   created_at: string;

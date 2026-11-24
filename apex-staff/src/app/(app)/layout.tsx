@@ -1,10 +1,14 @@
 import { requireStaff, isManager } from "@/lib/staff/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { syncGhlIfStale } from "@/lib/ghl";
 import { StaffNav, type NavItem } from "@/components/staff/StaffNav";
 
 export const dynamic = "force-dynamic";
 
 export default async function StaffLayout({ children }: { children: React.ReactNode }) {
   const { me } = await requireStaff();
+  // Keeps cancellations and reschedules fresh even if a GoHighLevel webhook is missed.
+  await syncGhlIfStale(createAdminClient());
 
   const items: NavItem[] = [
     { href: "/", label: "Dashboard", icon: "◧" },
