@@ -8,6 +8,8 @@ export function emailConfigured() {
 
 /** Sends via Resend. Returns an error string, or null on success. */
 export async function sendEmail(opts: {
+  /** Defaults to the office inbox (INVOICE_TO). */
+  to?: string;
   subject: string;
   html: string;
   attachments?: { filename: string; content: Uint8Array }[];
@@ -19,7 +21,7 @@ export async function sendEmail(opts: {
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: process.env.EMAIL_FROM || "Apex Leads Portal <onboarding@resend.dev>",
-      to: [INVOICE_TO],
+      to: [opts.to || INVOICE_TO],
       subject: opts.subject,
       html: opts.html,
       attachments: (opts.attachments ?? []).map((a) => ({

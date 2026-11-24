@@ -17,8 +17,11 @@ export interface StaffRow {
   role: StaffRole;
   active: boolean;
   calendly_email: string | null;
-  ghl_user_id?: string | null;
+  /** GoHighLevel user id, so the Call Grader credits their calls to them. */
+  ghl_user_id: string | null;
   login_enabled: boolean;
+  /** Lets a non-admin change who set and who closed a call (not on closed deals). */
+  can_assign_calls?: boolean;
   manager_id: string | null;
   created_at: string;
   deactivated_at: string | null;
@@ -38,6 +41,7 @@ export interface CallRow {
   outcome_logged_at: string | null;
   recording_url: string | null;
   notes: string | null;
+  setter_notes: Record<string, string> | null;
   confirmation: CallConfirmation;
   confirmation_note: string | null;
   confirmation_at: string | null;
@@ -156,7 +160,7 @@ export type CallConfirmation = "unconfirmed" | "confirmed" | "no_answer" | "left
 
 export const CONFIRMATION_LABEL: Record<CallConfirmation, string> = {
   unconfirmed: "Not confirmed yet",
-  confirmed: "Confirmed on Zoom",
+  confirmed: "Confirmed for Google Meet",
   no_answer: "No answer",
   left_message: "Left a message",
   reschedule: "Wants to reschedule",

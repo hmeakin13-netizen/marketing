@@ -14,6 +14,7 @@ import { cleanFathomUrl, needsRecording, RECORDING_HELP } from "@/lib/staff/reco
 import { createInvoice, emailInvoice, issueDealInvoices } from "@/lib/invoices";
 import { emailConfigured } from "@/lib/email";
 import { getGhlConfig, saveGhlConfig, syncGhl, ghl } from "@/lib/ghl";
+import { emailSignInLink, makeSignInLink } from "@/lib/staff/login-link";
 import { cal, getConfig, getStored, pickCloser, saveConfig, syncUpcoming, type CalendlyConfig } from "@/lib/calendly";
 import type { ShiftRow, StaffRow } from "@/lib/staff/types";
 import type { StaffRole, PaymentType } from "@/lib/staff/types";
@@ -100,8 +101,16 @@ export async function logOutcome(formData: FormData) {
     .eq("id", callId)
     .single();
   if (!call) back(path, "error", "Couldn't find that call.");
-  const mayLog = me.role === "admin" || me.role === "manager" || call!.closer_id === me.id || (!call!.closer_id && me.role === "closer");
-  if (!mayLog) back(path, "error", "Only the closer on this call can log its outcome.");
+  const isSetterOfCall = call!.setter_id === me.id;
+  const mayLog =
+    me.role === "admin" ||
+    me.role === "manager" ||
+    call!.closer_id === me.id ||
+    (!call!.closer_id && me.role === "closer") ||
+    isSetterOfCall;
+  if (!mayLog) back(path, "error", "Only the closer or the setter on this call can log its outcome.");
+  // A setter's row-level access only covers calls they already own; the check above is the gate, so write as the service role.
+  const db = isManager(me.role) || call!.closer_id === me.id || me.role === "closer" ? supabase : createAdminClient();
   if (call!.outcome === "closed") {
     back(path, "error", "That call is already closed — edit the deal on the Deals page.");
   }
@@ -145,10 +154,10 @@ export async function logOutcome(formData: FormData) {
     const closerId = (update.closer_id as string | undefined) ?? call!.closer_id ?? me.id;
     update.closer_id = closerId;
 
-    const { error: callErr } = await supabase.from("calls").update(update).eq("id", callId);
+    const { error: callErr } = await db.from("calls").update(update).eq("id", callId);
     if (callErr) back(path, "error", callErr.message);
 
-    const { data: close, error: closeErr } = await supabase
+    const { data: close, error: closeErr } = await db
       .from("closes")
       .insert({
         call_id: callId,
@@ -164,7 +173,7 @@ export async function logOutcome(formData: FormData) {
     if (closeErr || !close) back(path, "error", closeErr?.message ?? "Couldn't save the deal.");
 
     if (cash > 0) {
-      const { error: payErr } = await supabase
+      const { error: payErr } = await db
         .from("payments")
         .insert({ close_id: close!.id, amount: cash });
       if (payErr) back(path, "error", payErr.message);
@@ -192,7 +201,7 @@ export async function logOutcome(formData: FormData) {
 
     await issuePayouts(close!.id);
   } else {
-    const { error } = await supabase.from("calls").update(update).eq("id", callId);
+    const { error } = await db.from("calls").update(update).eq("id", callId);
     if (error) back(path, "error", error.message);
   }
 
@@ -386,9 +395,23 @@ export async function addPerson(formData: FormData) {
     path,
     "ok",
     giveLogin
-      ? `${fullName} added. Tell them to open the team login page and use ${email}.`
+      ? `${fullName} added. ${await emailLinkIfPossible(email, fullName)}`
       : `${fullName} added with no login yet. Click "Give access" when you want them to be able to sign in.`
   );
+}
+
+function requestOrigin() {
+  const h = headers();
+  return `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host")}`;
+}
+
+/** Emails a sign-in link when Resend is set up. Returns the line to show the admin. */
+async function emailLinkIfPossible(email: string, fullName: string): Promise<string> {
+  if (!emailConfigured()) return `Tell them to open the team login page and use ${email}.`;
+  const failed = await emailSignInLink(email, fullName, requestOrigin());
+  return failed
+    ? `The sign-in email didn't send (${failed}). Use "Get a sign-in link to send them" instead.`
+    : `A sign-in link has been emailed to ${email}.`;
 }
 
 /** Creates (or un-bans) the Supabase Auth user. Returns an error message, or null on success. */
@@ -415,7 +438,7 @@ export async function giveAccess(formData: FormData) {
   if (failed) back(path, "error", `Couldn't create the login: ${failed}`);
   await supabase.from("staff").update({ login_enabled: true }).eq("id", person!.id);
   revalidatePath("/", "layout");
-  back(path, "ok", `${person!.full_name} can now sign in with ${person!.email}.`);
+  back(path, "ok", `${person!.full_name} can now sign in with ${person!.email}. ${await emailLinkIfPossible(person!.email, person!.full_name)}`);
 }
 
 /** One-time sign-in link the admin can send to someone directly (WhatsApp etc.), no email needed. */
@@ -429,14 +452,9 @@ export async function makeLoginLink(formData: FormData) {
   if (failed) back(path, "error", `Couldn't create the login: ${failed}`);
   await supabase.from("staff").update({ login_enabled: true }).eq("id", person!.id);
 
-  const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "magiclink", email: person!.email });
-  const hashed = data?.properties?.hashed_token;
-  if (error || !hashed) back(path, "error", `Couldn't make a link: ${error?.message ?? "no token returned"}`);
-
-  const h = headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const link = `${proto}://${host}/auth/confirm?token_hash=${encodeURIComponent(hashed!)}&type=magiclink`;
+  const made = await makeSignInLink(person!.email, requestOrigin());
+  if ("error" in made) back(path, "error", `Couldn't make a link: ${made.error}`);
+  const link = (made as { link: string }).link;
   redirect(`${path}?link=${encodeURIComponent(link)}&for=${encodeURIComponent(person!.full_name)}`);
 }
 
@@ -480,6 +498,7 @@ export async function updatePerson(formData: FormData) {
       role,
       full_name: fullName,
       calendly_email: optStr(formData, "calendly_email"),
+      ghl_user_id: optStr(formData, "ghl_user_id"),
       manager_id: optStr(formData, "manager_id"),
     })
     .eq("id", id);
@@ -724,7 +743,7 @@ export async function saveShift(formData: FormData) {
 
 export async function addClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
-  const path = "/clients";
+  const path = "/clients/billing";
   const fee = num(formData, "monthly_fee");
   const setup = num(formData, "setup_fee");
   const closeId = optStr(formData, "close_id");
@@ -790,7 +809,7 @@ export async function addClient(formData: FormData) {
 export async function updateClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const fee = num(formData, "monthly_fee");
-  if (Number.isNaN(fee) || fee < 0) back("/clients", "error", "Enter the monthly retainer.");
+  if (Number.isNaN(fee) || fee < 0) back("/clients/billing", "error", "Enter the monthly retainer.");
   const billing = parseInt(str(formData, "billing_day"), 10);
   const setupFee = num(formData, "setup_fee");
   const { error } = await supabase
@@ -816,9 +835,9 @@ export async function updateClient(formData: FormData) {
       notes: optStr(formData, "notes"),
     })
     .eq("id", str(formData, "client_id"));
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Client updated.");
+  back("/clients/billing", "ok", "Client updated.");
 }
 
 /** Set where a client is based; blocks `radius_km` around their postcode for new clients. Admin only. */
@@ -828,14 +847,14 @@ export async function saveClientLocation(formData: FormData) {
   const postcode = str(formData, "postcode");
   const radius = num(formData, "radius_km");
   const { data: client } = await supabase.from("retainer_clients").select("name, end_date").eq("id", clientId).single();
-  if (!client) back("/clients", "error", "Client not found.");
+  if (!client) back("/clients/billing", "error", "Client not found.");
   if (!postcode) {
     await supabase.from("territories").delete().eq("client_id", clientId);
     revalidatePath("/", "layout");
-    back("/clients", "ok", "Location removed from the map.");
+    back("/clients/billing", "ok", "Location removed from the map.");
   }
   const geo = await geocodePostcode(postcode);
-  if (!geo) back("/clients", "error", `Couldn't find the postcode "${postcode}". Check it and try again.`);
+  if (!geo) back("/clients/billing", "error", `Couldn't find the postcode "${postcode}". Check it and try again.`);
   const { error } = await supabase.from("territories").upsert(
     {
       client_id: clientId,
@@ -848,9 +867,9 @@ export async function saveClientLocation(formData: FormData) {
     },
     { onConflict: "client_id" }
   );
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", `${client!.name} is on the map (${geo!.postcode}).`);
+  back("/clients/billing", "ok", `${client!.name} is on the map (${geo!.postcode}).`);
 }
 
 /** Put a client's retainer on hold (free trial, guarantee not hit yet, account still being set up). */
@@ -862,11 +881,11 @@ export async function pauseClient(formData: FormData) {
   const reason = [preset, note].filter(Boolean).join(" — ") || "Paused";
   const from = optStr(formData, "pause_from") ?? todayIso();
   const until = optStr(formData, "pause_until");
-  if (until && until <= from) back("/clients", "error", "The resume date has to be after the pause date.");
+  if (until && until <= from) back("/clients/billing", "error", "The resume date has to be after the pause date.");
   const { error } = await supabase.from("retainer_clients").update({ pause_from: from, pause_until: until, pause_reason: reason }).eq("id", id);
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", until ? `Paused until ${until}. It restarts by itself that day.` : "Paused. Nothing is due, and no commission share, until you resume it.");
+  back("/clients/billing", "ok", until ? `Paused until ${until}. It restarts by itself that day.` : "Paused. Nothing is due, and no commission share, until you resume it.");
 }
 
 /** Restart a paused retainer from today (nothing is backdated). */
@@ -878,9 +897,9 @@ export async function resumeClient(formData: FormData) {
   const patch =
     c?.pause_from && c.pause_from <= today ? { pause_until: today } : { pause_from: null, pause_until: null, pause_reason: null };
   const { error } = await supabase.from("retainer_clients").update(patch).eq("id", id);
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Resumed. The retainer counts again from today.");
+  back("/clients/billing", "ok", "Resumed. The retainer counts again from today.");
 }
 
 export async function endClient(formData: FormData) {
@@ -890,37 +909,104 @@ export async function endClient(formData: FormData) {
     .from("retainer_clients")
     .update({ end_date: leftOn })
     .eq("id", str(formData, "client_id"));
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   await supabase.from("territories").update({ active: false }).eq("client_id", str(formData, "client_id"));
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Client ended. Nothing further is owed on them from the next payment onwards.");
+  back("/clients/billing", "ok", "Client ended. Nothing further is owed on them from the next payment onwards.");
 }
 
 export async function reinstateClient(formData: FormData) {
   const { supabase } = await requireRole("admin");
   const { error } = await supabase.from("retainer_clients").update({ end_date: null }).eq("id", str(formData, "client_id"));
-  if (error) back("/clients", "error", error.message);
+  if (error) back("/clients/billing", "error", error.message);
   await supabase.from("territories").update({ active: true }).eq("client_id", str(formData, "client_id"));
   revalidatePath("/", "layout");
-  back("/clients", "ok", "Client reinstated.");
+  back("/clients/billing", "ok", "Client reinstated.");
 }
 
 // ------------------------------------------------------------------ call assignment (admin)
 
 export async function assignCall(formData: FormData) {
-  const { supabase } = await requireRole("admin");
+  const { me } = await requireRole("admin", "closer", "manager");
+  const isAdmin = me.role === "admin";
+  // Admins always; anyone else only when the owner has switched this on for them (staff.can_assign_calls).
+  if (!isAdmin && !me.can_assign_calls) redirect("/");
   const callId = str(formData, "call_id");
   const setterId = optStr(formData, "setter_id");
   const closerId = optStr(formData, "closer_id");
+  const db = createAdminClient();
 
-  const { error } = await supabase.from("calls").update({ setter_id: setterId, closer_id: closerId }).eq("id", callId);
+  // Pay follows a closed deal, so only the admin may move one.
+  if (!isAdmin) {
+    const { data: call } = await db.from("calls").select("outcome").eq("id", callId).maybeSingle();
+    if (!call) back("/calls", "error", "Couldn't find that call.");
+    if (call!.outcome === "closed") back("/calls", "error", "That deal is closed, so only the owner can change who closed it.");
+  }
+
+  const { error } = await db.from("calls").update({ setter_id: setterId, closer_id: closerId }).eq("id", callId);
   if (error) back("/calls", "error", error.message);
 
   // If this call was already closed, pay follows the deal, so keep the deal in step.
-  await supabase.from("closes").update({ setter_id: setterId, closer_id: closerId }).eq("call_id", callId);
+  if (isAdmin) await db.from("closes").update({ setter_id: setterId, closer_id: closerId }).eq("call_id", callId);
 
   revalidatePath("/", "layout");
   back("/calls", "ok", "Updated who set and who closed that call.");
+}
+
+const SETTER_NOTE_KEYS = ["what_they_do", "how_they_get_work", "what_they_want", "budget_and_decision", "closer_should_know"] as const;
+
+/** The setter's notes on a lead (a few set prompts) so the closer is ready for the call. */
+export async function saveSetterNotes(formData: FormData) {
+  const { me } = await requireRole("setter", "manager", "admin");
+  const callId = str(formData, "call_id");
+  const admin = createAdminClient();
+
+  const { data: call } = await admin.from("calls").select("id, setter_id, lead_name").eq("id", callId).maybeSingle();
+  if (!call) back("/calls", "error", "Couldn't find that call.");
+  if (!isManager(me.role) && call!.setter_id && call!.setter_id !== me.id) {
+    back("/calls", "error", "Only the setter on this call can add its notes.");
+  }
+
+  const notes: Record<string, string> = {};
+  for (const key of SETTER_NOTE_KEYS) {
+    const v = str(formData, key).slice(0, 1000);
+    if (v) notes[key] = v;
+  }
+  const { error } = await admin
+    .from("calls")
+    .update({ setter_notes: Object.keys(notes).length > 0 ? notes : null })
+    .eq("id", callId);
+  if (error) back("/calls", "error", error.message);
+
+  revalidatePath("/", "layout");
+  back("/calls", "ok", `Notes saved for ${call!.lead_name}.`);
+}
+
+/**
+ * Setters and managers can credit a call to a setter themselves (admins use the fuller form above).
+ * Closed deals stay with managers because pay follows the deal.
+ */
+export async function setCallSetter(formData: FormData) {
+  const { me } = await requireRole("setter", "manager", "admin");
+  const callId = str(formData, "call_id");
+  const setterId = optStr(formData, "setter_id");
+  const admin = createAdminClient();
+
+  const { data: call } = await admin.from("calls").select("id, outcome").eq("id", callId).maybeSingle();
+  if (!call) back("/calls", "error", "Couldn't find that call.");
+  if (call!.outcome === "closed" && !isManager(me.role)) {
+    back("/calls", "error", "That deal is closed, so a manager has to change who set it.");
+  }
+  if (setterId) {
+    const { data: person } = await admin.from("staff").select("id, active").eq("id", setterId).maybeSingle();
+    if (!person || !person.active) back("/calls", "error", "Pick someone who is on the team.");
+  }
+
+  const { error } = await admin.from("calls").update({ setter_id: setterId }).eq("id", callId);
+  if (error) back("/calls", "error", error.message);
+
+  revalidatePath("/", "layout");
+  back("/calls", "ok", "Updated who set that call.");
 }
 
 /** Re-pick the closer on every upcoming, not-yet-worked call from the shifts under Settings. */
@@ -978,7 +1064,7 @@ export async function submitReport(formData: FormData) {
   back("/report", "ok", "Report filed. Thanks!");
 }
 
-/** Setter's pre-call check: confirmed on Zoom, no answer, left a message, etc. */
+/** Setter's pre-call check: confirmed for the video call, no answer, left a message, etc. */
 export async function setConfirmation(formData: FormData) {
   const { me } = await requireStaff();
   const valid = ["unconfirmed", "confirmed", "no_answer", "left_message", "reschedule", "other"];

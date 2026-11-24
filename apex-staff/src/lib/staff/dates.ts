@@ -58,23 +58,36 @@ export function parseUkLocal(value: string): Date | null {
   return ukWallClockToUtc(+m[1], +m[2], +m[3], +m[4], +m[5]);
 }
 
-export function rangeBounds(range: Range, now = new Date()) {
+/** How many periods back from the current one (0 = this day/week/month, 1 = the one before). */
+export function parseBack(value: string | string[] | undefined): number {
+  const n = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(n) && n > 0 ? Math.min(n, 60) : 0;
+}
+
+export function rangeBounds(range: Range, now = new Date(), back = 0) {
   const p = parts(now);
-  const todayStart = ukWallClockToUtc(p.year, p.month, p.day);
   let from: Date;
   let to: Date;
   if (range === "today") {
-    from = todayStart;
-    to = ukWallClockToUtc(p.year, p.month, p.day + 1);
+    from = ukWallClockToUtc(p.year, p.month, p.day - back);
+    to = ukWallClockToUtc(p.year, p.month, p.day - back + 1);
   } else if (range === "week") {
     const dow = (new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay() + 6) % 7; // Mon=0
-    from = ukWallClockToUtc(p.year, p.month, p.day - dow);
-    to = ukWallClockToUtc(p.year, p.month, p.day - dow + 7);
+    from = ukWallClockToUtc(p.year, p.month, p.day - dow - 7 * back);
+    to = ukWallClockToUtc(p.year, p.month, p.day - dow - 7 * back + 7);
   } else {
-    from = ukWallClockToUtc(p.year, p.month, 1);
-    to = ukWallClockToUtc(p.year, p.month + 1, 1);
+    from = ukWallClockToUtc(p.year, p.month - back, 1);
+    to = ukWallClockToUtc(p.year, p.month - back + 1, 1);
   }
   return { from, to };
+}
+
+/** "This week", "Last week", "3 weeks ago" … */
+export function rangeLabel(range: Range, back = 0): string {
+  const unit = range === "today" ? "day" : range;
+  if (back === 0) return range === "today" ? "Today" : `This ${unit}`;
+  if (back === 1) return range === "today" ? "Yesterday" : `Last ${unit}`;
+  return `${back} ${unit}s ago`;
 }
 
 export function inRange(iso: string | null, from: Date, to: Date): boolean {

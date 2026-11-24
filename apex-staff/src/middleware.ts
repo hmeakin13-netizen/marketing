@@ -4,6 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 // Keeps the Supabase session cookie fresh and sends signed-out visitors to
 // /login. Role checks happen in the pages themselves (see lib/staff/auth.ts).
 export async function middleware(request: NextRequest) {
+  // Public image converter used by the Make poster and Instagram: no session needed.
+  if (request.nextUrl.pathname.startsWith("/api/jpeg") || request.nextUrl.pathname.startsWith("/api/version") || request.nextUrl.pathname.startsWith("/fonts/")) return NextResponse.next();
+
   let response = NextResponse.next({ request: { headers: request.headers } });
 
   const supabase = createServerClient(
@@ -31,7 +34,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const open = pathname === "/login" || pathname === "/no-access" || pathname.startsWith("/auth") || pathname.startsWith("/api/calendly") || pathname.startsWith("/api/ghl") || pathname.startsWith("/api/cron");
+  const open = pathname === "/login" || pathname === "/no-access" || pathname === "/manifest.webmanifest" || pathname.startsWith("/auth") || pathname.startsWith("/api/calendly") || pathname.startsWith("/api/ghl") || pathname.startsWith("/sign/") || pathname.startsWith("/api/cron");
   if (!user && !open) return NextResponse.redirect(new URL("/login", request.url));
   if (user && pathname === "/login") return NextResponse.redirect(new URL("/", request.url));
 

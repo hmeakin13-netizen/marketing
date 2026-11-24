@@ -1,6 +1,6 @@
 import { requireStaff } from "@/lib/staff/auth";
 import { loadCore } from "@/lib/staff/data";
-import { parseRange, rangeBounds } from "@/lib/staff/dates";
+import { parseBack, parseRange, rangeBounds, rangeLabel } from "@/lib/staff/dates";
 import { computeStats, money, pct } from "@/lib/staff/metrics";
 import { Card, PageHeader, RangeTabs, SectionTitle } from "@/components/staff/ui";
 
@@ -8,10 +8,11 @@ export const metadata = { title: "Leaderboard | Apex Team" };
 
 const medal = ["🥇", "🥈", "🥉"];
 
-export default async function LeaderboardPage({ searchParams }: { searchParams: { range?: string } }) {
+export default async function LeaderboardPage({ searchParams }: { searchParams: { range?: string; back?: string } }) {
   const { supabase, me } = await requireStaff();
   const range = parseRange(searchParams.range);
-  const { from, to } = rangeBounds(range);
+  const back = parseBack(searchParams.back);
+  const { from, to } = rangeBounds(range, new Date(), back);
   const { staff, calls, closes } = await loadCore(supabase, from);
 
   const closers = staff
@@ -27,7 +28,7 @@ export default async function LeaderboardPage({ searchParams }: { searchParams: 
 
   return (
     <>
-      <PageHeader title="Leaderboard" subtitle="Healthy competition." action={<RangeTabs base="/leaderboard" range={range} />} />
+      <PageHeader title="Leaderboard" subtitle={`Healthy competition. Showing ${rangeLabel(range, back).toLowerCase()}.`} action={<RangeTabs base="/leaderboard" range={range} back={back} />} />
 
       <SectionTitle>Closers — ranked by cash collected</SectionTitle>
       <Card className="mb-8 overflow-x-auto p-0">

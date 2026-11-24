@@ -91,6 +91,9 @@ export default async function TeamPage({ searchParams }: { searchParams: { ok?: 
               <Field label="Calendly email">
                 <input name="calendly_email" defaultValue={s.calendly_email ?? ""} placeholder="for later sync" className={inputCls} />
               </Field>
+              <Field label="GoHighLevel user id">
+                <input name="ghl_user_id" defaultValue={s.ghl_user_id ?? ""} placeholder="so their calls get graded under their name" className={inputCls} />
+              </Field>
               <div className="flex gap-2">
                 <SubmitButton>Save</SubmitButton>
               </div>

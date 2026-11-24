@@ -156,7 +156,7 @@ export function computeFlags(
         kind: "unconfirmed_call",
         severity: hrs <= 3 ? "high" : "medium",
         title: `${c.lead_name} — call in ${hrs}h, ${(at - t <= 12 * 3600000 ? c.same_day_confirmation : c.confirmation) === "unconfirmed" ? (at - t <= 12 * 3600000 ? "not re-confirmed today" : "not confirmed yet") : (at - t <= 12 * 3600000 ? c.same_day_confirmation : c.confirmation) === "no_answer" ? "no answer so far" : "only left a message"}`,
-        detail: `${base}. Confirm they're coming on Zoom and set the status on the Calls page.`,
+        detail: `${base}. Confirm they're coming to the Google Meet call and set the status on the Calls page.`,
         ownerId: chaser ?? owner,
         daysLate: 0,
         callId: c.id,

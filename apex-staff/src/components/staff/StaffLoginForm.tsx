@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { requestLoginLink } from "@/app/login/actions";
 
 export function StaffLoginForm() {
   const [email, setEmail] = useState("");
@@ -15,21 +15,11 @@ export function StaffLoginForm() {
     setStatus("loading");
     setErrorMessage("");
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    const result = await requestLoginLink(email);
 
-    if (error) {
+    if (!result.ok) {
       setStatus("error");
-      setErrorMessage(
-        /signup|not allowed|not found/i.test(error.message)
-          ? "That email isn't on the team yet. Ask an admin to add you."
-          : error.message
-      );
+      setErrorMessage(result.error);
       return;
     }
 

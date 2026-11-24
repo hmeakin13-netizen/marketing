@@ -1,0 +1,38 @@
+{
+  "_readme": "Settings sheet. Dates are YYYY-MM-DD. Fill in every REPLACE_ME / null; run `python -m monitor check-config` to see what's missing.",
+  "clients": [
+    {
+      "name": "Apex-Leads",
+      "ad_account_id": "act_27050808927935172",
+      "guarantee": "none",
+      "own": true,
+      "target_cpl": 5,
+      "notes": "Own account. CPL target under £5.",
+      "max_cpl": 5
+    },
+    {
+      "name": "Efficient Roofing",
+      "ad_account_id": "act_1726310475597012",
+      "guarantee": "30_in_60",
+      "go_live": "auto",
+      "daily_budget": 20,
+      "notes": "James O'Leary roofing and building. Not live yet: go-live = first day of spend (worked out automatically)."
+    },
+    {
+      "name": "Sovereign Roofing and Building",
+      "ad_account_id": "act_2051994528838795",
+      "guarantee": "30_in_60",
+      "go_live": "auto",
+      "daily_budget": 20,
+      "notes": "Bobby (Rob) Friend, Kent. 30 qualified leads in 60 days (changed from 15 a month on 12 Nov 2026). Not live yet: go-live = first day of spend (worked out automatically)."
+    },
+    {
+      "name": "Eco Ground Solutions Ltd",
+      "ad_account_id": "act_2545632992580003",
+      "guarantee": "30_in_60",
+      "go_live": "auto",
+      "daily_budget": 20,
+      "notes": "Landscaper, West Midlands (Birmingham, Worcestershire). Joined Nov 2026. Retainer starts when the campaign is live: go-live = first day of spend (worked out automatically)."
+    }
+  ]
+}
