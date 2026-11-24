@@ -6,6 +6,7 @@ import { rangeBounds, todayIso, ukIso } from "@/lib/staff/dates";
 import { computeStats, pct } from "@/lib/staff/metrics";
 import { bandTone, loadClientHealth } from "@/lib/staff/health";
 import { loadQuestions } from "@/components/staff/HarryQuestions";
+import { KPI_LABEL, STEP_LABEL, STREAK_DAYS, TARGETS, FIX_WINDOW_DAYS, loadSetterReports } from "@/lib/staff/setterKpis";
 import { Badge, Card, Notice, PageHeader, SectionTitle, Stat } from "@/components/staff/ui";
 
 export const metadata = { title: "Dashboard | Apex Team" };
@@ -21,7 +22,10 @@ export default async function HomePage({ searchParams }: { searchParams: { ok?: 
   const manager = isManager(me.role);
   const week = rangeBounds("week");
 
-  const [{ calls, closes }, { flags }] = await Promise.all([loadCore(supabase, week.from), loadFlags(supabase)]);
+  // Three weeks of calls when setter KPIs are on this page (Harry's escalations, or a setter's own fix-list).
+  const setterView = me.role === "admin" || me.role === "setter";
+  const callsFrom = setterView ? new Date(week.from.getTime() - 15 * 86400000) : week.from;
+  const [{ staff, calls, closes }, { flags }] = await Promise.all([loadCore(supabase, callsFrom), loadFlags(supabase)]);
   const sales = computeStats(calls, closes, week.from, week.to);
 
   // ---------------------------------------------------------------- Needs you
@@ -82,6 +86,52 @@ export default async function HomePage({ searchParams }: { searchParams: { ok?: 
       href: "/calls",
       tone: "warn",
     });
+  }
+  // Setter KPIs. A setter sees only their own misses to fix. Harry sees a line when the same thing
+  // keeps being missed, and when it is time to think about replacing someone.
+  if (setterView) {
+    const today = todayIso();
+    const setters = staff.filter((s) => s.active && s.role === "setter" && (me.role === "admin" || s.id === me.id));
+    const reports = await loadSetterReports(supabase, setters, calls, today);
+    for (const r of reports) {
+      const first = r.setter.full_name.split(" ")[0];
+      if (me.role === "setter") {
+        const latest = r.cards.find((c) => c.status !== "none");
+        if (latest && latest.status === "miss") {
+          const missed = (Object.keys(KPI_LABEL) as (keyof typeof KPI_LABEL)[]).filter((k) => !latest.hits![k]);
+          todos.push({
+            key: "kpi",
+            text: `${latest.day === today ? "Today so far" : "Your last day"}: ${missed.map((k) => `${KPI_LABEL[k].toLowerCase()} ${latest.values![k]} (target ${k === "overdue" ? 0 : TARGETS[k]})`).join(", ")}`,
+            detail: "Numbers update when the stats run, around 13:10 and 18:45.",
+            href: "/calls",
+            tone: "warn",
+          });
+        }
+        for (const m of r.openMisses.slice(0, 15)) {
+          todos.push({ key: `miss-${m.id}`, text: `${m.lead_label}: ${STEP_LABEL[m.step] ?? m.step}`, detail: m.detail ?? undefined, href: "/calls", tone: r.overdueMisses.includes(m) ? "bad" : "warn" });
+        }
+      } else {
+        if (r.replace) todos.push({ key: `replace-${r.setter.id}`, text: `Consider replacing ${first}`, detail: `${first} ${r.replace}.`, href: "/setters", tone: "bad" });
+        for (const st of r.streaks) {
+          todos.push({
+            key: `streak-${r.setter.id}-${st.kpi}`,
+            text: `${first} has missed ${KPI_LABEL[st.kpi].toLowerCase()} ${STREAK_DAYS} working days running. Book a call with ${first}.`,
+            detail: `${st.values.join(", ")} against a target of ${st.kpi === "overdue" ? 0 : TARGETS[st.kpi]}`,
+            href: "/setters",
+            tone: "bad",
+          });
+        }
+        if (r.overdueMisses.length && !r.replace) {
+          todos.push({
+            key: `unfixed-${r.setter.id}`,
+            text: `${first} has ${r.overdueMisses.length} playbook step${r.overdueMisses.length === 1 ? "" : "s"} not fixed after ${FIX_WINDOW_DAYS} working days. Book a call with ${first}.`,
+            detail: r.overdueMisses.slice(0, 3).map((m) => `${m.lead_label}: ${STEP_LABEL[m.step] ?? m.step}`).join(" · "),
+            href: "/setters",
+            tone: "bad",
+          });
+        }
+      }
+    }
   }
   if (me.role === "setter") {
     const { data: filed } = await supabase.from("daily_reports").select("staff_id").eq("report_date", todayIso()).eq("staff_id", me.id);

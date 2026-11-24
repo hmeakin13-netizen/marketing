@@ -21,7 +21,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
     { href: "/calendar", label: "Calendar", icon: "▦", group: "Sales" },
     { href: "/call-grades", label: "Call grades", icon: "★", group: "Sales" },
   ];
-  if (manager) items.push({ href: "/setters", label: "Setters", icon: "⇄", group: "Sales" });
+  if (me.role === "admin") items.push({ href: "/setters", label: "Setter KPIs", icon: "⇄", group: "Sales" });
   if (me.role === "setter" || manager) items.push({ href: "/report", label: "End of day report", icon: "✍", group: "Sales" });
   items.push(
     { href: "/attention", label: "Needs attention", icon: "⚑", group: "Sales" },
