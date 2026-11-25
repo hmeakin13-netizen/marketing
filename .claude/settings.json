@@ -12,7 +12,15 @@
       "mcp__Meta-ads",
       "mcp__Meta-ads__*",
       "mcp__8ff3d486-e61d-40d7-bc7b-27f1d412a88f",
-      "mcp__8ff3d486-e61d-40d7-bc7b-27f1d412a88f__*"
+      "mcp__8ff3d486-e61d-40d7-bc7b-27f1d412a88f__*",
+      "mcp__Metricool_Social_Media_Management__*",
+      "mcp__Google_Drive__*",
+      "mcp__ElevenLabs__*",
+      "mcp__GoHighLevel__*",
+      "mcp__claude-code-remote__send_later",
+      "mcp__claude-code-remote__create_trigger",
+      "mcp__claude-code-remote__update_trigger",
+      "mcp__claude-code-remote__delete_trigger"
     ]
   }
 }
