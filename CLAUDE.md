@@ -4,9 +4,9 @@ Read this first. It tells a new chat what the business is, where everything live
 
 ## The business (19 Nov 2026)
 - Apex-Leads (Apex Leadgen Ltd): UK lead generation for outdoor trades (tree surgeons first, then roofers and landscapers). Owner: Harry. US (Florida) launch planned.
-- Offer: £1,500 first payment (£1,000 month one + £500 setup) then £1,000 a month, same for everyone. Client pays their own ad spend (minimum £20 a day) direct to Meta and owns the Page, ad account and data. Guarantee: 30 qualified leads in 60 days, free work until met. Rolling monthly, 7 days' notice. One client per trade per 10 to 15 km area.
-- Live clients: Sovereign Roofing and Building (Kent; Rob and Bobby Friend), Efficient Roofing (North London; James O'Leary), Eco Ground Solutions (West Midlands landscaper; Jim Parry and Serron Harewood; ads blocked by a Meta payment problem), JRP Landscape and Gardening (Jamie; setup not finished). Starting: Nathan Hughes (2 Dec), Mateusz Brudecki (4 Jan). Gone: Dreamy Landscapes, Elite Roofing (Sam Mccan), FG Landscaping (Florin). Unknown: Kian Fouche, Michael Bond.
-- Team (commission): setters Saagar and Kyle, closer Dan Ries, Harry closes too.
+- Offer (25 Nov 2026): three plans, no setup fee. Growth £497/month (no guarantee), Pro £1,000/month (30 qualified leads in 60 days), Executive £1,500/month (45 in 60 days). Client pays their own ad spend (from £10, £20 or £30 a day by plan) direct to Meta and owns the Page, ad account and data. Free work until a guarantee is met. Rolling monthly, 7 days' notice. One client per trade per 10 to 15 km area.
+- Live clients: Sovereign Roofing and Building (Kent; Rob and Bobby Friend), Efficient Roofing (North London; James O'Leary; on Growth £497/month from 26 Nov, paid), Eco Ground Solutions (West Midlands landscaper; Jim Parry and Serron Harewood; Meta payment problem fixed 26 Nov), JRP Landscape and Gardening (Jamie; setup not finished). Starting: Nathan Hughes (2 Dec), Mateusz Brudecki (4 Jan). Gone: Dreamy Landscapes, Elite Roofing (Sam Mccan), FG Landscaping (Florin). Gone quiet (trying to reach): Kian Fouche. Unknown: Michael Bond.
+- Team (commission): setters Saagar and Kyle (new leads, round robin) and Wisdom Tambula (old leads only, from 26 Nov; not in the round robin), closer Dan Ries, Harry closes too.
 - Full facts: Supabase table `team_playbooks`, key `business_facts`. Current rules and orders: key `standing_rules` (newest lines win).
 
 ## Where everything lives
